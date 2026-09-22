@@ -12,7 +12,6 @@ report with an explicit reliability assessment.
 |---|---|
 | [`wiki-interest/`](wiki-interest/) | The skill itself: `SKILL.md`, the `wiki_interest` Python package, scripts, references, tests, and the eval scenarios with their result summaries. Self-contained and installable on its own. |
 | [`tools/skill-evals/`](tools/skill-evals/) | Development-only harness that runs the skill through a real agent (headless Claude Code on Haiku 4.5, or OpenRouter models), grades the outputs and compares `SKILL.md` versions. Not part of the skill package. |
-| [`docs/`](docs/) | Working documents: technical plan, coding standards, architecture decision records. |
 | [`task.md`](task.md) | The original assignment. |
 
 ## Quick start
@@ -23,8 +22,7 @@ cd wiki-interest
 uv run pytest               # run the test suite
 ```
 
-See [`wiki-interest/README.md`](wiki-interest/README.md) for usage and
-[`docs/technical-plan.md`](docs/technical-plan.md) for the design.
+See [`wiki-interest/README.md`](wiki-interest/README.md) for usage and the architecture overview.
 
 ## Development
 
@@ -39,5 +37,3 @@ uv run lint-imports                     # architecture boundaries (domain never 
 uv run pytest --cov
 uv run agentskills validate ../wiki-interest   # Agent Skills spec compliance (skills-ref package)
 ```
-
-Coding rules live in [`docs/coding-standards.md`](docs/coding-standards.md).

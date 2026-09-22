@@ -1,3 +1,6 @@
+# Internal working documents (plan, standards, ADRs, briefs): never published.
+docs/
+
 # Python
 __pycache__/
 *.py[cod]
