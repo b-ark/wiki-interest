@@ -1,0 +1,256 @@
+{
+  "generated_at": "2026-09-22T22:18:44.020090Z",
+  "variants": [
+    {
+      "variant": "v2",
+      "run_dir": "runs\\v2",
+      "skill_hashes": [
+        "94ff172e875b2721b8359b26d652b54c82442d6df05014b25e592f363ffba28e"
+      ],
+      "requested_model": "haiku",
+      "served_models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "n_scenarios": 12,
+      "reps": 3,
+      "n_results": 36,
+      "n_errors": 0,
+      "n_errors_resolved_by_resume": 0,
+      "errors_by_class": {},
+      "status_counts": {
+        "ok": 36
+      },
+      "pass_rate_mean": 0.9930555555555555,
+      "pass_rate_std": 0.00694444444444442,
+      "deterministic_pass_rate": 0.9938837920489296,
+      "judge_pass_rate": 0.9907407407407407,
+      "per_assertion": {
+        "answer_contains": 0.9166666666666666,
+        "caveats_relayed": 1.0,
+        "clarification_asked": 1.0,
+        "file_exists": 1.0,
+        "max_turns": 1.0,
+        "no_tool_called": 1.0,
+        "numbers_grounded": 0.9696969696969697,
+        "pdf_pages": 1.0,
+        "summary_field": 1.0,
+        "tool_called": 1.0
+      },
+      "per_rubric": {
+        "answers-question": 1.0,
+        "asks-not-guesses": 1.0,
+        "explains-absolute": 1.0,
+        "explains-change": 1.0,
+        "explains-data-start": 0.6666666666666666,
+        "honest-about-decline": 1.0,
+        "limitations-stated": 1.0,
+        "missing-article-honest": 1.0,
+        "recommends-audiences": 1.0,
+        "trust-explained": 1.0,
+        "user-language": 1.0
+      },
+      "per_scenario": {
+        "ambiguous-mercury": 1.0,
+        "assess-astronomy-uk": 1.0,
+        "compare-fasting-pl-cs": 1.0,
+        "en-stoicism-assess": 1.0,
+        "followup-absolute": 1.0,
+        "followup-add-editions": 1.0,
+        "followup-longer-period": 1.0,
+        "followup-main-article-only": 0.9722222222222222,
+        "period-before-2015": 0.9444444444444445,
+        "pl-yoga-compare": 1.0,
+        "rank-english-learning": 1.0,
+        "ru-chess-compare": 1.0
+      },
+      "mean_turns": 8.083333333333334,
+      "mean_input_tokens": 287282.25,
+      "mean_output_tokens": 2931.6388888888887,
+      "mean_cost_usd": 0.08947468611111112,
+      "mean_duration_s": 73.64977777777777,
+      "noise_floor": 0.16666666666666666
+    },
+    {
+      "variant": "v3",
+      "run_dir": "runs\\v3",
+      "skill_hashes": [
+        "b54bdfdb08924887a0f594377815c7283e45bbd0a67fd40617472e98744cb379"
+      ],
+      "requested_model": "haiku",
+      "served_models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "n_scenarios": 12,
+      "reps": 3,
+      "n_results": 36,
+      "n_errors": 0,
+      "n_errors_resolved_by_resume": 0,
+      "errors_by_class": {},
+      "status_counts": {
+        "ok": 36
+      },
+      "pass_rate_mean": 0.9930555555555555,
+      "pass_rate_std": 0.012028130608117225,
+      "deterministic_pass_rate": 0.9969418960244648,
+      "judge_pass_rate": 0.9814814814814815,
+      "per_assertion": {
+        "answer_contains": 1.0,
+        "caveats_relayed": 0.9696969696969697,
+        "clarification_asked": 1.0,
+        "file_exists": 1.0,
+        "max_turns": 1.0,
+        "no_tool_called": 1.0,
+        "numbers_grounded": 1.0,
+        "pdf_pages": 1.0,
+        "summary_field": 1.0,
+        "tool_called": 1.0
+      },
+      "per_rubric": {
+        "answers-question": 1.0,
+        "asks-not-guesses": 1.0,
+        "explains-absolute": 1.0,
+        "explains-change": 1.0,
+        "explains-data-start": 1.0,
+        "honest-about-decline": 1.0,
+        "limitations-stated": 0.9333333333333333,
+        "missing-article-honest": 1.0,
+        "recommends-audiences": 1.0,
+        "trust-explained": 0.9333333333333333,
+        "user-language": 1.0
+      },
+      "per_scenario": {
+        "ambiguous-mercury": 1.0,
+        "assess-astronomy-uk": 1.0,
+        "compare-fasting-pl-cs": 1.0,
+        "en-stoicism-assess": 1.0,
+        "followup-absolute": 1.0,
+        "followup-add-editions": 0.9722222222222222,
+        "followup-longer-period": 1.0,
+        "followup-main-article-only": 1.0,
+        "period-before-2015": 0.9722222222222222,
+        "pl-yoga-compare": 0.9722222222222222,
+        "rank-english-learning": 1.0,
+        "ru-chess-compare": 1.0
+      },
+      "mean_turns": 8.11111111111111,
+      "mean_input_tokens": 289035.6111111111,
+      "mean_output_tokens": 2869.0,
+      "mean_cost_usd": 0.08981621944444446,
+      "mean_duration_s": 69.59161111111112,
+      "noise_floor": 0.16666666666666666
+    }
+  ],
+  "pairwise": [
+    {
+      "base": "v2",
+      "other": "v3",
+      "n_common_scenarios": 12,
+      "delta_overall": -9.25185853854297e-18,
+      "noise_floor": 0.16666666666666666,
+      "significant": false,
+      "per_scenario": [
+        {
+          "scenario_id": "ambiguous-mercury",
+          "base_rate": 1.0,
+          "other_rate": 1.0,
+          "delta": 0.0
+        },
+        {
+          "scenario_id": "assess-astronomy-uk",
+          "base_rate": 1.0,
+          "other_rate": 1.0,
+          "delta": 0.0
+        },
+        {
+          "scenario_id": "compare-fasting-pl-cs",
+          "base_rate": 1.0,
+          "other_rate": 1.0,
+          "delta": 0.0
+        },
+        {
+          "scenario_id": "en-stoicism-assess",
+          "base_rate": 1.0,
+          "other_rate": 1.0,
+          "delta": 0.0
+        },
+        {
+          "scenario_id": "followup-absolute",
+          "base_rate": 1.0,
+          "other_rate": 1.0,
+          "delta": 0.0
+        },
+        {
+          "scenario_id": "followup-add-editions",
+          "base_rate": 1.0,
+          "other_rate": 0.9722222222222222,
+          "delta": -0.02777777777777779
+        },
+        {
+          "scenario_id": "followup-longer-period",
+          "base_rate": 1.0,
+          "other_rate": 1.0,
+          "delta": 0.0
+        },
+        {
+          "scenario_id": "followup-main-article-only",
+          "base_rate": 0.9722222222222222,
+          "other_rate": 1.0,
+          "delta": 0.02777777777777779
+        },
+        {
+          "scenario_id": "period-before-2015",
+          "base_rate": 0.9444444444444445,
+          "other_rate": 0.9722222222222222,
+          "delta": 0.02777777777777768
+        },
+        {
+          "scenario_id": "pl-yoga-compare",
+          "base_rate": 1.0,
+          "other_rate": 0.9722222222222222,
+          "delta": -0.02777777777777779
+        },
+        {
+          "scenario_id": "rank-english-learning",
+          "base_rate": 1.0,
+          "other_rate": 1.0,
+          "delta": 0.0
+        },
+        {
+          "scenario_id": "ru-chess-compare",
+          "base_rate": 1.0,
+          "other_rate": 1.0,
+          "delta": 0.0
+        }
+      ],
+      "disagreements": [
+        {
+          "scenario_id": "followup-add-editions",
+          "base_rate": 1.0,
+          "other_rate": 0.9722222222222222,
+          "delta": -0.02777777777777779
+        },
+        {
+          "scenario_id": "followup-main-article-only",
+          "base_rate": 0.9722222222222222,
+          "other_rate": 1.0,
+          "delta": 0.02777777777777779
+        },
+        {
+          "scenario_id": "period-before-2015",
+          "base_rate": 0.9444444444444445,
+          "other_rate": 0.9722222222222222,
+          "delta": 0.02777777777777768
+        },
+        {
+          "scenario_id": "pl-yoga-compare",
+          "base_rate": 1.0,
+          "other_rate": 0.9722222222222222,
+          "delta": -0.02777777777777779
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "v3 vs v2: delta -0.000 is within the noise floor 0.167; do not conclude either is better."
+  ]
+}
