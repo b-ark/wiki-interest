@@ -1,0 +1,40 @@
+{
+  "palette": ["#0072B2", "#E69F00", "#009E73", "#D55E00", "#CC79A7", "#56B4E9", "#F0E442", "#000000"],
+  "font_family": "DejaVu Sans",
+  "text_color": "#222222",
+  "muted_color": "#666666",
+  "grid_color": "#DDDDDD",
+  "accent_color": "#0072B2",
+  "highlight_color": "#F0E442",
+  "highlight_alpha": 0.35,
+  "trend_color": "#333333",
+  "chart": {
+    "dpi": 200,
+    "width_mm": 170,
+    "height_mm": 95,
+    "font_size_pt": 9,
+    "title_size_pt": 11,
+    "small_size_pt": 7.5,
+    "line_width": 1.6,
+    "marker_size": 3,
+    "max_x_ticks": 12
+  },
+  "pdf": {
+    "margin_mm": 15,
+    "title_pt": 16,
+    "subtitle_pt": 9.5,
+    "heading_pt": 11,
+    "body_pt": 9,
+    "small_pt": 7,
+    "tile_value_pt": 12,
+    "line_height": 1.35,
+    "section_gap_mm": 3,
+    "tile_height_mm": 20,
+    "tile_gap_mm": 3,
+    "tile_fill": "#F2F4F7",
+    "rule_color": "#CCCCCC",
+    "chart_max_height_mm": 90,
+    "min_font_scale": 0.8,
+    "font_scale_step": 0.1
+  }
+}

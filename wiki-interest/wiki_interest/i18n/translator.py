@@ -1,0 +1,139 @@
+"""Message lookup with parameter formatting and an English fallback.
+
+Catalogs are Python dictionaries (no file I/O, no gettext tooling) because the string set is
+small, versioned with the code, and must be importable wherever the reports are rendered.
+An unknown key raises :class:`KeyError` on purpose: a silent English fallback for a missing
+Ukrainian string would leak into a user-facing report and no test would notice.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from string import Formatter
+from typing import Any
+
+from wiki_interest.i18n import cs, en, pl, ru, uk
+from wiki_interest.i18n.formatting import (
+    NumberStyle,
+    format_number,
+    format_percent,
+    localise_separators,
+    style_for,
+)
+
+__all__ = ["CATALOGS", "DEFAULT_LANGUAGE", "SUPPORTED_LANGUAGES", "Translator"]
+
+SUPPORTED_LANGUAGES: tuple[str, ...] = ("en", "uk", "ru", "pl", "cs")
+"""Report languages with a complete catalog; requests may name any of them."""
+
+DEFAULT_LANGUAGE = "en"
+"""Language used for keys missing from a catalog and for unsupported request languages."""
+
+CATALOGS: Mapping[str, Mapping[str, str]] = {
+    "en": en.MESSAGES,
+    "uk": uk.MESSAGES,
+    "ru": ru.MESSAGES,
+    "pl": pl.MESSAGES,
+    "cs": cs.MESSAGES,
+}
+
+_ENUM_PARAMS: Mapping[str, str] = {
+    "direction": "direction",
+    "main_direction": "direction",
+    "bundle_direction": "direction",
+}
+"""Template parameters whose raw value is an enum member; they are replaced by the label
+``<namespace>.<value>`` so a Ukrainian sentence never contains the English word ``rising``."""
+
+
+class _MessageFormatter(Formatter):
+    """``str.format`` with enum-label substitution, tolerant specs and locale separators.
+
+    Tolerance matters because reason parameters come from another module: if a ``share`` ever
+    arrives as the string ``"n/a"``, the report should show ``n/a`` rather than crash.
+    """
+
+    def __init__(self, translator: Translator) -> None:
+        super().__init__()
+        self._translator = translator
+
+    def get_field(self, field_name: str, args: Any, kwargs: Any) -> Any:
+        value, key = super().get_field(field_name, args, kwargs)
+        namespace = _ENUM_PARAMS.get(field_name)
+        if namespace is not None and isinstance(value, str):
+            label_key = f"{namespace}.{value}"
+            if self._translator.has(label_key):
+                value = self._translator.t(label_key)
+        return value, key
+
+    def format_field(self, value: Any, format_spec: str) -> Any:
+        try:
+            text = super().format_field(value, format_spec)
+        except (ValueError, TypeError):
+            return str(value)
+        if isinstance(value, int | float) and "," in format_spec:
+            return localise_separators(text, self._translator.number_style)
+        return text
+
+
+class Translator:
+    """Resolves message keys for one report language.
+
+    Args:
+        language: Requested report language. Unsupported codes silently resolve to English:
+            the request schema already validated the shape, and refusing a report over an
+            unknown language would be worse than an English one.
+    """
+
+    def __init__(self, language: str) -> None:
+        self.language = language if language in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
+        self._catalog = CATALOGS[self.language]
+        self._fallback = CATALOGS[DEFAULT_LANGUAGE]
+        self.number_style: NumberStyle = style_for(self.language)
+        self._formatter = _MessageFormatter(self)
+
+    def has(self, key: str) -> bool:
+        """Whether ``key`` exists in this language or the English fallback."""
+        return key in self._catalog or key in self._fallback
+
+    def t(self, key: str, **params: object) -> str:
+        """Return the message for ``key`` with ``params`` substituted.
+
+        Args:
+            key: Namespaced message key, e.g. ``"spikes.notable"``.
+            **params: Template fields; numbers are formatted by the spec in the template.
+
+        Returns:
+            The localised message.
+
+        Raises:
+            KeyError: If the key is unknown in both the language and the fallback, or the
+                template names a parameter that was not supplied.
+        """
+        template = self._catalog.get(key)
+        if template is None:
+            template = self._fallback.get(key)
+        if template is None:
+            msg = f"Unknown message key {key!r} for language {self.language!r}"
+            raise KeyError(msg)
+        return self._formatter.vformat(template, (), params)
+
+    def label(self, namespace: str, value: object) -> str:
+        """Translate an enum-like value: ``label("level", ReliabilityLevel.HIGH)``.
+
+        ``str(value)`` is used so both ``StrEnum`` members and plain strings (as found in
+        ``summary.json``) resolve to ``<namespace>.<value>``.
+        """
+        return self.t(f"{namespace}.{value}")
+
+    def number(self, value: float | None, decimals: int = 0) -> str:
+        """Format a number in the report locale, or the ``n/a`` label for ``None``."""
+        if value is None:
+            return self.t("value.na")
+        return format_number(value, self.number_style, decimals)
+
+    def percent(self, value: float | None, decimals: int = 0, *, signed: bool = False) -> str:
+        """Format a fraction as a percentage in the report locale, or ``n/a`` for ``None``."""
+        if value is None:
+            return self.t("value.na")
+        return format_percent(value, self.number_style, decimals, signed=signed)

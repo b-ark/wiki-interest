@@ -1,0 +1,551 @@
+"""A realistic, fully populated :class:`AnalysisSummary` for renderer and pipeline tests.
+
+The example mirrors the ``compare-fasting`` scenario: one topic ("intermittent fasting")
+resolved in the Ukrainian and Czech editions, with a Polish edition added for ``rank`` where
+the article was only found via search. Every optional section is filled so a renderer test
+that forgets a section shows up as missing output, not as a silently skipped branch.
+"""
+
+# ruff: noqa: RUF001  -- Cyrillic prose and typographic dashes are intentional test data.
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+
+from wiki_interest.contracts.charts import ChartSeries, ChartSpec
+from wiki_interest.contracts.request import AnalysisRequest, Period, QuestionType
+from wiki_interest.contracts.summary import (
+    AnalysisSummary,
+    ArticleOut,
+    Artifacts,
+    BundleOut,
+    CandidateOut,
+    CheckOut,
+    Clarification,
+    ComparisonRow,
+    MetricsOut,
+    PointOut,
+    Provenance,
+    RankedRow,
+    ReliabilityOut,
+    SeriesOut,
+    TopicResolutionOut,
+    Verdict,
+)
+from wiki_interest.domain.models import (
+    ArticleRole,
+    AudienceProfile,
+    BundleStatus,
+    CheckStatus,
+    Granularity,
+    ReliabilityLevel,
+    ResolutionSource,
+    TrendDirection,
+)
+from wiki_interest.i18n import Translator
+
+__all__ = ["RUN_DIR", "example_summary"]
+
+TOPIC_ID = "intermittent-fasting"
+RUN_DIR = "/runs/fasting-uk-cs/20260922-120000-abcd"
+PERIOD = Period.model_validate({"start": "2024-09", "end": "2026-08"})
+MONTHS = [f"{y}-{m:02d}" for y in (2024, 2025, 2026) for m in range(1, 13)][8:32]
+
+_TITLES = {
+    "uk.wikipedia": "Інтервальне голодування",
+    "cs.wikipedia": "Přerušovaný půst",
+    "pl.wikipedia": "Post przerywany",
+}
+
+_PROSE: dict[str, dict[str, list[str]]] = {
+    "en": {
+        "headline": [
+            "Interest in intermittent fasting is growing faster in Czech than in Ukrainian"
+        ],
+        "bullets": [
+            "Czech views per million rose +32% year over year; Ukrainian +12%",
+            "Both trends are statistically significant and not driven by news spikes",
+        ],
+        "limitations": [
+            "Wikipedia interest is a signal to verify, not a forecast of product demand",
+            "Two Czech months have no data; the Czech growth figure is less certain",
+            "The Ukrainian bundle includes the related article 'Fasting' at half weight",
+        ],
+        "next_steps": [
+            "Extend the period to 36 months to check whether the growth is seasonal",
+            "Add the article about 'Ketogenic diet' to the bundle to cover the adjacent topic",
+        ],
+    },
+    "uk": {
+        "headline": [
+            "Інтерес до інтервального голодування зростає швидше в чеському розділі, "
+            "ніж в українському"
+        ],
+        "bullets": [
+            "Перегляди на мільйон у чеському розділі зросли на +32 % рік до року; "
+            "в українському на +12 %",
+            "Обидва тренди статистично значущі й не зумовлені новинними сплесками",
+        ],
+        "limitations": [
+            "Інтерес у Вікіпедії — сигнал для перевірки, а не прогноз попиту на продукт",
+            "За два місяці в чеському розділі немає даних; чеське зростання менш певне",
+            "Українська зв'язка включає суміжну статтю «Голодування» з вагою 0,5",
+        ],
+        "next_steps": [
+            "Розширити період до 36 місяців, щоб перевірити сезонність зростання",
+            "Додати до зв'язки статтю «Кетогенна дієта», щоб охопити суміжну тему",
+        ],
+    },
+    "ru": {
+        "headline": [
+            "Интерес к интервальному голоданию растёт быстрее в чешском разделе, чем в украинском"
+        ],
+        "bullets": [
+            "Просмотры на миллион в чешском разделе выросли на +32 % год к году; "
+            "в украинском на +12 %",
+            "Оба тренда статистически значимы и не вызваны новостными всплесками",
+        ],
+        "limitations": [
+            "Интерес в Википедии — сигнал для проверки, а не прогноз спроса на продукт",
+            "За два месяца в чешском разделе нет данных; чешский рост менее надёжен",
+        ],
+        "next_steps": ["Расширить период до 36 месяцев, чтобы проверить сезонность роста"],
+    },
+    "pl": {
+        "headline": [
+            "Zainteresowanie postem przerywanym rośnie szybciej w edycji czeskiej niż ukraińskiej"
+        ],
+        "bullets": [
+            "Odsłony na milion w edycji czeskiej wzrosły o +32 % rok do roku; "
+            "w ukraińskiej o +12 %",
+            "Oba trendy są istotne statystycznie i nie wynikają ze skoków newsowych",
+        ],
+        "limitations": [
+            "Zainteresowanie w Wikipedii to sygnał do weryfikacji, nie prognoza popytu",
+            "W edycji czeskiej brakuje danych za dwa miesiące; czeski wzrost jest mniej pewny",
+        ],
+        "next_steps": ["Wydłużyć okres do 36 miesięcy, by sprawdzić sezonowość wzrostu"],
+    },
+    "cs": {
+        "headline": ["Zájem o přerušovaný půst roste rychleji v české edici než v ukrajinské"],
+        "bullets": [
+            "Zobrazení na milion v české edici vzrostla meziročně o +32 %; v ukrajinské o +12 %",
+            "Oba trendy jsou statisticky významné a nejsou dány zpravodajskými špičkami",
+        ],
+        "limitations": [
+            "Zájem na Wikipedii je signál k ověření, nikoli předpověď poptávky po produktu",
+            "V české edici chybí data za dva měsíce; český růst je méně jistý",
+        ],
+        "next_steps": ["Prodloužit období na 36 měsíců a ověřit sezónnost růstu"],
+    },
+}
+
+
+def example_summary(
+    *,
+    question_type: QuestionType = "compare",
+    language: str = "en",
+    with_clarification: bool = False,
+) -> AnalysisSummary:
+    """Build the shared example summary.
+
+    Args:
+        question_type: ``compare`` (uk + cs), ``assess`` (uk only) or ``rank`` (uk, pl, cs with
+            ranking rows).
+        language: Report language; section prose and check messages follow it.
+        with_clarification: Return the ``needs_clarification`` variant instead (no analysis
+            sections, a question and three Wikidata candidates).
+
+    Returns:
+        A validated summary that round-trips through JSON.
+    """
+    projects = _projects_for(question_type)
+    request = AnalysisRequest.model_validate(
+        {
+            "question_type": question_type,
+            "topics": [{"query": "intermittent fasting", "query_language": "en", "id": TOPIC_ID}],
+            "projects": projects,
+            "period": {"start": "2024-09", "end": "2026-08"},
+            "report": {
+                "language": language,
+                "title": "Intermittent fasting: uk vs cs",
+                "audience_note": "Nutrition app choosing the next localisation",
+            },
+            "session": "fasting-uk-cs",
+        }
+    )
+    if with_clarification:
+        return _clarification_summary(request, language)
+    translator = Translator(language)
+    prose = _PROSE.get(language, _PROSE["en"])
+    analysed = [p for p in projects if p != "pl.wikipedia" or question_type == "rank"]
+    return AnalysisSummary(
+        status="ok",
+        run_id="20260922-120000-abcd",
+        session="fasting-uk-cs",
+        request=request,
+        period=PERIOD,
+        resolution=[_resolution(projects)],
+        series=[s for p in analysed for s in _series_for(p)],
+        metrics=[m for p in analysed for m in _metrics_for(p)],
+        reliability=[_reliability_for(p, translator) for p in analysed],
+        comparison=[_comparison_row(p) for p in analysed],
+        ranking=_ranking(projects) if question_type == "rank" else [],
+        charts=_charts(analysed, translator),
+        verdict=Verdict(headline=prose["headline"][0], bullets=prose["bullets"]),
+        limitations=prose["limitations"],
+        next_steps=prose["next_steps"],
+        artifacts=Artifacts(
+            run_dir=RUN_DIR,
+            summary_json=f"{RUN_DIR}/summary.json",
+            summary_md=f"{RUN_DIR}/summary.md",
+            report_md=f"{RUN_DIR}/report.md",
+            report_pdf=f"{RUN_DIR}/report.pdf",
+            charts=[f"{RUN_DIR}/charts/{c.id}.png" for c in _charts(analysed, translator)],
+        ),
+        provenance=Provenance(
+            code_version="0.1.0",
+            generated_at=datetime(2026, 9, 22, 12, 0, tzinfo=UTC),
+            data_through="2026-08",
+            user_agent="wiki-interest/0.1.0 (mailto:test@example.org)",
+            sources=[
+                "https://wikimedia.org/api/rest_v1/metrics/pageviews/",
+                "https://www.wikidata.org/w/api.php",
+            ],
+            request_count=14,
+            cache_hits=9,
+        ),
+    )
+
+
+def _projects_for(question_type: QuestionType) -> list[str]:
+    if question_type == "assess":
+        return ["uk.wikipedia"]
+    if question_type == "rank":
+        return ["uk.wikipedia", "pl.wikipedia", "cs.wikipedia"]
+    return ["uk.wikipedia", "cs.wikipedia"]
+
+
+def _clarification_summary(request: AnalysisRequest, language: str) -> AnalysisSummary:
+    question = {
+        "uk": "Яку сутність ви маєте на увазі під «intermittent fasting»?",
+    }.get(language, 'Which entity do you mean by "intermittent fasting"?')
+    return AnalysisSummary(
+        status="needs_clarification",
+        run_id="20260922-120000-clar",
+        session="fasting-uk-cs",
+        request=request,
+        period=PERIOD,
+        verdict=Verdict(headline=question),
+        artifacts=Artifacts(
+            run_dir=RUN_DIR,
+            summary_json=f"{RUN_DIR}/summary.json",
+            summary_md=f"{RUN_DIR}/summary.md",
+        ),
+        provenance=Provenance(
+            code_version="0.1.0",
+            generated_at=datetime(2026, 9, 22, 12, 0, tzinfo=UTC),
+            data_through="2026-08",
+            user_agent="wiki-interest/0.1.0 (mailto:test@example.org)",
+            sources=["https://www.wikidata.org/w/api.php"],
+            request_count=1,
+        ),
+        clarification=Clarification(
+            topic_id=TOPIC_ID,
+            query="intermittent fasting",
+            question=question,
+            candidates=[
+                CandidateOut(qid="Q1666254", label="intermittent fasting", description="diet"),
+                CandidateOut(qid="Q1201325", label="fasting", description="abstinence from food"),
+                CandidateOut(
+                    qid="Q99999999", label="Intermittent Fasting (film)", description=None
+                ),
+            ],
+        ),
+    )
+
+
+def _resolution(projects: list[str]) -> TopicResolutionOut:
+    bundles = []
+    for project in projects:
+        if project == "pl.wikipedia":
+            bundles.append(
+                BundleOut(
+                    topic_id=TOPIC_ID,
+                    project=project,
+                    status=BundleStatus.FOUND_VIA_SEARCH,
+                    articles=[
+                        ArticleOut(
+                            title=_TITLES[project],
+                            role=ArticleRole.MAIN,
+                            source=ResolutionSource.SEARCH_FALLBACK,
+                            weight=1.0,
+                        )
+                    ],
+                )
+            )
+            continue
+        articles = [
+            ArticleOut(
+                title=_TITLES[project],
+                role=ArticleRole.MAIN,
+                source=ResolutionSource.SITELINK,
+                weight=1.0,
+                qid="Q1666254",
+                redirects=["Інтервальний піст"] if project == "uk.wikipedia" else [],
+            )
+        ]
+        if project == "uk.wikipedia":
+            articles.append(
+                ArticleOut(
+                    title="Голодування",
+                    role=ArticleRole.RELATED,
+                    source=ResolutionSource.WIKIDATA_RELATION,
+                    weight=0.5,
+                    qid="Q1201325",
+                )
+            )
+        bundles.append(
+            BundleOut(
+                topic_id=TOPIC_ID, project=project, status=BundleStatus.FOUND, articles=articles
+            )
+        )
+    return TopicResolutionOut(
+        topic_id=TOPIC_ID,
+        query="intermittent fasting",
+        label="intermittent fasting",
+        qid="Q1666254",
+        bundles=bundles,
+    )
+
+
+_BASE_VIEWS = {"uk.wikipedia": 9000.0, "cs.wikipedia": 4200.0, "pl.wikipedia": 2600.0}
+_MONTHLY_GROWTH = {"uk.wikipedia": 0.010, "cs.wikipedia": 0.024, "pl.wikipedia": -0.005}
+_PROJECT_TOTAL_MILLIONS = {"uk.wikipedia": 105.0, "cs.wikipedia": 48.0, "pl.wikipedia": 260.0}
+_MISSING = {"cs.wikipedia": {"2025-03", "2025-04"}}
+_SPIKE_MONTH = "2025-01"
+_SPIKE_FACTOR = 1.6
+
+
+def _views(project: str, index: int, month: str) -> float | None:
+    if month in _MISSING.get(project, set()):
+        return None
+    value = _BASE_VIEWS[project] * (1 + _MONTHLY_GROWTH[project]) ** index
+    if project == "uk.wikipedia" and month == _SPIKE_MONTH:
+        value *= _SPIKE_FACTOR
+    return round(value, 1)
+
+
+def _series_for(project: str) -> list[SeriesOut]:
+    points = []
+    for index, month in enumerate(MONTHS):
+        views = _views(project, index, month)
+        per_million = None if views is None else round(views / _PROJECT_TOTAL_MILLIONS[project], 2)
+        points.append(PointOut(period=month, views=views, per_million=per_million))
+    return [
+        SeriesOut(
+            topic_id=TOPIC_ID,
+            project=project,
+            kind=kind,
+            granularity=Granularity.MONTHLY,
+            points=points,
+        )
+        for kind in ("bundle", "main")
+    ]
+
+
+_GROWTH_YOY = {"uk.wikipedia": 0.12, "cs.wikipedia": 0.32, "pl.wikipedia": -0.06}
+_P_VALUES = {"uk.wikipedia": 0.004, "cs.wikipedia": 0.011, "pl.wikipedia": 0.41}
+_DIRECTIONS = {
+    "uk.wikipedia": TrendDirection.RISING,
+    "cs.wikipedia": TrendDirection.RISING,
+    "pl.wikipedia": TrendDirection.FLAT,
+}
+_LEVELS = {
+    "uk.wikipedia": ReliabilityLevel.HIGH,
+    "cs.wikipedia": ReliabilityLevel.MEDIUM,
+    "pl.wikipedia": ReliabilityLevel.LOW,
+}
+
+
+def _metrics_for(project: str) -> list[MetricsOut]:
+    observed = [v for i, m in enumerate(MONTHS) if (v := _views(project, i, m)) is not None]
+    views_avg = sum(observed) / len(observed)
+    return [
+        MetricsOut(
+            topic_id=TOPIC_ID,
+            project=project,
+            kind=kind,
+            periods=len(MONTHS),
+            completeness=len(observed) / len(MONTHS),
+            views_total=sum(observed),
+            views_avg=views_avg,
+            per_million_avg=views_avg / _PROJECT_TOTAL_MILLIONS[project],
+            growth_yoy=_GROWTH_YOY[project],
+            growth_halves=_GROWTH_YOY[project] * 0.6,
+            slope_per_year=_GROWTH_YOY[project],
+            trend_p_value=_P_VALUES[project],
+            trend_direction=_DIRECTIONS[project],
+            seasonality_strength=0.18,
+            spike_share=0.08 if project == "uk.wikipedia" else None,
+            volatility_cv=0.21,
+            automated_share=0.05 if project != "pl.wikipedia" else None,
+        )
+        for kind in ("bundle", "main")
+    ]
+
+
+def _check(
+    translator: Translator, name: str, status: CheckStatus, key: str, **params: float | int | str
+) -> CheckOut:
+    return CheckOut(
+        name=name,
+        status=status,
+        message=translator.t(key, **params),
+        reason_key=key,
+        params=dict(params),
+    )
+
+
+def _reliability_for(project: str, translator: Translator) -> ReliabilityOut:
+    checks = [
+        _check(translator, "window_length", CheckStatus.PASS, "window_length.ok", months=24),
+        _check(
+            translator,
+            "trend",
+            CheckStatus.INFO,
+            "trend.significant",
+            p_value=_P_VALUES[project],
+            direction=str(_DIRECTIONS[project].value),
+        ),
+        _check(translator, "volume", CheckStatus.PASS, "volume.ok", views_avg=_BASE_VIEWS[project]),
+    ]
+    if project == "cs.wikipedia":
+        checks.insert(
+            1,
+            _check(
+                translator,
+                "completeness",
+                CheckStatus.WARN,
+                "completeness.gaps",
+                missing_months=2,
+                share=2 / 24,
+            ),
+        )
+        checks.append(_check(translator, "spikes", CheckStatus.INFO, "spikes.unavailable"))
+    elif project == "pl.wikipedia":
+        checks[1] = _check(
+            translator,
+            "trend",
+            CheckStatus.WARN,
+            "trend.not_significant",
+            p_value=_P_VALUES[project],
+        )
+        checks.append(
+            _check(
+                translator,
+                "resolution",
+                CheckStatus.FAIL,
+                "resolution.search_fallback",
+                title=_TITLES[project],
+            )
+        )
+        checks.append(_check(translator, "automated", CheckStatus.INFO, "automated.unavailable"))
+    else:
+        checks.append(_check(translator, "spikes", CheckStatus.PASS, "spikes.low", share=0.08))
+        checks.append(
+            _check(translator, "automated", CheckStatus.PASS, "automated.low", share=0.05)
+        )
+        checks.append(_check(translator, "bundle", CheckStatus.PASS, "bundle.consistent"))
+    return ReliabilityOut(topic_id=TOPIC_ID, project=project, level=_LEVELS[project], checks=checks)
+
+
+def _comparison_row(project: str) -> ComparisonRow:
+    metrics = _metrics_for(project)[0]
+    return ComparisonRow(
+        topic_id=TOPIC_ID,
+        project=project,
+        label=_TITLES[project],
+        views_avg=metrics.views_avg,
+        per_million_avg=metrics.per_million_avg,
+        growth_yoy=metrics.growth_yoy,
+        growth_halves=metrics.growth_halves,
+        trend_direction=_DIRECTIONS[project],
+        reliability=_LEVELS[project],
+        note="2 months missing" if project == "cs.wikipedia" else None,
+    )
+
+
+def _ranking(projects: list[str]) -> list[RankedRow]:
+    scores = {"cs.wikipedia": 0.81, "uk.wikipedia": 0.74, "pl.wikipedia": 0.22}
+    profiles = {
+        "cs.wikipedia": AudienceProfile.GROWTH_MARKET,
+        "uk.wikipedia": AudienceProfile.MATURE_MARKET,
+        "pl.wikipedia": AudienceProfile.INSUFFICIENT_DATA,
+    }
+    ordered = sorted(projects, key=lambda p: -scores[p])
+    return [
+        RankedRow(
+            rank=rank,
+            topic_id=TOPIC_ID,
+            project=project,
+            label=_TITLES[project],
+            score=scores[project],
+            components={"growth": 0.9, "volume": 0.6, "stability": 0.8, "reliability": 0.7},
+            profile=profiles[project],
+            reliability=_LEVELS[project],
+            rationale=f"growth {_GROWTH_YOY[project]:+.0%}, reliability {_LEVELS[project].value}",
+        )
+        for rank, project in enumerate(ordered, start=1)
+    ]
+
+
+def _charts(projects: list[str], translator: Translator) -> list[ChartSpec]:
+    footnote = translator.t(
+        "chart.footnote", source="Wikimedia Pageviews API (agent=user)", period="2024-09 – 2026-08"
+    )
+    per_million_series = [
+        ChartSeries(
+            label=f"{_TITLES[p]} ({p})",
+            x=MONTHS,
+            y=[pt.per_million for pt in _series_for(p)[0].points],
+        )
+        for p in projects
+    ]
+    uk_points = _series_for("uk.wikipedia")[0].points
+    uk_values = [pt.per_million for pt in uk_points]
+    trend_y: list[float | None] = [round(85.7 + 0.9 * i, 2) for i in range(len(MONTHS))]
+    return [
+        ChartSpec(
+            id="intermittent-fasting-per-million",
+            kind="lines",
+            title=translator.t("chart.compare_title"),
+            y_label=translator.t("chart.axis_per_million"),
+            series=per_million_series,
+            footnote=footnote,
+        ),
+        ChartSpec(
+            id="intermittent-fasting-growth",
+            kind="bars",
+            title=translator.t("chart.growth_title"),
+            y_label=translator.t("col.growth_yoy"),
+            series=[
+                ChartSeries(
+                    label=translator.t("col.growth_yoy"),
+                    x=[_TITLES[p] for p in projects],
+                    y=[_GROWTH_YOY[p] * 100 for p in projects],
+                )
+            ],
+            footnote=footnote,
+        ),
+        ChartSpec(
+            id="intermittent-fasting-uk-trend",
+            kind="trend",
+            title=translator.t("chart.trend_title"),
+            y_label=translator.t("chart.axis_per_million"),
+            series=[ChartSeries(label=_TITLES["uk.wikipedia"], x=MONTHS, y=uk_values)],
+            trend_y=trend_y,
+            highlight_x=[_SPIKE_MONTH],
+            footnote=footnote,
+        ),
+    ]
