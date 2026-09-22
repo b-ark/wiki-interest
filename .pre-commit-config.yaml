@@ -1,0 +1,60 @@
+# Local quality gates. Install once with `pre-commit install` from the repository root.
+# The same checks run in CI (.github/workflows/ci.yml); keep the two in sync.
+#
+# The local hooks use `uv run --directory <project>` so that each tool runs from its own
+# project root and picks up that project's pyproject.toml configuration.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.8
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: mypy-skill
+        name: mypy (wiki-interest)
+        entry: uv run --directory wiki-interest mypy
+        language: system
+        pass_filenames: false
+        files: ^wiki-interest/
+      - id: import-linter-skill
+        name: import-linter (wiki-interest)
+        entry: uv run --directory wiki-interest lint-imports
+        language: system
+        pass_filenames: false
+        files: ^wiki-interest/wiki_interest/
+      - id: uv-lock-skill
+        name: uv.lock is current (wiki-interest)
+        entry: uv lock --check --directory wiki-interest
+        language: system
+        pass_filenames: false
+        files: ^wiki-interest/(pyproject\.toml|uv\.lock)$
+      - id: mypy-evals
+        name: mypy (skill-evals)
+        entry: uv run --directory tools/skill-evals mypy
+        language: system
+        pass_filenames: false
+        files: ^tools/skill-evals/
+      - id: uv-lock-evals
+        name: uv.lock is current (skill-evals)
+        entry: uv lock --check --directory tools/skill-evals
+        language: system
+        pass_filenames: false
+        files: ^tools/skill-evals/(pyproject\.toml|uv\.lock)$

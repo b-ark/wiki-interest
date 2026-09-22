@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.python-version.local
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Runtime output of the skill (per-session analysis bundles and HTTP cache)
+wiki-interest/runs/
+wiki-interest/.cache/
+
+# Eval harness output (full trajectories are large; summaries live in wiki-interest/evals/results/)
+tools/skill-evals/runs/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*

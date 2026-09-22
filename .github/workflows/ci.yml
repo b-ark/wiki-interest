@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  skill:
+    name: skill (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.12", "3.14"]
+    defaults:
+      run:
+        working-directory: wiki-interest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "wiki-interest/uv.lock"
+      - name: Install Python ${{ matrix.python }}
+        run: uv python install ${{ matrix.python }}
+      - name: Sync dependencies (locked)
+        run: uv sync --python ${{ matrix.python }} --locked
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format check
+        run: uv run ruff format --check .
+      - name: Type check
+        run: uv run mypy
+      - name: Architecture boundaries
+        run: uv run lint-imports
+      - name: Tests
+        run: uv run pytest --cov --cov-report=term-missing
+      - name: Validate skill layout
+        # The validator derives the skill name from the directory name, so pass an explicit path.
+        run: uv run agentskills validate ../wiki-interest
+
+  skill-evals:
+    name: skill-evals (ubuntu, py3.14)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/skill-evals
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "tools/skill-evals/uv.lock"
+      - name: Install Python
+        run: uv python install 3.14
+      - name: Sync dependencies (locked)
+        run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format check
+        run: uv run ruff format --check .
+      - name: Type check
+        run: uv run mypy
+      - name: Tests
+        run: uv run pytest
