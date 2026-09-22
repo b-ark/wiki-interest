@@ -1,6 +1,9 @@
 # Internal working documents (plan, standards, ADRs, briefs): never published.
 docs/
 
+# Local agent tooling state (worktrees, local settings)
+.claude/
+
 # Python
 __pycache__/
 *.py[cod]
