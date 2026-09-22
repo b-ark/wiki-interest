@@ -63,6 +63,28 @@ class TestCompare:
         assert len(summary.verdict.bullets) == 3
         assert any("no article" in b for b in summary.verdict.bullets)
 
+    def test_headline_does_not_call_a_decline_growth(self, tmp_path: Path) -> None:
+        world = astronomy_world()
+        uk = WikiProject("uk")
+        world.pageviews.set_article(
+            uk, "Астрономія", {m: 6000.0 - 100.0 * i for i, m in enumerate(world.months)}
+        )
+        world.pageviews.set_article(
+            uk, "Телескоп", {m: 900.0 - 10.0 * i for i, m in enumerate(world.months)}
+        )
+        summary = _build(
+            tmp_path,
+            projects=["uk"],
+            question_type="compare",
+            world=world,
+            topics=[
+                {"query": "astronomy", "id": "astronomy"},
+                {"query": "telescope", "id": "telescope", "bundle": "main"},
+            ],
+        )
+        assert "fastest growth" not in summary.verdict.headline
+        assert "not growing in any edition" in summary.verdict.headline
+
     def test_not_found_edition_is_explained_not_zeroed(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
         pl = next(r for r in summary.comparison if r.project == "pl.wikipedia")
@@ -153,6 +175,19 @@ class TestAssessAndRank:
         assert summary.ranking[-1].rationale == "insufficient data for ranking"
         assert any(step.startswith("Research next") for step in summary.next_steps)
         assert summary.charts[-1].id == "ranking-score"
+
+
+def test_rank_headline_admits_that_every_edition_declines(tmp_path: Path) -> None:
+    world = astronomy_world()
+    for project, title, base in (
+        (WikiProject("uk"), "Астрономія", 6000.0),
+        (WikiProject("cs"), "Astronomie", 4000.0),
+    ):
+        world.pageviews.set_article(
+            project, title, {m: base * (0.97**i) for i, m in enumerate(world.months)}
+        )
+    summary = _build(tmp_path, question_type="rank", projects=["uk", "cs"], world=world)
+    assert summary.verdict.headline.startswith("Interest is declining in every edition")
 
 
 def test_clarification_summary_carries_candidates_and_question(tmp_path: Path) -> None:

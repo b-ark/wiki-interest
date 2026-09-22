@@ -18,7 +18,7 @@ from __future__ import annotations
 import math
 from collections import Counter
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from wiki_interest.domain.models import ResolutionSource, WikiProject
 
@@ -54,12 +54,19 @@ class BundleSettings:
         consensus_lead_weight: Weight of a concept linked from the lead in at least half of
             the editions; it is as trustworthy as a curated relation.
         single_lead_weight: Weight of a concept linked from at least one lead.
+        max_total_related_weight: Upper bound on the summed weights of all related concepts.
+            Without it fifteen related articles at 0.5 each outweigh the main article 7.5 to
+            1, so a broad neighbour ("Chemistry" in an astronomy lead) could drive the trend.
+            When the sum exceeds the bound, every weight is scaled by the same factor, which
+            keeps their relative order and caps the related share of the bundle at one half
+            with the default of 1.0.
     """
 
     max_related: int = 15
     wikidata_weight: float = 0.5
     consensus_lead_weight: float = 0.5
     single_lead_weight: float = 0.3
+    max_total_related_weight: float = 1.0
 
 
 _DEFAULT_SETTINGS = BundleSettings()
@@ -91,7 +98,8 @@ def rank_related_concepts(
         settings: Weights and cap.
 
     Returns:
-        At most ``settings.max_related`` concepts, best first.
+        At most ``settings.max_related`` concepts, best first, with weights scaled down so
+        that they sum to at most ``settings.max_total_related_weight``.
     """
     banned = {main_qid, *excluded}
     lead_support = Counter(
@@ -104,7 +112,16 @@ def rank_related_concepts(
         for qid in (wikidata_ids | set(lead_support)) - banned
     ]
     concepts.sort(key=lambda c: (-c.weight, -c.support, c.qid))
-    return tuple(concepts[: settings.max_related])
+    return _scaled(concepts[: settings.max_related], settings.max_total_related_weight)
+
+
+def _scaled(concepts: list[RelatedConcept], max_total: float) -> tuple[RelatedConcept, ...]:
+    """Scale weights down proportionally so that their sum does not exceed ``max_total``."""
+    total = sum(c.weight for c in concepts)
+    if total <= max_total:
+        return tuple(concepts)
+    factor = max_total / total
+    return tuple(replace(c, weight=c.weight * factor) for c in concepts)
 
 
 def _concept(

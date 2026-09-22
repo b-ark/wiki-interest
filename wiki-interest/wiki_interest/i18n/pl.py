@@ -146,16 +146,19 @@ MESSAGES: dict[str, str] = {
         "Zainteresowanie tematem „{topic}” w {project}: trend {direction}, {growth} rok do roku; "
         "zaufanie: {level}"
     ),
-    "verdict.compare.headline": (
-        "Największy udział uwagi: {top_share_label} ({top_share} na milion); "
-        "najszybszy wzrost: {top_growth_label} ({top_growth})"
+    "verdict.compare.share": "Największy udział uwagi: {label} ({value} na milion)",
+    "verdict.compare.share_absolute": "Najwięcej odsłon: {label} ({value} odsłon/mies.)",
+    "verdict.compare.growth": "najszybszy wzrost: {label} ({growth})",
+    "verdict.compare.decline": (
+        "zainteresowanie nie rośnie w żadnej edycji; najmniejszy spadek: {label} ({growth})"
     ),
-    "verdict.compare.absolute_headline": (
-        "Najwięcej odsłon: {top_share_label} ({top_share} odsłon/mies.); "
-        "najszybszy wzrost: {top_growth_label} ({top_growth})"
-    ),
+    "verdict.compare.growth_unknown": "wzrostu nie udało się zmierzyć",
     "verdict.rank.headline": (
         "Najbardziej obiecująca grupa odbiorców: {label} ({profile}, wynik {score})"
+    ),
+    "verdict.rank.headline_declining": (
+        "Zainteresowanie spada we wszystkich edycjach; "
+        "relatywnie najsilniejsza grupa: {label} ({profile}, wynik {score})"
     ),
     "verdict.none.headline": (
         "Brak danych do analizy tematów {topics}: nie znaleziono artykułów w {projects}"

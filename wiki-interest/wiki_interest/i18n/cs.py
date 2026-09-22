@@ -147,15 +147,16 @@ MESSAGES: dict[str, str] = {
     "verdict.assess.headline": (
         "Zájem o téma „{topic}“ v {project}: trend {direction}, {growth} meziročně; důvěra: {level}"
     ),
-    "verdict.compare.headline": (
-        "Největší podíl pozornosti: {top_share_label} ({top_share} na milion); "
-        "nejrychlejší růst: {top_growth_label} ({top_growth})"
-    ),
-    "verdict.compare.absolute_headline": (
-        "Nejvíce zobrazení: {top_share_label} ({top_share} zobrazení/měs.); "
-        "nejrychlejší růst: {top_growth_label} ({top_growth})"
-    ),
+    "verdict.compare.share": "Největší podíl pozornosti: {label} ({value} na milion)",
+    "verdict.compare.share_absolute": "Nejvíce zobrazení: {label} ({value} zobrazení/měs.)",
+    "verdict.compare.growth": "nejrychlejší růst: {label} ({growth})",
+    "verdict.compare.decline": "zájem neroste v žádné edici; nejmenší pokles: {label} ({growth})",
+    "verdict.compare.growth_unknown": "růst se nepodařilo změřit",
     "verdict.rank.headline": "Nejslibnější publikum: {label} ({profile}, skóre {score})",
+    "verdict.rank.headline_declining": (
+        "Zájem klesá ve všech edicích; "
+        "relativně nejsilnější publikum: {label} ({profile}, skóre {score})"
+    ),
     "verdict.none.headline": (
         "Pro témata {topics} nejsou data k analýze: v {projects} nebyly nalezeny články"
     ),

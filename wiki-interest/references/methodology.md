@@ -6,21 +6,32 @@ explaining, or when choosing between `per_million` and `absolute`.
 
 ## 1. From a topic to articles
 
-1. **Entity.** The query is searched on Wikidata in its own language. An exact label match wins;
-   otherwise several plausible items mean the pipeline stops with exit code 3 and lists the
-   candidates. Guessing here would silently analyse the wrong subject.
+1. **Entity.** The query is searched on Wikidata in its own language. A candidate whose label
+   or alias equals the query (ignoring case) is an exact match; a single exact match wins.
+   Several exact matches (homonyms) are narrowed to those with articles in the requested
+   editions. If more than one remains, one is picked only when it covers strictly more of the
+   requested editions *and* Wikidata ranks it first ("English language" resolves to *English*,
+   present in 5 of 5 editions, not *English studies*, present in 3). Otherwise the pipeline
+   stops with exit code 3 and lists the candidates: guessing would silently analyse the wrong
+   subject.
 2. **Main article per edition.** Wikidata sitelinks give the article title in each requested
-   edition. No sitelink -> a full-text search in that edition is tried and the result is marked
-   `search_fallback` (lower confidence). Nothing found -> the edition is reported as
-   *no article*, never as zero interest: a missing article says something about that
-   Wikipedia, not about the audience.
+   edition. No sitelink -> a full-text search in that edition by the item's local label, then by
+   the query, marked `search_fallback` (lower confidence). A search hit bound to a *different*
+   Wikidata item is rejected (searching Polish Wikipedia for "intermittent fasting" returns an
+   article on oxidative stress). Nothing acceptable -> the edition is reported as *no article*,
+   never as zero interest: a missing article says something about that Wikipedia, not about the
+   audience.
 3. **Bundle (`bundle: auto`).** A topic is broader than one page. Related concepts are collected
    at the Wikidata level, so the same concepts are used in every edition and the editions stay
    comparable: forward Wikidata relations of the main item and the articles linked from the
-   lead section of the main article in each edition. A concept linked from the lead in at least
-   half of the editions, or related on Wikidata, gets weight 0.5; other lead links 0.3; the
-   main article 1.0. At most 15 related concepts. The composition is printed in every summary so
-   the user can prune it (`exclude_titles`) or pin it (`bundle: manual`).
+   *prose* of the lead section of the main article in each edition (links in footnotes,
+   citation templates, infoboxes and image captions are ignored, so ISSN or DOI never become
+   "related"). A concept related on Wikidata, or linked from the lead in at least half of the
+   editions, gets a nominal weight of 0.5; other lead links 0.3. At most 15 related concepts,
+   and their weights are scaled down together so that they sum to at most 1.0: the main
+   article (weight 1.0) always makes up at least half of the bundle. An edition without a main
+   article gets no related articles either. The composition is printed in every summary so the
+   user can prune it (`exclude_titles`) or pin it (`bundle: manual`).
 4. **Redirects.** The Pageviews API counts redirect titles separately; their views are added to
    the target article.
 

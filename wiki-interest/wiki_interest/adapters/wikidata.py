@@ -10,8 +10,11 @@ Implements :class:`~wiki_interest.ports.wikidata.WikidataGateway`. Design notes 
   &props=claims`` call: big items (``Q333`` astronomy) carry hundreds of statements, and the
   bundle builder only needs three or four properties. Each small response is cached separately.
 * ``exact_label_match`` compares casefolded strings because ``wbsearchentities`` already
-  matches case-insensitively; a candidate whose label equals the query is the "clear winner"
-  the resolver looks for. Alias matches are not exact label matches.
+  matches case-insensitively; a candidate whose label *or alias* equals the query is the
+  "clear winner" the resolver looks for. Aliases count because users write the long form:
+  "English language" is an alias of ``Q1860`` (label "English"), and treating it as fuzzy
+  sent a plain request into clarification (verified 2026-09-22). Several exact matches are
+  resolved by the resolver, not here.
 """
 
 from __future__ import annotations
@@ -158,12 +161,16 @@ class WikidataApi:
         return raise_for_action_api_error(payload, self._url)
 
 
+_EXACT_MATCH_TYPES = frozenset({"label", "alias"})
+"""``wbsearchentities`` match types that count as the query naming the item exactly."""
+
+
 def _candidate(hit: Mapping[str, Any], query: str) -> EntityCandidate:
     label = str(hit.get("label", hit["id"]))
     match = hit.get("match") or {}
     wanted = query.casefold()
     exact = label.casefold() == wanted or (
-        match.get("type") == "label" and str(match.get("text", "")).casefold() == wanted
+        match.get("type") in _EXACT_MATCH_TYPES and str(match.get("text", "")).casefold() == wanted
     )
     description = hit.get("description")
     return EntityCandidate(

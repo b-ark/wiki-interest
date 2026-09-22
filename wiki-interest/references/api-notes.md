@@ -60,8 +60,8 @@ cacheable and retry-safe.
 
 - `wbsearchentities` returns `search[]` with `id`, `label`, `description` and
   `match: {type: "label" | "alias" | ..., language, text}`. Matching is case-insensitive.
-  `exact_label_match` is true when the label (or a `label`-type match text) equals the query
-  after casefolding; alias matches never count as exact.
+  `exact_label_match` is true when the label, or a `label`/`alias` match text, equals the
+  query after casefolding. Exact aliases count: "English language" is an alias of `Q1860`.
 - `wbgetentities` with an id that **was never created** (e.g. `Q99999999`) returns
   `entities: {"Q99999999": {"id": "Q99999999", "missing": ""}}`. With an id **outside the valid
   range** (`Q100000000000`) it fails the whole batch:

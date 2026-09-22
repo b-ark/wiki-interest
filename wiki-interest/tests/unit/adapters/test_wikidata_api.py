@@ -59,7 +59,7 @@ class TestSearchEntities:
         assert [c.qid for c in found] == ["Q1", "Q2", "Q3"]
         assert found[0].exact_label_match is True, "label equal ignoring case"
         assert found[0].description == "about Intermittent Fasting"
-        assert found[1].exact_label_match is False, "an alias match is not a label match"
+        assert found[1].exact_label_match is True, "an exact alias names the item too"
         assert found[2].exact_label_match is False
         assert found[2].description is None
 
@@ -73,6 +73,16 @@ class TestSearchEntities:
         )
         found = wikidata.search_entities("Astronomy", "en")
         assert found[0].exact_label_match is True
+
+    def test_partial_alias_match_is_not_exact(
+        self, respx_mock: respx.MockRouter, wikidata: WikidataApi
+    ) -> None:
+        respx_mock.get(WD).mock(
+            return_value=httpx.Response(
+                200, json={"search": [_search_hit("Q1860", "English", "alias", "English lang")]}
+            )
+        )
+        assert wikidata.search_entities("English language", "en")[0].exact_label_match is False
 
     def test_empty_result(self, respx_mock: respx.MockRouter, wikidata: WikidataApi) -> None:
         respx_mock.get(WD).mock(return_value=httpx.Response(200, json={"search": []}))

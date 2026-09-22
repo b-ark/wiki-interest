@@ -112,6 +112,23 @@ class TestEntityChoice:
         resolved = TopicResolver(wikidata, mediawiki).resolve(_topic(), [PL])
         assert resolved.qid == "Q1"
 
+    def test_broader_coverage_wins_when_wikidata_also_ranks_it_first(self) -> None:
+        wikidata, mediawiki = _world()
+        # Q1 sorts before Q333 in the fake's ranking and covers both requested editions.
+        wikidata.add(
+            FakeEntity("Q1", {"en": "astronomy"}, sitelinks={UK: "Астро (гурт)", CS: "Astro"})
+        )
+        wikidata.entities["Q333"].sitelinks = {UK: "Астрономія"}
+        resolved = TopicResolver(wikidata, mediawiki).resolve(_topic(), [UK, CS])
+        assert resolved.qid == "Q1"
+
+    def test_broader_coverage_alone_does_not_override_wikidata_ranking(self) -> None:
+        wikidata, mediawiki = _world()
+        # Q1 is ranked first but covers fewer editions than Q333: the signals disagree.
+        wikidata.add(FakeEntity("Q1", {"en": "astronomy"}, sitelinks={UK: "Астро (гурт)"}))
+        with pytest.raises(ClarificationNeededError):
+            TopicResolver(wikidata, mediawiki).resolve(_topic(), [UK, CS])
+
     def test_no_entity_and_no_titles_gives_not_found_bundles(self) -> None:
         wikidata, mediawiki = _world()
         resolved = TopicResolver(wikidata, mediawiki).resolve(_topic(query="zzz"), [UK, CS])
@@ -130,11 +147,13 @@ class TestMainAndBundle:
         assert uk.main.source is ResolutionSource.SITELINK
         assert uk.main.redirects == ("Astronomy", "Астрономічна наука")
         by_title = {a.title: a for a in uk.articles}
-        # Telescope: Wikidata relation (P527) -> 0.5; galaxy: lead link in both editions -> 0.5;
-        # science: only P279 -> 0.5; astrology: lead link in one of two editions -> consensus.
-        assert by_title["Телескоп"].weight == 0.5
+        # Four related concepts at a nominal 0.5 each (telescope and science via Wikidata,
+        # galaxy and astrology via lead links) are scaled so that together they weigh 1.0.
+        assert by_title["Телескоп"].weight == pytest.approx(0.25)
         assert by_title["Телескоп"].source is ResolutionSource.WIKIDATA_RELATION
-        assert by_title["Галактика"].weight == 0.5
+        assert by_title["Галактика"].weight == pytest.approx(0.25)
+        related = [a for a in uk.articles if a.role is ArticleRole.RELATED]
+        assert sum(a.weight for a in related) == pytest.approx(1.0)
         assert by_title["Галактика"].source is ResolutionSource.LEAD_LINK
         assert by_title["Наука"].source is ResolutionSource.WIKIDATA_RELATION
         cs_titles = {a.title for a in resolved.bundle_for(CS).articles}
@@ -163,6 +182,24 @@ class TestMainAndBundle:
         mediawiki.add_search(PL, "astronomy", ["Astronomy (pl)"])
         resolved = TopicResolver(wikidata, mediawiki).resolve(_topic(), [PL])
         assert resolved.bundle_for(PL).status is BundleStatus.FOUND_VIA_SEARCH
+
+    def test_search_hit_bound_to_another_item_is_rejected(self) -> None:
+        wikidata, mediawiki = _world()
+        mediawiki.add_page(PL, FakePage("Stres oksydacyjny", qid="Q12345"))
+        mediawiki.add_page(PL, FakePage("Astronomia", qid="Q333"))
+        mediawiki.add_search(PL, "astronomy", ["Stres oksydacyjny", "Astronomia"])
+        bundle = TopicResolver(wikidata, mediawiki).resolve(_topic(), [PL]).bundle_for(PL)
+        assert bundle.main is not None
+        assert bundle.main.title == "Astronomia"
+
+    def test_only_foreign_search_hits_mean_no_article(self) -> None:
+        wikidata, mediawiki = _world()
+        mediawiki.add_page(PL, FakePage("Stres oksydacyjny", qid="Q12345"))
+        mediawiki.add_search(PL, "astronomy", ["Stres oksydacyjny"])
+        bundle = TopicResolver(wikidata, mediawiki).resolve(_topic(), [PL, UK]).bundle_for(PL)
+        # Related concepts exist in other editions but never stand in for a missing main one.
+        assert bundle.status is BundleStatus.NOT_FOUND
+        assert bundle.articles == ()
 
     def test_no_article_anywhere_is_not_found(self) -> None:
         wikidata, mediawiki = _world()

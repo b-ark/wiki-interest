@@ -152,15 +152,18 @@ MESSAGES: dict[str, str] = {
     "verdict.assess.headline": (
         "Interest in {topic} in {project} is {direction} ({growth} year over year); trust: {level}"
     ),
-    "verdict.compare.headline": (
-        "Highest attention share: {top_share_label} ({top_share} per million); "
-        "fastest growth: {top_growth_label} ({top_growth})"
+    "verdict.compare.share": "Highest attention share: {label} ({value} per million)",
+    "verdict.compare.share_absolute": "Most views: {label} ({value} views/month)",
+    "verdict.compare.growth": "fastest growth: {label} ({growth})",
+    "verdict.compare.decline": (
+        "interest is not growing in any edition; smallest decline: {label} ({growth})"
     ),
-    "verdict.compare.absolute_headline": (
-        "Most views: {top_share_label} ({top_share} views/month); "
-        "fastest growth: {top_growth_label} ({top_growth})"
-    ),
+    "verdict.compare.growth_unknown": "growth could not be measured",
     "verdict.rank.headline": "Most promising audience: {label} ({profile}, score {score})",
+    "verdict.rank.headline_declining": (
+        "Interest is declining in every edition; "
+        "the relatively strongest audience: {label} ({profile}, score {score})"
+    ),
     "verdict.none.headline": (
         "Nothing could be analysed for {topics}: no articles were found in {projects}"
     ),

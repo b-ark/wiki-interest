@@ -156,15 +156,18 @@ MESSAGES: dict[str, str] = {
         "Интерес к теме «{topic}» в {project}: тренд {direction}, {growth} год к году; "
         "доверие: {level}"
     ),
-    "verdict.compare.headline": (
-        "Наибольшая доля внимания: {top_share_label} ({top_share} на миллион); "
-        "самый быстрый рост: {top_growth_label} ({top_growth})"
+    "verdict.compare.share": "Наибольшая доля внимания: {label} ({value} на миллион)",
+    "verdict.compare.share_absolute": "Больше всего просмотров: {label} ({value} просмотров/мес)",
+    "verdict.compare.growth": "самый быстрый рост: {label} ({growth})",
+    "verdict.compare.decline": (
+        "интерес не растёт ни в одном разделе; наименьшее падение: {label} ({growth})"
     ),
-    "verdict.compare.absolute_headline": (
-        "Больше всего просмотров: {top_share_label} ({top_share} просмотров/мес); "
-        "самый быстрый рост: {top_growth_label} ({top_growth})"
-    ),
+    "verdict.compare.growth_unknown": "рост измерить не удалось",
     "verdict.rank.headline": "Самая перспективная аудитория: {label} ({profile}, балл {score})",
+    "verdict.rank.headline_declining": (
+        "Интерес падает во всех разделах; "
+        "относительно самая сильная аудитория: {label} ({profile}, балл {score})"
+    ),
     "verdict.none.headline": (
         "Нет данных для анализа тем {topics}: статей в {projects} не найдено"
     ),

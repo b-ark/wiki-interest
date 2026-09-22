@@ -9,7 +9,12 @@ import pytest
 import respx
 
 from wiki_interest.adapters.http import HttpJsonClient
-from wiki_interest.adapters.mediawiki import MAX_TITLES_PER_REQUEST, ActionApiError, MediaWikiApi
+from wiki_interest.adapters.mediawiki import (
+    MAX_TITLES_PER_REQUEST,
+    ActionApiError,
+    MediaWikiApi,
+    prose_link_titles,
+)
 from wiki_interest.domain.models import WikiProject
 from wiki_interest.errors import UpstreamError
 from wiki_interest.ports.mediawiki import PageInfo
@@ -170,6 +175,31 @@ class TestRedirectsTo:
         assert mediawiki.redirects_to(UK, "Nope") == ()
 
 
+LEAD_HTML = (
+    '<div class="mw-parser-output">'
+    '<table class="infobox"><tr><td><a href="/wiki/ISSN" title="ISSN">ISSN</a></td></tr></table>'
+    '<p><b>Астрономія</b> вивчає <a href="/wiki/A" title="Астероїд">астероїди</a>, '
+    '<a href="/w/index.php?title=X&amp;action=edit" class="new" title="Червона стаття">x</a> '
+    'та <a href="/wiki/B" title="Астрофізика">астрофізику</a>.'
+    '<sup class="reference"><a href="/wiki/ISSN" title="ISSN">[1]</a></sup></p>'
+    '<ol class="references"><li><a href="/wiki/ISSN" title="ISSN">ISSN</a></li></ol>'
+    "</div>"
+)
+
+
+class TestProseLinkTitles:
+    def test_keeps_paragraph_links_and_drops_footnotes_tables_and_red_links(self) -> None:
+        assert prose_link_titles(LEAD_HTML) == {"Астероїд", "Астрофізика"}
+
+    def test_empty_or_link_free_html(self) -> None:
+        assert prose_link_titles("") == frozenset()
+        assert prose_link_titles("<p>plain text</p>") == frozenset()
+
+    def test_external_links_are_ignored(self) -> None:
+        html = '<p><a href="https://example.org" title="Example">x</a></p>'
+        assert prose_link_titles(html) == frozenset()
+
+
 class TestLeadLinks:
     def test_keeps_only_existing_main_namespace_links(
         self, respx_mock: respx.MockRouter, mediawiki: MediaWikiApi
@@ -185,7 +215,9 @@ class TestLeadLinks:
                             {"ns": 0, "title": "Червона стаття"},
                             {"ns": 14, "title": "Категорія:Астрономія", "exists": True},
                             {"ns": 0, "title": "Астрофізика", "exists": True},
+                            {"ns": 0, "title": "ISSN", "exists": True},
                         ],
+                        "text": LEAD_HTML,
                     }
                 },
             )
@@ -193,7 +225,7 @@ class TestLeadLinks:
         assert mediawiki.lead_links(UK, "Астрономія") == ("Астероїд", "Астрофізика")
         params = route.calls.last.request.url.params
         assert params["action"] == "parse"
-        assert params["prop"] == "links"
+        assert params["prop"] == "links|text"
         assert params["section"] == "0"
         assert params["redirects"] == "1"
 

@@ -116,3 +116,23 @@ def test_single_lead_link_reaches_consensus_only_with_two_projects_or_fewer(
     (concept,) = rank_related_concepts(MAIN, leads, {})
     expected = S.consensus_lead_weight if n_projects <= 2 else S.single_lead_weight
     assert concept.weight == expected
+
+
+class TestRelatedWeightCap:
+    def test_weights_are_scaled_so_related_articles_cannot_outweigh_the_main_one(self) -> None:
+        related = {"P527": [f"Q{i}" for i in range(10, 20)]}
+        concepts = rank_related_concepts("Q1", {}, related)
+        assert len(concepts) == 10
+        assert sum(c.weight for c in concepts) == pytest.approx(1.0)
+        assert all(c.weight == pytest.approx(0.1) for c in concepts)
+
+    def test_small_bundles_keep_their_nominal_weights(self) -> None:
+        concepts = rank_related_concepts("Q1", {}, {"P527": ["Q10"]})
+        assert concepts[0].weight == S.wikidata_weight
+
+    def test_scaling_preserves_relative_order(self) -> None:
+        leads = {UK: ["Q10", "Q11", "Q12"], CS: ["Q10"], PL: ["Q10"]}
+        concepts = rank_related_concepts("Q1", leads, {"P527": ["Q20", "Q21"]})
+        weights = [c.weight for c in concepts]
+        assert weights == sorted(weights, reverse=True)
+        assert sum(weights) == pytest.approx(S.max_total_related_weight)

@@ -468,23 +468,38 @@ class SummaryBuilder:
             return value if value is not None else float("-inf")
 
         top_share = max(pairs, key=share)
-        top_growth = max(pairs, key=growth)
-        top_share_value = share(top_share)
-        key = "verdict.compare.headline" if normalised else "verdict.compare.absolute_headline"
-        return self._t.t(
-            key,
-            top_share_label=labels.pair(top_share.topic_id, top_share.project),
-            top_share=self._t.number(top_share_value, 1 if normalised else 0),
-            top_growth_label=labels.pair(top_growth.topic_id, top_growth.project),
-            top_growth=self._t.percent(
-                None if growth(top_growth) == float("-inf") else growth(top_growth), signed=True
-            ),
+        share_key = "verdict.compare.share" if normalised else "verdict.compare.share_absolute"
+        share_part = self._t.t(
+            share_key,
+            label=labels.pair(top_share.topic_id, top_share.project),
+            value=self._t.number(share(top_share), 1 if normalised else 0),
         )
+        top_growth = max(pairs, key=growth)
+        best = growth(top_growth)
+        if best == float("-inf"):
+            growth_part = self._t.t("verdict.compare.growth_unknown")
+        else:
+            # "Fastest growth: -24 %" misleads; when everything falls, say so.
+            growth_key = "verdict.compare.growth" if best > 0 else "verdict.compare.decline"
+            growth_part = self._t.t(
+                growth_key,
+                label=labels.pair(top_growth.topic_id, top_growth.project),
+                growth=self._t.percent(best, signed=True),
+            )
+        return f"{share_part}; {growth_part}"
 
     def _rank_headline(self, analysis: AnalysisResult, labels: _TopicLabels) -> str:
         best = analysis.ranking[0]
+        measured = [
+            r for r in analysis.ranking if r.profile is not AudienceProfile.INSUFFICIENT_DATA
+        ]
+        # Calling a shrinking audience "most promising" without context would mislead.
+        all_declining = bool(measured) and all(
+            r.profile is AudienceProfile.DECLINING for r in measured
+        )
+        key = "verdict.rank.headline_declining" if all_declining else "verdict.rank.headline"
         return self._t.t(
-            "verdict.rank.headline",
+            key,
             label=labels.pair(best.topic_id, best.project),
             profile=self._t.label("profile", best.profile),
             score=self._t.number(best.score, 2),

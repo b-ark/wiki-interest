@@ -263,7 +263,11 @@ class TopicBundle:
 
 @dataclass(frozen=True, slots=True)
 class EntityCandidate:
-    """A Wikidata entity that may be what the user meant by a topic query."""
+    """A Wikidata entity that may be what the user meant by a topic query.
+
+    ``exact_label_match`` is true when the query equals the entity's label or one of its
+    aliases, ignoring case; the resolver treats such candidates as naming the topic exactly.
+    """
 
     qid: str
     label: str

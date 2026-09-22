@@ -178,22 +178,39 @@ class TopicResolver:
     ) -> EntityCandidate | None:
         """Return the only sensible candidate, or ``None`` when a human has to choose.
 
-        A single hit, or exactly one exact-label match, is unambiguous. Exact homonyms are
-        common on Wikidata (a science and a fictional school subject share the label
-        "astronomy"), so among several exact matches the one that has an article in the
-        requested editions wins; if several do, or only fuzzy matches exist, the wrong pick
-        would silently analyse a different subject, which is worse than one clarifying question.
+        A single hit, or exactly one exact match (label or alias), is unambiguous. Exact
+        homonyms are common on Wikidata, so several exact matches are narrowed by how many of
+        the requested editions have an article about each: an item without articles there
+        cannot be analysed anyway (astronomy the science vs the fictional Hogwarts class).
+        If several remain, one is picked only when two independent signals agree: it covers
+        strictly more requested editions than any other *and* Wikidata ranks it first among
+        the exact matches ("English language" -> ``English`` in 5 of 5 editions rather than
+        ``English studies`` in 3 of 5). Anything less clear is a question for the user,
+        because a wrong pick would silently analyse a different subject.
         """
         if len(candidates) == 1:
             return candidates[0]
         exact = [c for c in candidates if c.exact_label_match]
-        if len(exact) == 1:
-            return exact[0]
-        if not exact:
-            return None
+        if len(exact) <= 1:
+            return exact[0] if exact else None
+        return self._break_tie(exact, projects)
+
+    def _break_tie(
+        self, exact: Sequence[EntityCandidate], projects: Sequence[WikiProject]
+    ) -> EntityCandidate | None:
+        """Pick among several exact matches by edition coverage, as documented in ``_choose``."""
         links = self._wikidata.sitelinks([c.qid for c in exact], projects)
-        with_articles = [c for c in exact if links.get(c.qid)]
-        return with_articles[0] if len(with_articles) == 1 else None
+        coverage = {c.qid: len(links.get(c.qid, {})) for c in exact}
+        covered = [c for c in exact if coverage[c.qid] > 0]
+        if not covered:
+            return None
+        best = max(coverage[c.qid] for c in covered)
+        leaders = [c for c in covered if coverage[c.qid] == best]
+        # ``covered`` keeps Wikidata's ranking, so ``covered[0]`` is its top exact match; a
+        # single covered candidate is trivially both the leader and the first.
+        if len(leaders) == 1 and leaders[0] is covered[0]:
+            return leaders[0]
+        return None
 
     # -- main articles --------------------------------------------------------------------
 
@@ -218,7 +235,13 @@ class TopicResolver:
     def _search_fallback(
         self, topic: TopicSpec, qid: str | None, project: WikiProject
     ) -> ArticleRef | None:
-        """Search the edition by the entity's local label, then by the raw query."""
+        """Search the edition by the entity's local label, then by the raw query.
+
+        Full-text search returns whatever mentions the words, so a hit is accepted only when
+        it is not bound to a *different* Wikidata item: searching Polish Wikipedia for
+        "intermittent fasting" returned "Stres oksydacyjny" (oxidative stress, its own item),
+        which would have silently analysed another subject. An honest "no article" is better.
+        """
         queries: list[str] = []
         if qid is not None:
             local = self._wikidata.labels([qid], project.language).get(qid)
@@ -230,15 +253,17 @@ class TopicResolver:
             hits = self._mediawiki.search(project, text, limit=self._settings.search_limit)
             if not hits:
                 continue
-            info = self._mediawiki.page_info(project, [hits[0]]).get(hits[0])
-            if info is not None:
-                return ArticleRef(
-                    project,
-                    info.title,
-                    ArticleRole.MAIN,
-                    ResolutionSource.SEARCH_FALLBACK,
-                    qid=info.qid,
-                )
+            infos = self._mediawiki.page_info(project, hits)
+            for hit in hits:
+                info = infos.get(hit)
+                if info is not None and _same_subject(info.qid, qid):
+                    return ArticleRef(
+                        project,
+                        info.title,
+                        ArticleRole.MAIN,
+                        ResolutionSource.SEARCH_FALLBACK,
+                        qid=info.qid,
+                    )
         return None
 
     # -- related articles -----------------------------------------------------------------
@@ -294,7 +319,9 @@ class TopicResolver:
         """Assemble main + related + manual articles, apply exclusions, attach redirects."""
         assert topic.id is not None
         articles: list[ArticleRef] = [main] if main is not None else []
-        if topic.bundle == "auto":
+        if topic.bundle == "auto" and main is not None:
+            # Related concepts describe the neighbourhood of the main article; without it
+            # they would stand in for a topic the edition does not cover at all.
             articles.extend(related)
         if topic.bundle != "main":
             articles.extend(self._manual_articles(topic, project, articles, missing))
@@ -364,3 +391,12 @@ class TopicResolver:
         """Attach the (capped) list of redirect titles whose views belong to the article."""
         redirects = tuple(self._mediawiki.redirects_to(project, article.title))
         return replace(article, redirects=redirects[: self._settings.max_redirects_per_article])
+
+
+def _same_subject(found_qid: str | None, topic_qid: str | None) -> bool:
+    """Whether a search hit may represent the topic.
+
+    Pages without a Wikidata item cannot be checked and are accepted (the reliability check
+    still flags the search fallback); pages bound to another item are rejected.
+    """
+    return found_qid is None or topic_qid is None or found_qid == topic_qid
