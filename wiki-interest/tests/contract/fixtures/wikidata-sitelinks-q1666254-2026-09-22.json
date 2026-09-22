@@ -1,0 +1,59 @@
+{
+  "case": "wikidata-sitelinks-q1666254",
+  "recorded_at": "2026-09-22T16:40:17+00:00",
+  "exchanges": [
+    {
+      "url": "https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&ids=Q1666254%7CQ99999999%7CQ100000000000&props=sitelinks&sitefilter=ukwiki%7Cplwiki%7Ccswiki",
+      "status": 200,
+      "body": {
+        "error": {
+          "code": "no-such-entity",
+          "info": "Could not find an entity with the ID \"Q100000000000\".",
+          "id": "Q100000000000",
+          "messages": [
+            {
+              "name": "wikibase-api-no-such-entity",
+              "parameters": [
+                "Q100000000000"
+              ],
+              "html": {
+                "*": "Could not find an entity with the ID \"Q100000000000\"."
+              }
+            }
+          ],
+          "*": "See https://www.wikidata.org/w/api.php for API usage. Subscribe to the mediawiki-api-announce mailing list at &lt;https://lists.wikimedia.org/postorius/lists/mediawiki-api-announce.lists.wikimedia.org/&gt; for notice of API deprecations and breaking changes."
+        },
+        "servedby": "mw-api-ext.codfw.main-6784579877-rxhk5"
+      }
+    },
+    {
+      "url": "https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&ids=Q1666254%7CQ99999999&props=sitelinks&sitefilter=ukwiki%7Cplwiki%7Ccswiki",
+      "status": 200,
+      "body": {
+        "entities": {
+          "Q1666254": {
+            "type": "item",
+            "id": "Q1666254",
+            "sitelinks": {
+              "cswiki": {
+                "site": "cswiki",
+                "title": "Přerušovaný půst",
+                "badges": []
+              },
+              "ukwiki": {
+                "site": "ukwiki",
+                "title": "Інтервальне голодування",
+                "badges": []
+              }
+            }
+          },
+          "Q99999999": {
+            "id": "Q99999999",
+            "missing": ""
+          }
+        },
+        "success": 1
+      }
+    }
+  ]
+}

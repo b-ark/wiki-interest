@@ -1,0 +1,219 @@
+{
+  "case": "mediawiki-lead-links-uk-astronomy",
+  "recorded_at": "2026-09-22T16:40:22+00:00",
+  "exchanges": [
+    {
+      "url": "https://uk.wikipedia.org/w/api.php?action=parse&format=json&formatversion=2&page=%D0%90%D1%81%D1%82%D1%80%D0%BE%D0%BD%D0%BE%D0%BC%D1%96%D1%8F&prop=links&redirects=1&section=0",
+      "status": 200,
+      "body": {
+        "parse": {
+          "title": "Астрономія",
+          "pageid": 827,
+          "redirects": [],
+          "links": [
+            {
+              "ns": 0,
+              "title": "Індійська астрономія",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Астероїд",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Астрологія",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Астрономічна навігація",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Астрономічний об'єкт",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Астрономія в Стародавньому Єгипті",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Астрономія у Стародавньому Китаї",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Астрофізика",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Атмосфера Землі",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Блазар",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Вавилонська астрономія",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Всесвіт",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Габбл (телескоп)",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Галактика",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Гамма-спалахи",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Давньогрецька астрономія",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Зоря",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Календар",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Квазар",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Климишин Іван Антонович",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Комета",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Космологія",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Космічний простір",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Крабоподібна туманність",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Математика",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Метеороїд",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Наднова",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Планета",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Природний супутник",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Природнича наука",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Пульсар",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Реліктове випромінювання",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Спостережна астрономія",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Транзієнт (астрономія)",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Туманність",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Туманність Орла",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Фізика",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Хронологія Всесвіту",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Хімія",
+              "exists": true
+            },
+            {
+              "ns": 0,
+              "title": "Цивілізація мая",
+              "exists": true
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

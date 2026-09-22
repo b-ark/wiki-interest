@@ -1,0 +1,43 @@
+{
+  "case": "wikidata-labels-q1666254-uk",
+  "recorded_at": "2026-09-22T16:40:18+00:00",
+  "exchanges": [
+    {
+      "url": "https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&ids=Q1666254%7CQ333&languages=uk%7Cen&props=labels",
+      "status": 200,
+      "body": {
+        "entities": {
+          "Q1666254": {
+            "type": "item",
+            "id": "Q1666254",
+            "labels": {
+              "en": {
+                "language": "en",
+                "value": "intermittent fasting"
+              },
+              "uk": {
+                "language": "uk",
+                "value": "Інтервальне голодування"
+              }
+            }
+          },
+          "Q333": {
+            "type": "item",
+            "id": "Q333",
+            "labels": {
+              "en": {
+                "language": "en",
+                "value": "astronomy"
+              },
+              "uk": {
+                "language": "uk",
+                "value": "астрономія"
+              }
+            }
+          }
+        },
+        "success": 1
+      }
+    }
+  ]
+}
