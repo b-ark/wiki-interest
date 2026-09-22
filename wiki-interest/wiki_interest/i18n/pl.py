@@ -137,4 +137,88 @@ MESSAGES: dict[str, str] = {
     "chart.trend_title": "Zainteresowanie w czasie z linią trendu",
     "chart.compare_title": "Zainteresowanie według edycji",
     "chart.no_data": "Brak danych za ten okres",
+    "chart.score_title": "Wynik rankingu",
+    "chart.axis_score": "wynik (0 = najsłabszy, 1 = najsilniejszy w zestawie)",
+    "chart.axis_growth": "wzrost rok do roku, %",
+    "chart.growth_halves_title": "Wzrost: druga połowa okresu do pierwszej",
+    # -- werdykty ----------------------------------------------------------------------------
+    "verdict.assess.headline": (
+        "Zainteresowanie tematem „{topic}” w {project}: trend {direction}, {growth} rok do roku; "
+        "zaufanie: {level}"
+    ),
+    "verdict.compare.headline": (
+        "Największy udział uwagi: {top_share_label} ({top_share} na milion); "
+        "najszybszy wzrost: {top_growth_label} ({top_growth})"
+    ),
+    "verdict.compare.absolute_headline": (
+        "Najwięcej odsłon: {top_share_label} ({top_share} odsłon/mies.); "
+        "najszybszy wzrost: {top_growth_label} ({top_growth})"
+    ),
+    "verdict.rank.headline": (
+        "Najbardziej obiecująca grupa odbiorców: {label} ({profile}, wynik {score})"
+    ),
+    "verdict.none.headline": (
+        "Brak danych do analizy tematów {topics}: nie znaleziono artykułów w {projects}"
+    ),
+    "verdict.bullet.pair": (
+        "{label}: {per_million} na milion, {views} odsłon/mies., wzrost {growth}, zaufanie {level}"
+    ),
+    "verdict.bullet.pair_absolute": (
+        "{label}: {views} odsłon/mies., wzrost {growth}, zaufanie {level}"
+    ),
+    "verdict.bullet.not_found": "{label}: brak artykułu w tej edycji",
+    "verdict.bullet.seasonality": (
+        "{label}: silna sezonowość ({strength} wariancji): porównuj te same miesiące rok do roku"
+    ),
+    "verdict.bullet.main_vs_bundle": "{label}: sam artykuł główny: trend {direction} ({growth})",
+    "rank.rationale": "{profile}: wzrost {growth}, {views} odsłon/mies., zaufanie {level}",
+    "rank.rationale.insufficient": "za mało danych do rankingu",
+    "note.not_found": "brak artykułu w tej edycji",
+    "note.search_fallback": "artykuł znaleziony wyszukiwaniem",
+    # -- ograniczenia i kolejne kroki --------------------------------------------------------
+    "limitation.proxy": (
+        "Czytelnictwo Wikipedii mierzy ciekawość, a nie gotowość do płacenia: traktuj wynik "
+        "jako sygnał do weryfikacji, a nie jako popyt."
+    ),
+    "limitation.coverage": (
+        "Edycje różnią się jakością opisu tematu; brakujący lub krótki artykuł zaniża sygnał "
+        "niezależnie od zainteresowania odbiorców."
+    ),
+    "limitation.bots": (
+        "Filtrowanie botów po stronie Wikimedia jest niedoskonałe; kontrole ruchu automatycznego "
+        "i skoków wychwytują tylko część."
+    ),
+    "limitation.bundle": (
+        "Liczby zależą od tego, które artykuły policzono; podano wyniki zarówno dla pakietu, "
+        "jak i dla artykułu głównego."
+    ),
+    "limitation.missing_titles": "Te żądane tytuły nie istnieją i zostały pominięte: {titles}",
+    "limitation.not_found": (
+        "Dla tematu „{topic}” brak artykułu w {projects}: te edycje oznaczono jako „brak "
+        "artykułu”, a nie jako zerowe zainteresowanie."
+    ),
+    "limitation.search_fallback": (
+        "W {projects} artykuł znaleziono wyszukiwaniem pełnotekstowym; sprawdź, czy to właściwy "
+        "artykuł."
+    ),
+    "limitation.short_window": (
+        "Tylko {months} miesięcy danych: wzrost rok do roku jest niedostępny, a test trendu słaby."
+    ),
+    "limitation.absolute": (
+        "Porównano surowe liczby odsłon bez normalizacji względem wielkości edycji."
+    ),
+    "next.extend_period": ("Wydłuż okres (np. 36 lub 60 miesięcy), aby sprawdzić trwałość trendu."),
+    "next.add_projects": (
+        "Dodaj inne edycje, aby zobaczyć, czy obraz jest specyficzny dla {projects}."
+    ),
+    "next.prune_bundle": (
+        "Wyklucz artykuły spoza tematu (exclude_titles) albo ustal listę na stałe (bundle: manual)."
+    ),
+    "next.absolute": (
+        "Porównaj surowe odsłony (normalization: absolute), aby ocenić wielkość grupy odbiorców, "
+        "a nie udział."
+    ),
+    "next.per_million": "Porównaj udziały na milion, aby usunąć wpływ wielkości edycji.",
+    "next.pin_title": "Podaj dokładny tytuł artykułu dla {projects} przez extra_titles.",
+    "next.research": "Zbadać jako następną: {label} ({profile}).",
 }

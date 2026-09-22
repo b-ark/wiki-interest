@@ -139,4 +139,84 @@ MESSAGES: dict[str, str] = {
     "chart.trend_title": "Zájem v čase s linií trendu",
     "chart.compare_title": "Zájem podle edic",
     "chart.no_data": "Za toto období nejsou data",
+    "chart.score_title": "Skóre řazení",
+    "chart.axis_score": "skóre (0 = nejslabší, 1 = nejsilnější v sadě)",
+    "chart.axis_growth": "meziroční růst, %",
+    "chart.growth_halves_title": "Růst: druhá polovina období vůči první",
+    # -- verdikty ----------------------------------------------------------------------------
+    "verdict.assess.headline": (
+        "Zájem o téma „{topic}“ v {project}: trend {direction}, {growth} meziročně; důvěra: {level}"
+    ),
+    "verdict.compare.headline": (
+        "Největší podíl pozornosti: {top_share_label} ({top_share} na milion); "
+        "nejrychlejší růst: {top_growth_label} ({top_growth})"
+    ),
+    "verdict.compare.absolute_headline": (
+        "Nejvíce zobrazení: {top_share_label} ({top_share} zobrazení/měs.); "
+        "nejrychlejší růst: {top_growth_label} ({top_growth})"
+    ),
+    "verdict.rank.headline": "Nejslibnější publikum: {label} ({profile}, skóre {score})",
+    "verdict.none.headline": (
+        "Pro témata {topics} nejsou data k analýze: v {projects} nebyly nalezeny články"
+    ),
+    "verdict.bullet.pair": (
+        "{label}: {per_million} na milion, {views} zobrazení/měs., růst {growth}, důvěra {level}"
+    ),
+    "verdict.bullet.pair_absolute": (
+        "{label}: {views} zobrazení/měs., růst {growth}, důvěra {level}"
+    ),
+    "verdict.bullet.not_found": "{label}: v této edici článek chybí",
+    "verdict.bullet.seasonality": (
+        "{label}: silná sezónnost ({strength} rozptylu): porovnávejte stejné měsíce meziročně"
+    ),
+    "verdict.bullet.main_vs_bundle": "{label}: samotný hlavní článek: trend {direction} ({growth})",
+    "rank.rationale": "{profile}: růst {growth}, {views} zobrazení/měs., důvěra {level}",
+    "rank.rationale.insufficient": "nedostatek dat pro řazení",
+    "note.not_found": "v této edici článek chybí",
+    "note.search_fallback": "článek nalezen vyhledáváním",
+    # -- omezení a další kroky ---------------------------------------------------------------
+    "limitation.proxy": (
+        "Čtenost Wikipedie měří zvědavost, ne ochotu platit: berte výsledek jako signál "
+        "k ověření, ne jako poptávku."
+    ),
+    "limitation.coverage": (
+        "Edice pokrývají téma různě; chybějící nebo krátký článek signál snižuje bez ohledu "
+        "na zájem publika."
+    ),
+    "limitation.bots": (
+        "Filtrování botů na straně Wikimedia není dokonalé; kontroly automatizovaného provozu "
+        "a špiček zachytí jen část."
+    ),
+    "limitation.bundle": (
+        "Čísla závisí na tom, které články byly započítány; uvádíme výsledky pro celý balík "
+        "i pro hlavní článek."
+    ),
+    "limitation.missing_titles": "Tyto požadované názvy neexistují a byly přeskočeny: {titles}",
+    "limitation.not_found": (
+        "Pro téma „{topic}“ chybí článek v {projects}: tyto edice jsou označeny jako „článek "
+        "chybí“, ne jako nulový zájem."
+    ),
+    "limitation.search_fallback": (
+        "V {projects} byl článek nalezen fulltextovým vyhledáváním; ověřte, že jde o správný "
+        "článek."
+    ),
+    "limitation.short_window": (
+        "Jen {months} měsíců dat: meziroční růst není k dispozici a test trendu je slabý."
+    ),
+    "limitation.absolute": (
+        "Porovnávaly se hrubé počty zobrazení bez normalizace na velikost edice."
+    ),
+    "next.extend_period": "Prodlužte období (např. 36 nebo 60 měsíců) a ověřte, zda trend vydrží.",
+    "next.add_projects": "Přidejte další edice a zjistěte, zda je obraz specifický pro {projects}.",
+    "next.prune_bundle": (
+        "Vylučte články, které k tématu nepatří (exclude_titles), nebo seznam zafixujte "
+        "(bundle: manual)."
+    ),
+    "next.absolute": (
+        "Porovnejte hrubá zobrazení (normalization: absolute) pro odhad velikosti publika "
+        "místo podílu."
+    ),
+    "next.per_million": "Porovnejte podíly na milion, abyste odstranili vliv velikosti edice.",
+    "next.pin_title": "Zadejte přesný název článku pro {projects} přes extra_titles.",
+    "next.research": "Prozkoumat jako další: {label} ({profile}).",
 }

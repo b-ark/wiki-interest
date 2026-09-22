@@ -45,6 +45,11 @@ def default_user_agent() -> str:
     return f"wiki-interest/{__version__} ({_PROJECT_URL})"
 
 
+def _default_runs_dir() -> Path:
+    """Where analysis bundles are written: ``runs/`` inside the skill directory."""
+    return skill_root() / "runs"
+
+
 def _default_cache_path() -> Path:
     return skill_root() / ".cache" / "http.sqlite"
 
@@ -87,6 +92,7 @@ class Settings(BaseSettings):
     closed_period_ttl_s: int | None = Field(default=None, ge=0)
     resolution_ttl_s: int = Field(default=_RESOLUTION_TTL_DAYS * _SECONDS_PER_DAY, ge=0)
     cache_path: Path = Field(default_factory=_default_cache_path)
+    runs_dir: Path = Field(default_factory=_default_runs_dir)
 
     # Reliability thresholds; defaults come from the domain so there is one source of truth.
     min_periods_ok: int = Field(default=_DEFAULT_THRESHOLDS.min_periods_ok, ge=1)

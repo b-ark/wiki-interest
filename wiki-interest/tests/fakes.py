@@ -8,8 +8,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
+from pathlib import Path
 
+from wiki_interest.adapters.http import HttpJsonClient
+from wiki_interest.adapters.memory_cache import InMemoryCache
+from wiki_interest.cli.container import Container
+from wiki_interest.config import Settings
 from wiki_interest.domain.models import (
     Access,
     Agent,
@@ -24,12 +29,15 @@ from wiki_interest.domain.models import (
 from wiki_interest.ports.mediawiki import PageInfo
 
 __all__ = [
+    "AstronomyWorld",
     "FakeClock",
     "FakeEntity",
     "FakeMediaWiki",
     "FakePage",
     "FakePageviews",
     "FakeWikidata",
+    "astronomy_world",
+    "fake_container",
 ]
 
 
@@ -250,6 +258,101 @@ class FakePageviews:
 def _aligned(values: Mapping[date, float], window: Window) -> Series:
     points = tuple(Point(bucket, values.get(bucket)) for bucket in window.buckets())
     return Series(window.granularity, SeriesUnit.VIEWS, points)
+
+
+# ---------------------------------------------------------------------------
+# A small consistent world for end-to-end tests
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class AstronomyWorld:
+    """Fakes describing "astronomy" in the Ukrainian and Czech editions with 24 months of data.
+
+    Ukrainian interest rises steadily; Czech interest is flat. Polish has no article. The
+    topic "astrology" shares the prefix "astro" so a fuzzy query is ambiguous.
+    """
+
+    wikidata: FakeWikidata
+    mediawiki: FakeMediaWiki
+    pageviews: FakePageviews
+    clock: FakeClock
+    months: tuple[date, ...]
+
+
+def astronomy_world(*, start: date = date(2024, 9, 1), months: int = 24) -> AstronomyWorld:
+    """Build the fixture world; ``start`` is the first month with data."""
+    uk, cs = WikiProject("uk"), WikiProject("cs")
+    wikidata = FakeWikidata(
+        [
+            FakeEntity(
+                "Q333",
+                {"en": "astronomy", "uk": "астрономія", "cs": "astronomie"},
+                sitelinks={uk: "Астрономія", cs: "Astronomie"},
+                claims={"P527": ["Q4213"]},
+                description="natural science of celestial objects",
+            ),
+            FakeEntity(
+                "Q4213",
+                {"en": "telescope", "uk": "телескоп"},
+                sitelinks={uk: "Телескоп", cs: "Dalekohled"},
+            ),
+            FakeEntity(
+                "Q999",
+                {"en": "astrology", "uk": "астрологія"},
+                sitelinks={uk: "Астрологія"},
+                description="pseudoscience",
+            ),
+        ]
+    )
+    mediawiki = FakeMediaWiki()
+    mediawiki.add_page(
+        uk,
+        FakePage("Астрономія", qid="Q333", redirects=["Astronomy"], lead_links=["Телескоп"]),
+    )
+    mediawiki.add_page(uk, FakePage("Телескоп", qid="Q4213"))
+    mediawiki.add_page(uk, FakePage("Астрологія", qid="Q999"))
+    mediawiki.add_page(cs, FakePage("Astronomie", qid="Q333", lead_links=["Dalekohled"]))
+    mediawiki.add_page(cs, FakePage("Dalekohled", qid="Q4213"))
+
+    periods = tuple(_add_months(start, i) for i in range(months))
+    pageviews = FakePageviews()
+    pageviews.set_article(uk, "Астрономія", {m: 3000.0 + 60.0 * i for i, m in enumerate(periods)})
+    pageviews.set_article(uk, "Astronomy", dict.fromkeys(periods, 100.0))
+    pageviews.set_article(uk, "Телескоп", {m: 900.0 + 10.0 * i for i, m in enumerate(periods)})
+    pageviews.set_aggregate(uk, dict.fromkeys(periods, 100000000.0))
+    # Flat with small aperiodic noise, so neither a trend nor a seasonal pattern is detected.
+    pageviews.set_article(
+        cs, "Astronomie", {m: 2000.0 + ((i * 37) % 11 - 5) for i, m in enumerate(periods)}
+    )
+    pageviews.set_article(cs, "Dalekohled", dict.fromkeys(periods, 700.0))
+    pageviews.set_aggregate(cs, dict.fromkeys(periods, 50000000.0))
+    daily_start = periods[0]
+    daily_end = _add_months(periods[-1], 1) - timedelta(days=1)
+    daily = {
+        daily_start + timedelta(days=d): 100.0 for d in range((daily_end - daily_start).days + 1)
+    }
+    pageviews.set_article(uk, "Астрономія", daily, granularity=Granularity.DAILY)
+    today = _add_months(periods[-1], 1) + timedelta(days=21)
+    return AstronomyWorld(wikidata, mediawiki, pageviews, FakeClock(today), periods)
+
+
+def _add_months(value: date, months: int) -> date:
+    index = value.year * 12 + value.month - 1 + months
+    return date(index // 12, index % 12 + 1, 1)
+
+
+def fake_container(world: AstronomyWorld, tmp_path: Path) -> Container:
+    """A composition root over the fake world, writing runs and cache under ``tmp_path``."""
+    settings = Settings(cache_path=tmp_path / "cache" / "http.sqlite", runs_dir=tmp_path / "runs")
+    return Container(
+        settings=settings,
+        clock=world.clock,
+        http=HttpJsonClient(settings, InMemoryCache()),
+        pageviews=world.pageviews,
+        wikidata=world.wikidata,
+        mediawiki=world.mediawiki,
+    )
 
 
 # ---------------------------------------------------------------------------

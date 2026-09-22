@@ -11,8 +11,13 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Self
 
+from wiki_interest import __version__
+from wiki_interest.adapters.agent_summary import AgentSummaryRenderer
 from wiki_interest.adapters.clock import SystemClock
+from wiki_interest.adapters.fpdf_report import FpdfReportRenderer
 from wiki_interest.adapters.http import HttpJsonClient
+from wiki_interest.adapters.markdown_report import MarkdownReportRenderer
+from wiki_interest.adapters.matplotlib_charts import MatplotlibChartRenderer
 from wiki_interest.adapters.mediawiki import MediaWikiApi
 from wiki_interest.adapters.memory_cache import InMemoryCache
 from wiki_interest.adapters.sqlite_cache import SqliteCache
@@ -20,10 +25,13 @@ from wiki_interest.adapters.wikidata import WikidataApi
 from wiki_interest.adapters.wikimedia_rest import WikimediaRestPageviews
 from wiki_interest.application.analysis import AnalysisSettings
 from wiki_interest.application.loading import LoadSettings, SeriesLoader
+from wiki_interest.application.pipeline import Pipeline, Renderers, RunServices
 from wiki_interest.application.resolution import TopicResolver
+from wiki_interest.application.summary_builder import ProvenanceInput
 from wiki_interest.config import Settings
 from wiki_interest.contracts.request import AnalysisRequest
 from wiki_interest.domain.models import Access, Agent
+from wiki_interest.i18n import Translator
 from wiki_interest.ports import Clock, MediaWikiGateway, PageviewsSource, WikidataGateway
 
 __all__ = ["Container"]
@@ -74,6 +82,8 @@ class Container:
             closeables=closeables,
         )
 
+    # -- use-case factories ----------------------------------------------------------------
+
     def resolver(self) -> TopicResolver:
         """Topic resolver over the wired gateways."""
         return TopicResolver(self.wikidata, self.mediawiki)
@@ -93,6 +103,53 @@ class Container:
             self.settings.reliability_thresholds(),
             normalise=request.normalization == "per_million",
         )
+
+    def renderers_for(self, language: str) -> tuple[Translator, Renderers]:
+        """Translator and renderers for one report language."""
+        translator = Translator(language)
+        renderers = Renderers(
+            charts=MatplotlibChartRenderer(
+                empty_note=translator.t("chart.no_data"),
+                missing_label=translator.t("value.na"),
+            ),
+            agent_summary=AgentSummaryRenderer(translator),
+            report_markdown=MarkdownReportRenderer(translator),
+            report_pdf=FpdfReportRenderer(translator),
+        )
+        return translator, renderers
+
+    def provenance(self) -> ProvenanceInput:
+        """Facts about this process and its HTTP traffic so far."""
+        stats = self.http.stats.snapshot()
+        return ProvenanceInput(
+            code_version=__version__,
+            user_agent=self.settings.user_agent,
+            sources=(
+                self.settings.pageviews_base_url,
+                self.settings.wikidata_api_url,
+                "https://<language>.wikipedia.org/w/api.php",
+            ),
+            request_count=stats.requests_made,
+            cache_hits=stats.cache_hits,
+        )
+
+    def services_for(self, request: AnalysisRequest) -> RunServices:
+        """Everything the pipeline needs for one request (implements ``ServiceFactory``)."""
+        translator, renderers = self.renderers_for(request.report.language)
+        return RunServices(
+            resolver=self.resolver(),
+            loader=self.loader(request),
+            analysis_settings=self.analysis_settings(request),
+            translator=translator,
+            renderers=renderers,
+            provenance=self.provenance(),
+        )
+
+    def pipeline(self) -> Pipeline:
+        """The end-to-end pipeline bound to this container."""
+        return Pipeline(self, self.clock)
+
+    # -- lifecycle ------------------------------------------------------------------------
 
     def close(self) -> None:
         """Release the HTTP client and the cache; safe to call more than once."""

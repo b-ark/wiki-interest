@@ -144,4 +144,82 @@ MESSAGES: dict[str, str] = {
     "chart.trend_title": "Interest over time with trend",
     "chart.compare_title": "Interest by edition",
     "chart.no_data": "No data for this period",
+    "chart.score_title": "Ranking score",
+    "chart.axis_score": "score (0 = weakest, 1 = strongest in this set)",
+    "chart.axis_growth": "growth year over year, %",
+    "chart.growth_halves_title": "Growth, second half of the period vs first half",
+    # -- verdicts (composed by the summary builder) ---------------------------------------
+    "verdict.assess.headline": (
+        "Interest in {topic} in {project} is {direction} ({growth} year over year); trust: {level}"
+    ),
+    "verdict.compare.headline": (
+        "Highest attention share: {top_share_label} ({top_share} per million); "
+        "fastest growth: {top_growth_label} ({top_growth})"
+    ),
+    "verdict.compare.absolute_headline": (
+        "Most views: {top_share_label} ({top_share} views/month); "
+        "fastest growth: {top_growth_label} ({top_growth})"
+    ),
+    "verdict.rank.headline": "Most promising audience: {label} ({profile}, score {score})",
+    "verdict.none.headline": (
+        "Nothing could be analysed for {topics}: no articles were found in {projects}"
+    ),
+    "verdict.bullet.pair": (
+        "{label}: {per_million} per million, {views} views/month, growth {growth}, trust {level}"
+    ),
+    "verdict.bullet.pair_absolute": "{label}: {views} views/month, growth {growth}, trust {level}",
+    "verdict.bullet.not_found": "{label}: no article in this edition",
+    "verdict.bullet.seasonality": (
+        "{label}: strong seasonality ({strength} of variance): compare the same months "
+        "year over year"
+    ),
+    "verdict.bullet.main_vs_bundle": "{label}: the main article alone is {direction} ({growth})",
+    "rank.rationale": "{profile}: growth {growth}, {views} views/month, trust {level}",
+    "rank.rationale.insufficient": "insufficient data for ranking",
+    "note.not_found": "no article in this edition",
+    "note.search_fallback": "article found via search",
+    # -- limitations and next steps --------------------------------------------------------
+    "limitation.proxy": (
+        "Wikipedia readership measures curiosity, not willingness to pay: treat the result as "
+        "a signal to verify, not as demand."
+    ),
+    "limitation.coverage": (
+        "Editions differ in how well they cover a topic; a missing or thin article depresses "
+        "the signal regardless of audience interest."
+    ),
+    "limitation.bots": (
+        "Upstream bot filtering is imperfect; the automated-traffic and spike checks catch only "
+        "part of it."
+    ),
+    "limitation.bundle": (
+        "Numbers depend on which articles were counted; both bundle and main-article results "
+        "are reported."
+    ),
+    "limitation.missing_titles": "These requested titles do not exist and were skipped: {titles}",
+    "limitation.not_found": (
+        'No article for {topic} in {projects}: those editions are reported as "no article", '
+        "not as zero interest."
+    ),
+    "limitation.search_fallback": (
+        "In {projects} the article was found by full-text search; verify it is the right one."
+    ),
+    "limitation.short_window": (
+        "Only {months} months of data: year-over-year growth is unavailable and the trend test "
+        "is weak."
+    ),
+    "limitation.absolute": "Raw view counts were compared without normalising by edition size.",
+    "next.extend_period": (
+        "Extend the period (for example 36 or 60 months) to test whether the trend holds."
+    ),
+    "next.add_projects": "Add other editions to see whether the pattern is specific to {projects}.",
+    "next.prune_bundle": (
+        "Exclude articles that do not belong to the topic (exclude_titles) or pin the list "
+        "(bundle: manual)."
+    ),
+    "next.absolute": (
+        "Compare raw views (normalization: absolute) to see audience size rather than share."
+    ),
+    "next.per_million": "Compare per-million shares to remove the effect of edition size.",
+    "next.pin_title": "Provide the exact article title for {projects} via extra_titles.",
+    "next.research": "Research next: {label} ({profile}).",
 }

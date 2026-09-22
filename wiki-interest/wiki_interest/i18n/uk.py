@@ -147,4 +147,91 @@ MESSAGES: dict[str, str] = {
     "chart.trend_title": "Інтерес у часі з лінією тренду",
     "chart.compare_title": "Інтерес за розділами",
     "chart.no_data": "Немає даних за цей період",
+    "chart.score_title": "Бал ранжування",
+    "chart.axis_score": "бал (0 = найслабший, 1 = найсильніший у наборі)",
+    "chart.axis_growth": "зростання рік до року, %",
+    "chart.growth_halves_title": "Зростання: друга половина періоду до першої",
+    # -- вердикти ----------------------------------------------------------------------------
+    "verdict.assess.headline": (
+        "Інтерес до теми «{topic}» у {project}: тренд {direction}, {growth} рік до року; "
+        "довіра: {level}"
+    ),
+    "verdict.compare.headline": (
+        "Найбільша частка уваги: {top_share_label} ({top_share} на мільйон); "
+        "найшвидше зростання: {top_growth_label} ({top_growth})"
+    ),
+    "verdict.compare.absolute_headline": (
+        "Найбільше переглядів: {top_share_label} ({top_share} переглядів/міс); "
+        "найшвидше зростання: {top_growth_label} ({top_growth})"
+    ),
+    "verdict.rank.headline": "Найперспективніша аудиторія: {label} ({profile}, бал {score})",
+    "verdict.none.headline": (
+        "Немає даних для аналізу тем {topics}: статей у {projects} не знайдено"
+    ),
+    "verdict.bullet.pair": (
+        "{label}: {per_million} на мільйон, {views} переглядів/міс, зростання {growth}, "
+        "довіра {level}"
+    ),
+    "verdict.bullet.pair_absolute": (
+        "{label}: {views} переглядів/міс, зростання {growth}, довіра {level}"
+    ),
+    "verdict.bullet.not_found": "{label}: у цьому розділі немає статті",
+    "verdict.bullet.seasonality": (
+        "{label}: сильна сезонність ({strength} дисперсії): порівнюйте однакові місяці рік до року"
+    ),
+    "verdict.bullet.main_vs_bundle": (
+        "{label}: сама лише головна стаття: тренд {direction} ({growth})"
+    ),
+    "rank.rationale": "{profile}: зростання {growth}, {views} переглядів/міс, довіра {level}",
+    "rank.rationale.insufficient": "недостатньо даних для ранжування",
+    "note.not_found": "немає статті в цьому розділі",
+    "note.search_fallback": "статтю знайдено пошуком",
+    # -- обмеження та наступні кроки ---------------------------------------------------------
+    "limitation.proxy": (
+        "Читання Вікіпедії вимірює цікавість, а не готовність платити: сприймайте результат "
+        "як сигнал для перевірки, а не як попит."
+    ),
+    "limitation.coverage": (
+        "Розділи по-різному висвітлюють тему; відсутня або коротка стаття занижує сигнал "
+        "незалежно від інтересу аудиторії."
+    ),
+    "limitation.bots": (
+        "Фільтрація ботів на боці Wikimedia недосконала; перевірки автоматичного трафіку та "
+        "сплесків ловлять лише частину."
+    ),
+    "limitation.bundle": (
+        "Числа залежать від того, які статті враховано; наведено результати і для зв'язки, "
+        "і для головної статті."
+    ),
+    "limitation.missing_titles": "Ці запитані назви не існують і були пропущені: {titles}",
+    "limitation.not_found": (
+        "Для теми «{topic}» немає статті у {projects}: ці розділи позначено як «немає статті», "
+        "а не як нульовий інтерес."
+    ),
+    "limitation.search_fallback": (
+        "У {projects} статтю знайдено повнотекстовим пошуком; перевірте, що це саме та стаття."
+    ),
+    "limitation.short_window": (
+        "Лише {months} місяців даних: зростання рік до року недоступне, а тест тренду слабкий."
+    ),
+    "limitation.absolute": (
+        "Порівнювалися сирі кількості переглядів без нормалізації на розмір розділу."
+    ),
+    "next.extend_period": (
+        "Розширте період (наприклад, 36 або 60 місяців), щоб перевірити стійкість тренду."
+    ),
+    "next.add_projects": (
+        "Додайте інші розділи, щоб побачити, чи специфічна ця картина для {projects}."
+    ),
+    "next.prune_bundle": (
+        "Виключіть статті, що не належать до теми (exclude_titles), або зафіксуйте список "
+        "(bundle: manual)."
+    ),
+    "next.absolute": (
+        "Порівняйте сирі перегляди (normalization: absolute), щоб оцінити розмір аудиторії, "
+        "а не частку."
+    ),
+    "next.per_million": "Порівняйте частки на мільйон, щоб прибрати вплив розміру розділу.",
+    "next.pin_title": "Вкажіть точну назву статті для {projects} через extra_titles.",
+    "next.research": "Дослідити наступною: {label} ({profile}).",
 }
