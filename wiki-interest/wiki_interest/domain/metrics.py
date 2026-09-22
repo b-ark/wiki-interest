@@ -28,7 +28,7 @@ from wiki_interest.domain.trend_tests import (
     theil_sen_slope,
 )
 
-__all__ = ["MetricsSettings", "compute_metrics"]
+__all__ = ["MetricsSettings", "compute_automated_share", "compute_metrics"]
 
 _STEPS_PER_YEAR = 12
 
@@ -44,8 +44,8 @@ class MetricsSettings:
         yoy_months: Length of each year-over-year half (12 for calendar months).
         min_periods_halves: Fewest buckets for which a first-half/second-half growth is
             computed (each half then has at least two buckets).
-        min_half_completeness: Share of observed buckets each growth half must reach; below
-            this a sum over the half is dominated by the gaps rather than by the audience.
+        min_half_completeness: Share of matched bucket pairs each growth comparison must
+            reach; pairs missing either observation are excluded from both sums.
         min_slope_observations: Fewest positive observations for the log-slope.
         min_trend_observations: Fewest observations for Mann-Kendall; below this the normal
             approximation of S has too little power to say anything either way.
@@ -94,10 +94,10 @@ def compute_metrics(
     * ``views_total`` / ``views_avg``: sum and mean of observed raw views (both ``0`` when
       nothing was observed, so that the volume rule can warn instead of crashing).
     * ``per_million_avg``: mean of observed ``per_million`` values, ``None`` without them.
-    * ``growth_yoy``: sum of the last 12 analysis buckets over the sum of the 12 before,
-      minus one. Needs 24 buckets, each half at least 75 % observed and a positive base.
-    * ``growth_halves``: same for the second half of the window over the first (the middle
-      bucket of an odd window goes to the second half). Needs 4 buckets.
+    * ``growth_yoy``: last 12 analysis buckets over the 12 before, minus one, using only
+      matched months observed in both years. Needs 24 buckets, 75 % pairs and a positive base.
+    * ``growth_halves``: same for equal-length second and first halves, excluding the middle
+      bucket of an odd window. Needs 4 buckets and 75 % matched pairs.
     * ``slope_per_year``: Theil-Sen slope of ``log(value)`` over positive observations at
       their true positions, reported as ``exp(12 * slope) - 1`` (relative change per year).
       Non-positive values are treated as missing because their log is undefined.
@@ -139,7 +139,7 @@ def compute_metrics(
         seasonality_strength=seasonal_strength(analysis_values, settings.seasonal_period),
         spike_share=_spike_share(daily_views, settings),
         volatility_cv=_volatility_cv(analysis_values, settings),
-        automated_share=_automated_share(monthly_views, automated_views),
+        automated_share=compute_automated_share(monthly_views, automated_views),
     )
 
 
@@ -163,7 +163,7 @@ def _growth_halves(values: tuple[float | None, ...], settings: MetricsSettings) 
     if len(values) < settings.min_periods_halves:
         return None
     middle = len(values) // 2
-    return _growth(values[:middle], values[middle:], settings.min_half_completeness)
+    return _growth(values[:middle], values[-middle:], settings.min_half_completeness)
 
 
 def _growth(
@@ -171,22 +171,18 @@ def _growth(
     after: tuple[float | None, ...],
     min_completeness: float,
 ) -> float | None:
-    """Relative change between the sums of two stretches, guarded against gaps and zero base.
+    """Compare equal-length stretches on matched observations, without imputing gaps.
 
-    Sums are compared rather than means so the metric reads as "views this year versus
-    last year"; the completeness guard keeps a stretch full of gaps from masquerading as a
-    drop. A non-positive base has no meaningful relative change.
+    Matching positions preserves calendar-month comparability for year-over-year growth.
+    Too few matched pairs or a non-positive base cannot support a growth estimate.
     """
-    before_observed = [v for v in before if v is not None]
-    after_observed = [v for v in after if v is not None]
-    if len(before_observed) / len(before) < min_completeness:
+    pairs = [(a, b) for a, b in zip(before, after, strict=True) if a is not None and b is not None]
+    if not pairs or len(pairs) / len(before) < min_completeness:
         return None
-    if len(after_observed) / len(after) < min_completeness:
-        return None
-    base = sum(before_observed)
+    base = sum(a for a, _ in pairs)
     if base <= 0:
         return None
-    return sum(after_observed) / base - 1
+    return sum(b for _, b in pairs) / base - 1
 
 
 def _slope_per_year(values: tuple[float | None, ...], settings: MetricsSettings) -> float | None:
@@ -256,9 +252,19 @@ def _volatility_cv(values: tuple[float | None, ...], settings: MetricsSettings) 
     return pstdev(residuals) / level
 
 
-def _automated_share(user_views: Series, automated_views: Series | None) -> float | None:
-    """Automated over automated plus user traffic on the buckets observed in both series."""
-    if automated_views is None:
+def compute_automated_share(
+    user_views: Series | None, automated_views: Series | None
+) -> float | None:
+    """Return automated / (automated + user) on months observed in both traffic classes.
+
+    Args:
+        user_views: User traffic for exactly the same titles as ``automated_views``.
+        automated_views: Automated traffic for those titles.
+
+    Returns:
+        The share, or ``None`` without both series, overlapping observations or traffic.
+    """
+    if user_views is None or automated_views is None:
         return None
     user_by_period = {p.period: p.value for p in user_views.points if p.value is not None}
     pairs = [

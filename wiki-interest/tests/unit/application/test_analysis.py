@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -78,6 +79,36 @@ def _loaded(
 
 
 class TestPairs:
+    @pytest.mark.parametrize("related", [True, False])
+    @pytest.mark.parametrize("bundle_volume", [1000.0, 100_000.0])
+    def test_automated_check_uses_same_main_title_for_both_traffic_classes(
+        self, related: bool, bundle_volume: float
+    ) -> None:
+        # Main views include redirects; bundle views can include related articles too.
+        loaded = replace(
+            _loaded(UK, _total(level=bundle_volume), _total(level=1000.0)),
+            main_automated=_total(level=100.0),
+            main_user_for_automated=_total(level=100.0),
+        )
+        pair = analyse([_topic(_bundle(UK, related=related))], [loaded], weights=WEIGHTS).pair(
+            "topic", UK
+        )
+        assert pair.metrics is not None
+        assert pair.metrics.automated_share == pytest.approx(0.5)
+        check = next(c for c in pair.reliability.checks if c.name == "automated")
+        assert check.status is CheckStatus.WARN
+        if related:
+            assert pair.main_metrics is not None
+            assert pair.main_metrics.automated_share == pytest.approx(0.5)
+
+    def test_automated_check_is_unavailable_without_matching_user_traffic(self) -> None:
+        loaded = replace(_loaded(UK, _rising(), _rising()), main_automated=_total(level=100.0))
+        pair = analyse([_topic(_bundle(UK))], [loaded], weights=WEIGHTS).pair("topic", UK)
+        assert pair.metrics is not None
+        assert pair.metrics.automated_share is None
+        check = next(c for c in pair.reliability.checks if c.name == "automated")
+        assert check.reason_key == "automated.unavailable"
+
     def test_rising_bundle_is_detected_with_normalised_metrics(self) -> None:
         result = analyse(
             [_topic(_bundle(UK))], [_loaded(UK, _rising(), _rising())], weights=WEIGHTS

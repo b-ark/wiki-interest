@@ -48,18 +48,29 @@ attention does the topic get". Absolute views are reported alongside as audience
 |---|---|---|
 | `views_total`, `views_avg` | sum and mean of observed monthly views | audience size |
 | `per_million_avg` | mean of the normalised series | attention share |
-| `growth_yoy` | last 12 months / previous 12 months - 1 (needs 24 months, both halves >= 75 % complete) | year-over-year change |
-| `growth_halves` | second half of the window / first half - 1 (needs 4 months) | fallback growth for short windows |
+| `growth_yoy` | sum of matched months in the last 12 / sum of the same months in the previous 12 - 1 (needs 24 months and at least 9 observed pairs) | year-over-year change |
+| `growth_halves` | sum of matched months in the second half / sum in the first half - 1; equal-length halves, central month excluded for odd windows (needs 4 months and >= 75 % observed pairs) | fallback growth for short windows |
 | `slope_per_year` | Theil-Sen slope of log(value), expressed as change per year | robust growth rate, immune to a few outliers |
 | `trend_p_value` | Mann-Kendall test for a monotonic trend (needs 8 months) | below 0.05: the direction is unlikely to be noise |
 | `trend_direction` | rising / falling when significant, else flat | the headline direction |
 | `seasonality_strength` | share of variance explained by month-of-year after detrending (needs 24 months) | high values: school year, holidays, weather |
 | `spike_share` | share of daily traffic that is excess above the median on spike days (a spike day exceeds median + 5 robust deviations and twice the median) | growth driven by news, not by durable interest |
 | `volatility_cv` | coefficient of variation of the detrended series | stability |
-| `automated_share` | automated / (automated + user) where the API provides it | bot suspicion |
+| `automated_share` | automated / (automated + user) for the canonical main article, using months observed in both traffic classes; excludes redirects and related articles | main-article bot suspicion |
 
 Growth, slope, trend and volatility are computed on the normalised series when it is
 available, so they describe attention share, not raw traffic.
+
+Growth compares only pairs with both observations present; a gap excludes that month from
+both sums. For year-over-year growth, pairs are the same calendar month in consecutive years.
+Fewer than 75 % observed pairs, or a zero base, makes growth unavailable (`null`). This avoids
+inventing growth from unequal observation counts, but missing months can still hide changes;
+the completeness warning remains relevant. The halves fallback does not adjust for seasonality.
+
+The automated-traffic diagnostic uses the same canonical main title for its user and automated
+series. Its value is shared by bundle and main-article metrics; it does not measure bot traffic
+across the whole bundle. Missing diagnostic data remains unavailable, and adding redirects or
+related articles cannot dilute the main article's automated share.
 
 ## 5. Reliability verdict
 

@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from series_factory import daily, monthly
 
-from wiki_interest.domain.metrics import MetricsSettings, compute_metrics
+from wiki_interest.domain.metrics import MetricsSettings, compute_automated_share, compute_metrics
 from wiki_interest.domain.models import SeriesUnit, TrendDirection
 
 
@@ -61,7 +61,33 @@ class TestGrowth:
 
     def test_year_over_year_tolerates_a_few_gaps(self) -> None:
         values: list[float | None] = [100.0] * 12 + [150.0] * 9 + [None] * 3
-        assert compute_metrics(monthly(values)).growth_yoy == pytest.approx(1350 / 1200 - 1)
+        assert compute_metrics(monthly(values)).growth_yoy == pytest.approx(0.5)
+
+    @pytest.mark.parametrize("missing_first", [True, False])
+    def test_gaps_do_not_create_growth_or_decline(self, missing_first: bool) -> None:
+        complete: list[float | None] = [100.0] * 12
+        incomplete: list[float | None] = [100.0] * 9 + [None] * 3
+        values = incomplete + complete if missing_first else complete + incomplete
+        metrics = compute_metrics(monthly(values))
+        assert metrics.growth_yoy == pytest.approx(0.0)
+        assert metrics.growth_halves == pytest.approx(0.0)
+
+    def test_year_over_year_matches_seasons_despite_asymmetric_gaps(self) -> None:
+        before: list[float | None] = [None, 20.0, 30.0, *([100.0] * 9)]
+        after: list[float | None] = [15.0, None, 45.0, *([150.0] * 9)]
+        assert compute_metrics(monthly(before + after)).growth_yoy == pytest.approx(0.5)
+
+    def test_separately_complete_halves_need_enough_shared_months(self) -> None:
+        before: list[float | None] = [None] * 3 + [100.0] * 9
+        after: list[float | None] = [100.0] * 9 + [None] * 3
+        metrics = compute_metrics(monthly(before + after))
+        assert metrics.growth_yoy is None
+        assert metrics.growth_halves is None
+
+    def test_growth_needs_positive_base_in_matched_months(self) -> None:
+        before: list[float | None] = [*([100.0] * 3), *([0.0] * 9)]
+        after: list[float | None] = [None] * 3 + [10.0] * 9
+        assert compute_metrics(monthly(before + after)).growth_yoy is None
 
     def test_year_over_year_none_when_base_is_zero(self) -> None:
         values = [0.0] * 12 + [10.0] * 12
@@ -70,9 +96,17 @@ class TestGrowth:
     def test_halves_compare_second_half_with_first(self) -> None:
         assert compute_metrics(monthly([10, 10, 20, 20])).growth_halves == pytest.approx(1.0)
 
-    def test_halves_put_middle_bucket_of_odd_window_in_second_half(self) -> None:
-        m = compute_metrics(monthly([10, 10, 30, 30, 30]))
-        assert m.growth_halves == pytest.approx(90 / 20 - 1)
+    def test_halves_exclude_middle_bucket_of_odd_window(self) -> None:
+        m = compute_metrics(monthly([10, 10, 999, 30, 30]))
+        assert m.growth_halves == pytest.approx(2.0)
+
+    @pytest.mark.parametrize("months", range(4, 26))
+    def test_constant_interest_has_zero_growth_for_even_and_odd_windows(self, months: int) -> None:
+        assert compute_metrics(monthly([100.0] * months)).growth_halves == pytest.approx(0.0)
+
+    def test_halves_match_observations_around_excluded_middle_month(self) -> None:
+        values: list[float | None] = [100, None, 100, 100, 999, 150, 150, 150, 150]
+        assert compute_metrics(monthly(values)).growth_halves == pytest.approx(0.5)
 
     def test_halves_need_four_periods(self) -> None:
         assert compute_metrics(monthly([1, 2, 3])).growth_halves is None
@@ -199,6 +233,9 @@ class TestVolatility:
 
 
 class TestAutomatedShare:
+    def test_missing_user_diagnostic_cannot_be_replaced_with_bundle_traffic(self) -> None:
+        assert compute_automated_share(None, monthly([100.0] * 4)) is None
+
     def test_share_over_buckets_observed_in_both(self) -> None:
         user = monthly([100, 100, None, 100])
         automated = monthly([50, None, 50, 100])

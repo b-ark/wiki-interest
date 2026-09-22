@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from fakes import astronomy_world, fake_container
+from fakes import AstronomyWorld, FakePage, astronomy_world, fake_container
 from wiki_interest.application.analysis import analyse
 from wiki_interest.application.summary_builder import (
     ProvenanceInput,
@@ -16,14 +16,19 @@ from wiki_interest.application.summary_builder import (
 )
 from wiki_interest.contracts.request import AnalysisRequest
 from wiki_interest.contracts.summary import AnalysisSummary
-from wiki_interest.domain.models import EntityCandidate
+from wiki_interest.domain.models import EntityCandidate, WikiProject
 from wiki_interest.errors import ClarificationNeededError
 from wiki_interest.i18n import Translator
 
 PROVENANCE = ProvenanceInput("0.1.0", "ua", ("src",), request_count=3, cache_hits=1)
 
 
-def _build(tmp_path: Path, language: str = "en", **overrides: object) -> AnalysisSummary:
+def _build(
+    tmp_path: Path,
+    language: str = "en",
+    world: AstronomyWorld | None = None,
+    **overrides: object,
+) -> AnalysisSummary:
     data: dict[str, object] = {
         "question_type": "compare",
         "topics": [{"query": "astronomy", "query_language": "en", "id": "astronomy"}],
@@ -33,7 +38,7 @@ def _build(tmp_path: Path, language: str = "en", **overrides: object) -> Analysi
     }
     data.update(overrides)
     request = AnalysisRequest.model_validate(data)
-    container = fake_container(astronomy_world(), tmp_path)
+    container = fake_container(world or astronomy_world(), tmp_path)
     assert request.period is not None
     resolved = container.resolver().resolve_request(request)
     loaded = container.loader(request).load(resolved, request.period)
@@ -108,6 +113,20 @@ class TestCompare:
             str(tmp_path / "run-1" / "charts" / "growth.png"),
         ]
         assert summary.provenance.request_count == 3
+
+    def test_search_fallback_reason_names_the_article_to_verify(self, tmp_path: Path) -> None:
+        world = astronomy_world()
+        pl = WikiProject("pl")
+        world.mediawiki.add_page(pl, FakePage("Astronomia", qid=None))
+        world.mediawiki.add_search(pl, "astronomy", ["Astronomia"])
+        world.pageviews.set_article(pl, "Astronomia", dict.fromkeys(world.months, 500.0))
+        world.pageviews.set_aggregate(pl, dict.fromkeys(world.months, 1e7))
+        summary = _build(tmp_path, world=world, question_type="assess", projects=["pl"])
+        pl_reliability = next(r for r in summary.reliability if r.project == "pl.wikipedia")
+        check = next(c for c in pl_reliability.checks if c.name == "resolution")
+        assert check.reason_key == "resolution.search_fallback"
+        assert "Astronomia" in check.message
+        assert check.params["title"] == "Astronomia"
 
     def test_absolute_mode_changes_wording_and_limitations(self, tmp_path: Path) -> None:
         summary = _build(tmp_path, normalization="absolute")

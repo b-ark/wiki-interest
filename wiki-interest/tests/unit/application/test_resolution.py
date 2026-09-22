@@ -90,11 +90,27 @@ class TestEntityChoice:
         assert excinfo.value.topic_id == "astronomy"
         assert {c.qid for c in excinfo.value.candidates} >= {"Q333", "Q999"}
 
-    def test_two_exact_homonyms_require_clarification(self) -> None:
+    def test_exact_homonym_without_articles_in_requested_editions_is_ignored(self) -> None:
         wikidata, mediawiki = _world()
         wikidata.add(FakeEntity("Q1", {"en": "astronomy"}, description="a band"))
-        with pytest.raises(ClarificationNeededError):
+        resolved = TopicResolver(wikidata, mediawiki).resolve(_topic(), [UK])
+        assert resolved.qid == "Q333"
+
+    def test_exact_homonyms_with_articles_in_requested_editions_need_clarification(
+        self,
+    ) -> None:
+        wikidata, mediawiki = _world()
+        wikidata.add(FakeEntity("Q1", {"en": "astronomy"}, sitelinks={UK: "Астрономія (гурт)"}))
+        with pytest.raises(ClarificationNeededError) as excinfo:
             TopicResolver(wikidata, mediawiki).resolve(_topic(), [UK])
+        assert {c.qid for c in excinfo.value.candidates} == {"Q333", "Q1"}
+
+    def test_homonym_relevance_is_judged_against_the_requested_editions(self) -> None:
+        wikidata, mediawiki = _world()
+        wikidata.add(FakeEntity("Q1", {"en": "astronomy"}, sitelinks={PL: "Astronomia (zespół)"}))
+        # Only the band has a Polish article, so for a Polish-only request it is the pick.
+        resolved = TopicResolver(wikidata, mediawiki).resolve(_topic(), [PL])
+        assert resolved.qid == "Q1"
 
     def test_no_entity_and_no_titles_gives_not_found_bundles(self) -> None:
         wikidata, mediawiki = _world()

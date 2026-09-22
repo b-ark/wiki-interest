@@ -182,7 +182,10 @@ go to `errors.jsonl`.
   cases that still have no result count; errors that a later resume resolved are shown
   separately. A run with many unmeasured cases is untrustworthy regardless of its pass rate.
 
-The integrator copies `benchmark.md`/`benchmark.json` into `wiki-interest/evals/results/`.
+Planned publication location: `wiki-interest/evals/results/`. The wiki-interest scenario
+suite and benchmark summaries have not been supplied yet; the harness tests alone do not
+measure that skill's agent quality. After a real run, copy `benchmark.md`/`benchmark.json`
+there together with the scenario suite and run configuration.
 
 ## Hygiene guarantees
 

@@ -69,6 +69,8 @@ class LoadedSeries:
     project_total: Series
     main_daily: Series | None
     main_automated: Series | None
+    main_user_for_automated: Series | None = None
+    """Canonical main-title user traffic, excluding redirects, matching ``main_automated``."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,8 +186,20 @@ class SeriesLoader:
         main_views = article_views(main) if main is not None else None
         main_daily = results.get(("daily", project.domain, main.title)) if main else None
         main_automated = results.get(("automated", project.domain, main.title)) if main else None
+        main_user = (
+            results[("monthly", project.domain, main.title)]
+            if main is not None and main_automated is not None
+            else None
+        )
         return LoadedSeries(
-            topic_id, project, bundle_views, main_views, total, main_daily, main_automated
+            topic_id,
+            project,
+            bundle_views,
+            main_views,
+            total,
+            main_daily,
+            main_automated,
+            main_user,
         )
 
 

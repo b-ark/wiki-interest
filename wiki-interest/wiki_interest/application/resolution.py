@@ -129,7 +129,7 @@ class TopicResolver:
         if topic.id is None:
             msg = "TopicSpec.id must be set before resolution"
             raise ValueError(msg)
-        qid, label = self._entity(topic)
+        qid, label = self._entity(topic, projects)
         mains = self._main_articles(topic, qid, projects)
         related: Mapping[WikiProject, tuple[ArticleRef, ...]] = {}
         if topic.bundle == "auto" and qid is not None:
@@ -150,7 +150,9 @@ class TopicResolver:
 
     # -- entity ---------------------------------------------------------------------------
 
-    def _entity(self, topic: TopicSpec) -> tuple[str | None, str | None]:
+    def _entity(
+        self, topic: TopicSpec, projects: Sequence[WikiProject]
+    ) -> tuple[str | None, str | None]:
         """Pick the Wikidata item for a topic, or raise when the choice is not obvious."""
         if topic.qid is not None:
             labels = self._wikidata.labels([topic.qid], topic.query_language)
@@ -160,7 +162,7 @@ class TopicResolver:
         )
         if not candidates:
             return None, None
-        chosen = _unambiguous_choice(candidates)
+        chosen = self._choose(candidates, projects)
         if chosen is None:
             assert topic.id is not None
             raise ClarificationNeededError(
@@ -170,6 +172,28 @@ class TopicResolver:
                 hint="Ask the user which candidate they mean, then rerun with topics[].qid set.",
             )
         return chosen.qid, chosen.label
+
+    def _choose(
+        self, candidates: Sequence[EntityCandidate], projects: Sequence[WikiProject]
+    ) -> EntityCandidate | None:
+        """Return the only sensible candidate, or ``None`` when a human has to choose.
+
+        A single hit, or exactly one exact-label match, is unambiguous. Exact homonyms are
+        common on Wikidata (a science and a fictional school subject share the label
+        "astronomy"), so among several exact matches the one that has an article in the
+        requested editions wins; if several do, or only fuzzy matches exist, the wrong pick
+        would silently analyse a different subject, which is worse than one clarifying question.
+        """
+        if len(candidates) == 1:
+            return candidates[0]
+        exact = [c for c in candidates if c.exact_label_match]
+        if len(exact) == 1:
+            return exact[0]
+        if not exact:
+            return None
+        links = self._wikidata.sitelinks([c.qid for c in exact], projects)
+        with_articles = [c for c in exact if links.get(c.qid)]
+        return with_articles[0] if len(with_articles) == 1 else None
 
     # -- main articles --------------------------------------------------------------------
 
@@ -340,18 +364,3 @@ class TopicResolver:
         """Attach the (capped) list of redirect titles whose views belong to the article."""
         redirects = tuple(self._mediawiki.redirects_to(project, article.title))
         return replace(article, redirects=redirects[: self._settings.max_redirects_per_article])
-
-
-def _unambiguous_choice(candidates: Sequence[EntityCandidate]) -> EntityCandidate | None:
-    """Return the only sensible candidate, or ``None`` when a human has to choose.
-
-    A single hit, or exactly one exact-label match, is unambiguous. Several exact matches
-    (homonyms) or only fuzzy matches are not: the wrong pick would silently analyse a
-    different subject, which is worse than one clarifying question.
-    """
-    if len(candidates) == 1:
-        return candidates[0]
-    exact = [c for c in candidates if c.exact_label_match]
-    if len(exact) == 1:
-        return exact[0]
-    return None

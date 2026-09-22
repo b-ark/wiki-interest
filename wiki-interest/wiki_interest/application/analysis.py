@@ -9,11 +9,11 @@ article alone, so a conclusion never silently depends on the bundle composition.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from wiki_interest.application.loading import LoadedSeries
 from wiki_interest.application.resolution import ResolvedTopic
-from wiki_interest.domain.metrics import MetricsSettings, compute_metrics
+from wiki_interest.domain.metrics import MetricsSettings, compute_automated_share, compute_metrics
 from wiki_interest.domain.models import (
     ArticleRole,
     BundleStatus,
@@ -159,9 +159,11 @@ def _analyse_pair(
         item.bundle_views,
         per_million=bundle_pm,
         daily_views=item.main_daily,
-        automated_views=item.main_automated,
         settings=settings.metrics,
     )
+    # Diagnose the same canonical main title regardless of bundle or redirect volume.
+    automated_share = compute_automated_share(item.main_user_for_automated, item.main_automated)
+    metrics = replace(metrics, automated_share=automated_share)
 
     main_pm: Series | None = None
     main_metrics: TrendMetrics | None = None
@@ -174,9 +176,9 @@ def _analyse_pair(
                 item.main_views,
                 per_million=main_pm,
                 daily_views=item.main_daily,
-                automated_views=item.main_automated,
                 settings=settings.metrics,
             )
+            main_metrics = replace(main_metrics, automated_share=automated_share)
 
     main = bundle.main
     reliability = assess_reliability(

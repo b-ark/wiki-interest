@@ -86,9 +86,12 @@ class TestAssembly:
         with_user = SeriesLoader(_source()).load([_topic(_bundle())], PERIOD)[0]
         assert with_user.main_automated is not None
         assert with_user.main_automated.values == (None, 40.0, None)
+        assert with_user.main_user_for_automated is not None
+        assert with_user.main_user_for_automated.values == (100.0, 200.0, 300.0)
         settings = LoadSettings(agent=Agent.ALL, fetch_daily=False)
         with_all = SeriesLoader(_source(), settings=settings).load([_topic(_bundle())], PERIOD)[0]
         assert with_all.main_automated is None
+        assert with_all.main_user_for_automated is None
         assert with_all.main_daily is None
 
     def test_not_found_bundle_yields_no_article_series_but_a_total(self) -> None:

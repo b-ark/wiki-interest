@@ -215,20 +215,28 @@ class SummaryBuilder:
         return out
 
     def _reliability_out(self, pair: PairAnalysis) -> ReliabilityOut:
+        # The domain rules do not know article titles; the resolution messages name the
+        # article the reader should verify, so the title is supplied here.
+        context: dict[str, float | int | str] = {}
+        if pair.bundle.main is not None:
+            context["title"] = pair.bundle.main.title
+        checks: list[CheckOut] = []
+        for check in pair.reliability.checks:
+            params = {**context, **check.params}
+            checks.append(
+                CheckOut(
+                    name=check.name,
+                    status=check.status,
+                    message=self._t.t(check.reason_key, **params),
+                    reason_key=check.reason_key,
+                    params=params,
+                )
+            )
         return ReliabilityOut(
             topic_id=pair.topic_id,
             project=pair.project.domain,
             level=pair.reliability.level,
-            checks=[
-                CheckOut(
-                    name=check.name,
-                    status=check.status,
-                    message=self._t.t(check.reason_key, **check.params),
-                    reason_key=check.reason_key,
-                    params=dict(check.params),
-                )
-                for check in pair.reliability.checks
-            ],
+            checks=checks,
         )
 
     # -- tables ---------------------------------------------------------------------------

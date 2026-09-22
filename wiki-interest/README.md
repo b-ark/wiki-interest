@@ -20,12 +20,15 @@ wiki-interest/
 ├── scripts/            # thin entry points the agent runs
 ├── references/         # methodology, request schema, API notes, troubleshooting (loaded on demand)
 ├── assets/             # report theme, i18n strings, example requests
-├── tests/              # unit, contract (recorded API fixtures), golden
-└── evals/              # eval scenarios and result summaries (harness lives in ../tools/skill-evals)
+└── tests/              # unit, contract (recorded API fixtures), live API smoke tests
 ```
 
 Dependency direction is enforced with import-linter: `cli -> application | adapters -> ports -> contracts -> domain`.
 The domain never imports an adapter, so every calculation is testable offline.
+
+Agent evaluations are still pending: the harness is in `../tools/skill-evals`, but the planned
+`evals/` scenario suite and benchmark summaries are not included yet. Passing Python tests
+does not measure how reliably an agent selects the skill or explains its results.
 
 ## Setup
 

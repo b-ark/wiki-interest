@@ -10,9 +10,13 @@ report with an explicit reliability assessment.
 
 | Path | What it is |
 |---|---|
-| [`wiki-interest/`](wiki-interest/) | The skill itself: `SKILL.md`, the `wiki_interest` Python package, scripts, references, tests, and the eval scenarios with their result summaries. Self-contained and installable on its own. |
+| [`wiki-interest/`](wiki-interest/) | The skill itself: `SKILL.md`, the `wiki_interest` Python package, scripts, references, and tests. Self-contained and installable on its own. |
 | [`tools/skill-evals/`](tools/skill-evals/) | Development-only harness that runs the skill through a real agent (headless Claude Code on Haiku 4.5, or OpenRouter models), grades the outputs and compares `SKILL.md` versions. Not part of the skill package. |
 | [`task.md`](task.md) | The original assignment. |
+
+The evaluation harness exists, but the planned `wiki-interest/evals/` scenario suite and
+benchmark results are not yet included. Unit-test coverage does not establish end-to-end
+agent quality. See [the harness documentation](tools/skill-evals/README.md).
 
 ## Quick start
 

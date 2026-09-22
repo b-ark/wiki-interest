@@ -382,8 +382,10 @@ class TrendMetrics:
         views_total: Sum of observed views.
         views_avg: Mean monthly views over observed buckets.
         per_million_avg: Mean of the per-million normalised series, if available.
-        growth_yoy: Last 12 months over the preceding 12 months, minus one. Needs 24 buckets.
-        growth_halves: Second half of the window over the first half, minus one. Needs 4 buckets.
+        growth_yoy: Matched-month sums in the last 12 months over the preceding 12, minus one.
+            Needs 24 buckets and at least 75 % observed pairs.
+        growth_halves: Matched-month sums in equal-length second and first halves, minus one.
+            Needs 4 buckets and 75 % observed pairs; excludes an odd window's central month.
         slope_per_year: Robust (Theil-Sen) slope of ``log(value)`` expressed as relative change
             per year, e.g. ``0.15`` means +15 % per year.
         trend_p_value: Mann-Kendall p-value for a monotonic trend.
@@ -391,7 +393,8 @@ class TrendMetrics:
         seasonality_strength: Share of variance explained by month-of-year, in [0, 1].
         spike_share: Share of total views that fell on spike days (daily data).
         volatility_cv: Coefficient of variation of the detrended series.
-        automated_share: Automated traffic over automated + user traffic, if available.
+        automated_share: Automated traffic over automated + user traffic for matching titles.
+            The pipeline uses the canonical main article for both main and bundle diagnostics.
     """
 
     periods: int
