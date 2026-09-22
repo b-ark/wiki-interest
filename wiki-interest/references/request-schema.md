@@ -4,8 +4,11 @@ The pipeline takes one JSON file. Start from a bundled example in `assets/exampl
 only what the user asked for; every field not listed there has a sensible default.
 
 ```
-scripts/run.py request.json          # full pipeline -> runs/<session>/<run-id>/
+uv run --project "<skill>" "<skill>/scripts/run.py" request.json
+# full pipeline -> ./wiki-interest-runs/<session>/<run-id>/
 ```
+
+Write `request.json` in the current working directory, not inside the skill directory.
 
 ## Top level
 
@@ -21,7 +24,7 @@ scripts/run.py request.json          # full pipeline -> runs/<session>/<run-id>/
 | `normalization` | `per_million` / `absolute` | `per_million` | Primary metric. `per_million` = article views per million views of the whole edition; the only fair way to compare editions of different size. |
 | `ranking_weights` | object | growth 0.4, volume 0.3, stability 0.2, reliability 0.1 | Only used by `rank`. Any non-negative numbers; normalised automatically. |
 | `report` | object | see below | Report language and framing. |
-| `session` | slug | none | Groups related runs of one conversation under `runs/<session>/`. Reuse it for follow-up questions so cached data and earlier runs stay together. |
+| `session` | slug | none | Groups related runs of one conversation under `wiki-interest-runs/<session>/`. Reuse it for follow-up questions so cached data and earlier runs stay together. |
 
 Unknown keys are rejected on purpose: a misspelled field would otherwise be silently ignored.
 
@@ -93,7 +96,7 @@ Keep the same `session` and change only what the user changed:
 - "compare raw numbers" -> `normalization: "absolute"`;
 - different priorities -> `ranking_weights`.
 
-Cached data makes re-runs fast; `scripts/run.py --diff <run-a> <run-b>` explains what changed.
+Cached data makes re-runs fast; `scripts/run.py --diff <run_dir-a> <run_dir-b>` explains what changed.
 
 ## Exit codes
 

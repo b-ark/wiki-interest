@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 import wiki_interest
-from wiki_interest.config import Settings, default_user_agent, skill_root
+from wiki_interest.config import RUNS_DIRNAME, Settings, default_user_agent, skill_root
 from wiki_interest.domain.models import ReliabilityThresholds
 
 
@@ -79,3 +79,10 @@ def test_out_of_range_values_are_rejected(
     monkeypatch.setenv(f"WIKI_INTEREST_{field}", value)
     with pytest.raises(ValidationError):
         Settings()
+
+
+def test_runs_are_written_to_the_working_directory_by_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert Settings().runs_dir == tmp_path / RUNS_DIRNAME

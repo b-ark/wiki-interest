@@ -16,6 +16,7 @@ from skill_evals.providers.base import (
 from skill_evals.providers.claude_cli import (
     BINARY_ENV,
     ClaudeCliProvider,
+    agent_environment,
     expected_model_prefix,
     locate_claude_binary,
     parse_stream,
@@ -249,3 +250,10 @@ def test_result_served_model_uses_primary_entry() -> None:
     usage = {"claude-haiku-4-5-20251001": {"costUSD": 0.001}, "claude-sonnet-5": {"costUSD": 0.01}}
     parsed = parse_stream([_result_event(modelUsage=usage)])
     assert parsed.served_model == "claude-sonnet-5"
+
+
+def test_agent_environment_drops_the_harness_python_environment() -> None:
+    env = agent_environment(
+        {"PATH": "/bin", "VIRTUAL_ENV": "/h/.venv", "PYTHONPATH": "x", "HOME": "/home/u"}
+    )
+    assert env == {"PATH": "/bin", "HOME": "/home/u"}

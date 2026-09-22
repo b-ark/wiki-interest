@@ -89,7 +89,9 @@ def load_request(path: Path) -> AnalysisRequest:
     Raises:
         RequestValidationError: For unreadable JSON or a request that violates the schema.
     """
-    text = path.read_text(encoding="utf-8")
+    # utf-8-sig: Windows PowerShell 5.1 writes UTF-8 *with* a byte-order mark by default, and
+    # an agent that writes the request through it must not fail on an invisible character.
+    text = path.read_text(encoding="utf-8-sig")
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:

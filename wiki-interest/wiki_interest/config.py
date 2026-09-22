@@ -17,7 +17,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from wiki_interest import __version__
 from wiki_interest.domain.models import ReliabilityThresholds
 
-__all__ = ["Settings", "default_user_agent", "skill_root"]
+__all__ = ["RUNS_DIRNAME", "Settings", "default_user_agent", "skill_root"]
 
 _SECONDS_PER_DAY = 86_400
 _RESOLUTION_TTL_DAYS = 7
@@ -29,8 +29,8 @@ def skill_root() -> Path:
     """Return the skill directory (the one containing ``SKILL.md`` and ``pyproject.toml``).
 
     Derived from the package location rather than the working directory because the agent
-    runs the scripts from arbitrary folders; the cache and run bundles must still land inside
-    the skill directory, which is git-ignored for them.
+    runs the scripts from arbitrary folders; the shared HTTP cache must still land inside the
+    skill directory, which is git-ignored for it.
     """
     return Path(__file__).resolve().parent.parent
 
@@ -45,9 +45,17 @@ def default_user_agent() -> str:
     return f"wiki-interest/{__version__} ({_PROJECT_URL})"
 
 
+RUNS_DIRNAME = "wiki-interest-runs"
+
+
 def _default_runs_dir() -> Path:
-    """Where analysis bundles are written: ``runs/`` inside the skill directory."""
-    return skill_root() / "runs"
+    """Where analysis bundles are written: ``wiki-interest-runs/`` in the working directory.
+
+    Reports belong to the user's project, not to the skill installation: skill directories
+    may be read-only or hidden (``.claude/skills/...``), and agents are often not allowed to
+    write there. The HTTP cache, which is shared across projects, stays in the skill.
+    """
+    return Path.cwd() / RUNS_DIRNAME
 
 
 def _default_cache_path() -> Path:
@@ -78,6 +86,8 @@ class Settings(BaseSettings):
         resolution_ttl_s: Cache TTL for Wikidata and MediaWiki lookups (labels, sitelinks,
             redirects, links); they change rarely but do change.
         cache_path: SQLite file for the HTTP cache; parent directories are created on demand.
+        runs_dir: Where run directories are written; ``wiki-interest-runs/`` in the current
+            working directory by default, so reports land in the user's project.
     """
 
     model_config = SettingsConfigDict(env_prefix="WIKI_INTEREST_", frozen=True)

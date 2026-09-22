@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import codecs
 import json
 from pathlib import Path
 
@@ -73,6 +74,14 @@ class TestRun:
         assert code == 2
         assert "not valid JSON" in str(payload["error"])
         assert "request-schema" in str(payload["hint"])
+
+    def test_request_written_with_a_byte_order_mark_is_accepted(
+        self, tmp_path: Path, fakes: Container
+    ) -> None:
+        path = tmp_path / "bom.json"
+        path.write_bytes(codecs.BOM_UTF8 + json.dumps(REQUEST).encode("utf-8"))
+        code, payload = _invoke("run", str(path))
+        assert code == 0, payload
 
     def test_schema_violation_names_the_field(self, tmp_path: Path, fakes: Container) -> None:
         bad = {**REQUEST, "projects": []}

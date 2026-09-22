@@ -25,6 +25,8 @@ htmlcov/
 
 # Runtime output of the skill (per-session analysis bundles and HTTP cache)
 wiki-interest/runs/
+# Analysis bundles written to the working directory by default
+wiki-interest-runs/
 wiki-interest/.cache/
 
 # Eval harness output (full trajectories are large; summaries live in wiki-interest/evals/results/)

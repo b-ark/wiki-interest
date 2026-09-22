@@ -77,12 +77,14 @@ class ExtractedNumber:
         is_percent: Whether the token was written as a percentage.
         precision: Half a unit of the last written digit (times any suffix), the rounding
             slack the author implied.
+        signed: Whether the author wrote an explicit ``+``/``-`` sign.
     """
 
     text: str
     values: tuple[float, ...]
     is_percent: bool
     precision: float
+    signed: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +135,7 @@ def _to_number(match: re.Match[str]) -> ExtractedNumber | None:
         values=values,
         is_percent=match.group("percent") is not None,
         precision=precision,
+        signed=match.group("sign") is not None,
     )
 
 
@@ -213,6 +216,11 @@ def ground_numbers(
     A percentage ``p`` also matches a leaf ``l`` when ``p ≈ l × 100`` (fractions in the
     summary, percentages in prose). Tolerance for a comparison is the largest of
     ``tolerance_abs``, ``tolerance_rel × |leaf|`` and the author's implied rounding precision.
+
+    A number written *without* a sign is a magnitude and also matches a negative leaf:
+    "interest fell by 45 %" relays a growth of ``-0.45`` correctly. Explicitly signed numbers
+    must match their sign. Whether the stated direction is right is the judge's job; this
+    grader only guards against invented or miscomputed figures.
     """
     pool = list(leaves)
     checked = tuple(extract_numbers(text, ignore_below=ignore_below))
@@ -228,6 +236,7 @@ def _grounded(number: ExtractedNumber, pool: list[float], rel: float, abs_tol: f
         precision = number.precision / 100.0 if scaled else number.precision
         for leaf in pool:
             slack = max(abs_tol if not scaled else abs_tol / 100.0, rel * abs(leaf), precision)
-            if abs(value - leaf) <= slack:
+            candidate = leaf if number.signed else abs(leaf)
+            if abs(value - candidate) <= slack:
                 return True
     return False

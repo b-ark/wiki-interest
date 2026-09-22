@@ -112,3 +112,13 @@ def test_ungrounded_number_is_reported() -> None:
 
 def test_empty_answer_is_trivially_grounded() -> None:
     assert ground_numbers("no numbers here", [1.0]).passed
+
+
+def test_unsigned_magnitude_matches_a_negative_leaf() -> None:
+    report = ground_numbers("interest fell by 45 % year over year", [-0.4497])
+    assert report.passed
+
+
+def test_explicit_sign_must_match() -> None:
+    assert ground_numbers("growth of +45 %", [-0.4497]).ungrounded
+    assert ground_numbers("growth of -45 %", [-0.4497]).passed

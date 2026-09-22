@@ -38,8 +38,10 @@ from skill_evals.providers.base import (
 
 __all__ = [
     "DEFAULT_ALLOWED_TOOLS",
+    "LEAKY_ENV_VARS",
     "ClaudeCliProvider",
     "ParsedRun",
+    "agent_environment",
     "expected_model_prefix",
     "locate_claude_binary",
     "parse_stream",
@@ -454,6 +456,7 @@ class ClaudeCliProvider:
             proc = subprocess.Popen(
                 cmd,
                 cwd=workdir,
+                env=agent_environment(),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -522,6 +525,26 @@ def _append_event(path: Path, event: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+
+LEAKY_ENV_VARS: tuple[str, ...] = (
+    "VIRTUAL_ENV",
+    "UV_PROJECT_ENVIRONMENT",
+    "PYTHONPATH",
+    "CONDA_PREFIX",
+)
+"""Variables of the harness's own Python environment that must not reach the agent.
+
+Verified 2026-09-22: with the harness's ``VIRTUAL_ENV`` inherited, ``uv run`` inside the skill
+printed a mismatch warning that broke the agent's JSON parsing of the pipeline output. A real
+user's shell does not carry the harness's environment, so the sandbox must not either.
+"""
+
+
+def agent_environment(base: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Return the environment for the agent process: the current one minus leaky variables."""
+    source = os.environ if base is None else base
+    return {key: value for key, value in source.items() if key not in LEAKY_ENV_VARS}
 
 
 def _kill_tree(proc: subprocess.Popen[bytes]) -> None:

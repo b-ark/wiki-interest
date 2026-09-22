@@ -5,7 +5,7 @@ Read this when a command fails or the output looks wrong. Start with the exit co
 ## First step for anything unexpected
 
 ```
-uv run scripts/doctor.py
+uv run --project "<skill>" "<skill>/scripts/doctor.py"
 ```
 
 It checks the Python version, the cache directory, the bundled fonts and probes the three
@@ -66,6 +66,10 @@ refreshes such windows every 24 hours. `scripts/run.py --diff <run-a> <run-b>` s
 **Cyrillic or diacritics look wrong in the PDF.** The doctor's `fonts` check must pass; the
 PDF uses DejaVu Sans bundled with matplotlib. Re-sync the environment if it fails.
 
+**"not valid JSON" for a request that looks fine.** Encoding problems are handled (UTF-8
+with or without a byte-order mark), so look for a trailing comma or single quotes. Prefer
+your file-writing tool over shell redirection for `request.json`.
+
 **`uv: command not found`.** Run `scripts/setup.sh` (or `scripts/setup.ps1`); it installs uv
 for the current user. Without uv: `python -m venv .venv`, activate it, then
 `pip install -r requirements.txt`.
@@ -77,7 +81,7 @@ next run refetches everything (a few seconds per topic and edition).
 
 | What | Where |
 |---|---|
-| Run outputs | `runs/<session>/<run-id>/` (`summary.md`, `summary.json`, `report.pdf`, `report.md`, `charts/`) |
+| Run outputs | `./wiki-interest-runs/<session>/<run-id>/` in the working directory (`summary.md`, `summary.json`, `report.pdf`, `report.md`, `charts/`) |
 | HTTP cache | `.cache/http.sqlite` |
 | Request examples | `assets/examples/` |
 | Settings via environment | `WIKI_INTEREST_*` (see `wiki_interest/config.py`) |

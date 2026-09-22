@@ -179,9 +179,11 @@ def oracle(
         uv_pipeline_runner(skill),
     )
     out.mkdir(parents=True, exist_ok=True)
-    (out / "oracle.md").write_text(render_oracle_markdown(report), encoding="utf-8")
+    (out / "oracle.md").write_text(render_oracle_markdown(report), encoding="utf-8", newline="\n")
     (out / "oracle.json").write_text(
-        json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(report.to_dict(), ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
     )
     _console.print(render_oracle_markdown(report))
     raise typer.Exit(code=0 if report.healthy else 1)
