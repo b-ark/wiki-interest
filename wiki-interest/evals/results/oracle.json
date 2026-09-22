@@ -1,0 +1,992 @@
+{
+  "healthy": true,
+  "oracle_pass_rate": 1.0,
+  "null_pass_rate": 0.0,
+  "skipped": [],
+  "scenarios": [
+    {
+      "scenario_id": "compare-fasting-pl-cs",
+      "error": null,
+      "exit_codes": [
+        0
+      ],
+      "checks": [
+        {
+          "index": 0,
+          "type": "tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "1 matching call(s); first: Bash uv run scripts/run.py request-1.json",
+          "null_passed": false,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 1,
+          "type": "no_tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "0 matching call(s); first: -",
+          "null_passed": true,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 2,
+          "type": "file_exists",
+          "oracle_passed": true,
+          "oracle_evidence": "1 file(s) match: runs\\o-fasting\\20260922-203837-259e\\report.pdf",
+          "null_passed": false,
+          "null_evidence": "0 file(s) match: -"
+        },
+        {
+          "index": 3,
+          "type": "pdf_pages",
+          "oracle_passed": true,
+          "oracle_evidence": "report.pdf: 1 page(s)",
+          "null_passed": false,
+          "null_evidence": "no PDF matches the glob"
+        },
+        {
+          "index": 4,
+          "type": "numbers_grounded",
+          "oracle_passed": true,
+          "oracle_evidence": "20 number(s) checked against 1 summary file(s)",
+          "null_passed": false,
+          "null_evidence": "no summary.json to ground numbers against"
+        },
+        {
+          "index": 5,
+          "type": "caveats_relayed",
+          "oracle_passed": true,
+          "oracle_evidence": "1/1 caveat(s) relayed (need 1); e.g. 'У цьому розділі немає статті: відсутність статті не означає нульовий інтерес resolution.not_found'",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 6,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "status = \"ok\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 7,
+          "type": "max_turns",
+          "oracle_passed": true,
+          "oracle_evidence": "3 turn(s), budget 25",
+          "null_passed": true,
+          "null_evidence": "1 turn(s), budget 25"
+        },
+        {
+          "index": 8,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "request.question_type = \"compare\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 9,
+          "type": "answer_contains",
+          "oracle_passed": true,
+          "oracle_evidence": "matched 3/4 pattern(s): ['немає статті', 'відсутн', 'не знайдено']",
+          "null_passed": false,
+          "null_evidence": "matched 0/4 pattern(s): []"
+        }
+      ]
+    },
+    {
+      "scenario_id": "assess-astronomy-uk",
+      "error": null,
+      "exit_codes": [
+        0
+      ],
+      "checks": [
+        {
+          "index": 0,
+          "type": "tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "1 matching call(s); first: Bash uv run scripts/run.py request-1.json",
+          "null_passed": false,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 1,
+          "type": "no_tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "0 matching call(s); first: -",
+          "null_passed": true,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 2,
+          "type": "file_exists",
+          "oracle_passed": true,
+          "oracle_evidence": "1 file(s) match: runs\\o-astro\\20260922-203840-e7dc\\report.pdf",
+          "null_passed": false,
+          "null_evidence": "0 file(s) match: -"
+        },
+        {
+          "index": 3,
+          "type": "pdf_pages",
+          "oracle_passed": true,
+          "oracle_evidence": "report.pdf: 1 page(s)",
+          "null_passed": false,
+          "null_evidence": "no PDF matches the glob"
+        },
+        {
+          "index": 4,
+          "type": "numbers_grounded",
+          "oracle_passed": true,
+          "oracle_evidence": "28 number(s) checked against 1 summary file(s)",
+          "null_passed": false,
+          "null_evidence": "no summary.json to ground numbers against"
+        },
+        {
+          "index": 5,
+          "type": "caveats_relayed",
+          "oracle_passed": true,
+          "oracle_evidence": "reliability is high everywhere; nothing to relay",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 6,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "status = \"ok\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 7,
+          "type": "max_turns",
+          "oracle_passed": true,
+          "oracle_evidence": "3 turn(s), budget 25",
+          "null_passed": true,
+          "null_evidence": "1 turn(s), budget 25"
+        },
+        {
+          "index": 8,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "request.question_type = \"assess\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        }
+      ]
+    },
+    {
+      "scenario_id": "rank-english-learning",
+      "error": null,
+      "exit_codes": [
+        0
+      ],
+      "checks": [
+        {
+          "index": 0,
+          "type": "tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "1 matching call(s); first: Bash uv run scripts/run.py request-1.json",
+          "null_passed": false,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 1,
+          "type": "no_tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "0 matching call(s); first: -",
+          "null_passed": true,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 2,
+          "type": "file_exists",
+          "oracle_passed": true,
+          "oracle_evidence": "1 file(s) match: runs\\o-english\\20260922-203843-20e9\\report.pdf",
+          "null_passed": false,
+          "null_evidence": "0 file(s) match: -"
+        },
+        {
+          "index": 3,
+          "type": "pdf_pages",
+          "oracle_passed": true,
+          "oracle_evidence": "report.pdf: 1 page(s)",
+          "null_passed": false,
+          "null_evidence": "no PDF matches the glob"
+        },
+        {
+          "index": 4,
+          "type": "numbers_grounded",
+          "oracle_passed": true,
+          "oracle_evidence": "129 number(s) checked against 1 summary file(s)",
+          "null_passed": false,
+          "null_evidence": "no summary.json to ground numbers against"
+        },
+        {
+          "index": 5,
+          "type": "caveats_relayed",
+          "oracle_passed": true,
+          "oracle_evidence": "reliability is high everywhere; nothing to relay",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 6,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "status = \"ok\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 7,
+          "type": "max_turns",
+          "oracle_passed": true,
+          "oracle_evidence": "3 turn(s), budget 25",
+          "null_passed": true,
+          "null_evidence": "1 turn(s), budget 25"
+        },
+        {
+          "index": 8,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "request.projects.4 = \"hu.wikipedia\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        }
+      ]
+    },
+    {
+      "scenario_id": "followup-longer-period",
+      "error": null,
+      "exit_codes": [
+        0,
+        0
+      ],
+      "checks": [
+        {
+          "index": 0,
+          "type": "tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "2 matching call(s); first: Bash uv run scripts/run.py request-1.json",
+          "null_passed": false,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 1,
+          "type": "no_tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "0 matching call(s); first: -",
+          "null_passed": true,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 2,
+          "type": "file_exists",
+          "oracle_passed": true,
+          "oracle_evidence": "2 file(s) match: runs\\o-astro5\\20260922-203847-27c3\\report.pdf, runs\\o-astro5\\20260922-203850-e2eb\\report.pdf",
+          "null_passed": false,
+          "null_evidence": "0 file(s) match: -"
+        },
+        {
+          "index": 3,
+          "type": "pdf_pages",
+          "oracle_passed": true,
+          "oracle_evidence": "report.pdf: 1 page(s); report.pdf: 1 page(s)",
+          "null_passed": false,
+          "null_evidence": "no PDF matches the glob"
+        },
+        {
+          "index": 4,
+          "type": "numbers_grounded",
+          "oracle_passed": true,
+          "oracle_evidence": "26 number(s) checked against 2 summary file(s)",
+          "null_passed": false,
+          "null_evidence": "no summary.json to ground numbers against"
+        },
+        {
+          "index": 5,
+          "type": "caveats_relayed",
+          "oracle_passed": true,
+          "oracle_evidence": "reliability is high everywhere; nothing to relay",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 6,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "status = \"ok\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 7,
+          "type": "max_turns",
+          "oracle_passed": true,
+          "oracle_evidence": "6 turn(s), budget 50",
+          "null_passed": true,
+          "null_evidence": "2 turn(s), budget 50"
+        },
+        {
+          "index": 8,
+          "type": "file_exists",
+          "oracle_passed": true,
+          "oracle_evidence": "2 file(s) match: runs\\o-astro5\\20260922-203847-27c3\\report.pdf, runs\\o-astro5\\20260922-203850-e2eb\\report.pdf",
+          "null_passed": false,
+          "null_evidence": "0 file(s) match: -"
+        },
+        {
+          "index": 9,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "period.start = \"2021-09\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        }
+      ]
+    },
+    {
+      "scenario_id": "followup-main-article-only",
+      "error": null,
+      "exit_codes": [
+        0,
+        0
+      ],
+      "checks": [
+        {
+          "index": 0,
+          "type": "tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "2 matching call(s); first: Bash uv run scripts/run.py request-1.json",
+          "null_passed": false,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 1,
+          "type": "no_tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "0 matching call(s); first: -",
+          "null_passed": true,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 2,
+          "type": "file_exists",
+          "oracle_passed": true,
+          "oracle_evidence": "2 file(s) match: runs\\o-ml\\20260922-203853-e3d6\\report.pdf, runs\\o-ml\\20260922-203855-8851\\report.pdf",
+          "null_passed": false,
+          "null_evidence": "0 file(s) match: -"
+        },
+        {
+          "index": 3,
+          "type": "pdf_pages",
+          "oracle_passed": true,
+          "oracle_evidence": "report.pdf: 1 page(s); report.pdf: 1 page(s)",
+          "null_passed": false,
+          "null_evidence": "no PDF matches the glob"
+        },
+        {
+          "index": 4,
+          "type": "numbers_grounded",
+          "oracle_passed": true,
+          "oracle_evidence": "26 number(s) checked against 2 summary file(s)",
+          "null_passed": false,
+          "null_evidence": "no summary.json to ground numbers against"
+        },
+        {
+          "index": 5,
+          "type": "caveats_relayed",
+          "oracle_passed": true,
+          "oracle_evidence": "reliability is high everywhere; nothing to relay",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 6,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "status = \"ok\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 7,
+          "type": "max_turns",
+          "oracle_passed": true,
+          "oracle_evidence": "6 turn(s), budget 50",
+          "null_passed": true,
+          "null_evidence": "2 turn(s), budget 50"
+        },
+        {
+          "index": 8,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "request.topics.0.bundle = \"main\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        }
+      ]
+    },
+    {
+      "scenario_id": "ru-chess-compare",
+      "error": null,
+      "exit_codes": [
+        0
+      ],
+      "checks": [
+        {
+          "index": 0,
+          "type": "tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "1 matching call(s); first: Bash uv run scripts/run.py request-1.json",
+          "null_passed": false,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 1,
+          "type": "no_tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "0 matching call(s); first: -",
+          "null_passed": true,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 2,
+          "type": "file_exists",
+          "oracle_passed": true,
+          "oracle_evidence": "1 file(s) match: runs\\o-chess\\20260922-203858-991a\\report.pdf",
+          "null_passed": false,
+          "null_evidence": "0 file(s) match: -"
+        },
+        {
+          "index": 3,
+          "type": "pdf_pages",
+          "oracle_passed": true,
+          "oracle_evidence": "report.pdf: 1 page(s)",
+          "null_passed": false,
+          "null_evidence": "no PDF matches the glob"
+        },
+        {
+          "index": 4,
+          "type": "numbers_grounded",
+          "oracle_passed": true,
+          "oracle_evidence": "51 number(s) checked against 1 summary file(s)",
+          "null_passed": false,
+          "null_evidence": "no summary.json to ground numbers against"
+        },
+        {
+          "index": 5,
+          "type": "caveats_relayed",
+          "oracle_passed": true,
+          "oracle_evidence": "reliability is high everywhere; nothing to relay",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 6,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "status = \"ok\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 7,
+          "type": "max_turns",
+          "oracle_passed": true,
+          "oracle_evidence": "3 turn(s), budget 25",
+          "null_passed": true,
+          "null_evidence": "1 turn(s), budget 25"
+        },
+        {
+          "index": 8,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "request.report.language = \"ru\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 9,
+          "type": "answer_contains",
+          "oracle_passed": true,
+          "oracle_evidence": "matched 1/1 pattern(s): ['\\\\.pdf']",
+          "null_passed": false,
+          "null_evidence": "matched 0/1 pattern(s): []"
+        }
+      ]
+    },
+    {
+      "scenario_id": "en-stoicism-assess",
+      "error": null,
+      "exit_codes": [
+        0
+      ],
+      "checks": [
+        {
+          "index": 0,
+          "type": "tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "1 matching call(s); first: Bash uv run scripts/run.py request-1.json",
+          "null_passed": false,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 1,
+          "type": "no_tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "0 matching call(s); first: -",
+          "null_passed": true,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 2,
+          "type": "file_exists",
+          "oracle_passed": true,
+          "oracle_evidence": "1 file(s) match: runs\\o-stoic\\20260922-203902-56b3\\report.pdf",
+          "null_passed": false,
+          "null_evidence": "0 file(s) match: -"
+        },
+        {
+          "index": 3,
+          "type": "pdf_pages",
+          "oracle_passed": true,
+          "oracle_evidence": "report.pdf: 1 page(s)",
+          "null_passed": false,
+          "null_evidence": "no PDF matches the glob"
+        },
+        {
+          "index": 4,
+          "type": "numbers_grounded",
+          "oracle_passed": true,
+          "oracle_evidence": "26 number(s) checked against 1 summary file(s)",
+          "null_passed": false,
+          "null_evidence": "no summary.json to ground numbers against"
+        },
+        {
+          "index": 5,
+          "type": "caveats_relayed",
+          "oracle_passed": true,
+          "oracle_evidence": "reliability is high everywhere; nothing to relay",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 6,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "status = \"ok\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 7,
+          "type": "max_turns",
+          "oracle_passed": true,
+          "oracle_evidence": "3 turn(s), budget 25",
+          "null_passed": true,
+          "null_evidence": "1 turn(s), budget 25"
+        },
+        {
+          "index": 8,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "request.report.language = \"en\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 9,
+          "type": "answer_contains",
+          "oracle_passed": true,
+          "oracle_evidence": "matched 1/1 pattern(s): ['\\\\.pdf']",
+          "null_passed": false,
+          "null_evidence": "matched 0/1 pattern(s): []"
+        }
+      ]
+    },
+    {
+      "scenario_id": "ambiguous-mercury",
+      "error": null,
+      "exit_codes": [
+        3
+      ],
+      "checks": [
+        {
+          "index": 0,
+          "type": "tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "1 matching call(s); first: Bash uv run scripts/run.py request-1.json",
+          "null_passed": false,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 1,
+          "type": "no_tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "0 matching call(s); first: -",
+          "null_passed": true,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 2,
+          "type": "clarification_asked",
+          "oracle_passed": true,
+          "oracle_evidence": "question mark present; 0 report.pdf",
+          "null_passed": false,
+          "null_evidence": "question mark absent; 0 report.pdf"
+        },
+        {
+          "index": 3,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "status = \"needs_clarification\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 4,
+          "type": "max_turns",
+          "oracle_passed": true,
+          "oracle_evidence": "3 turn(s), budget 25",
+          "null_passed": true,
+          "null_evidence": "1 turn(s), budget 25"
+        }
+      ]
+    },
+    {
+      "scenario_id": "pl-yoga-compare",
+      "error": null,
+      "exit_codes": [
+        0
+      ],
+      "checks": [
+        {
+          "index": 0,
+          "type": "tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "1 matching call(s); first: Bash uv run scripts/run.py request-1.json",
+          "null_passed": false,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 1,
+          "type": "no_tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "0 matching call(s); first: -",
+          "null_passed": true,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 2,
+          "type": "file_exists",
+          "oracle_passed": true,
+          "oracle_evidence": "1 file(s) match: runs\\o-yoga\\20260922-203907-8254\\report.pdf",
+          "null_passed": false,
+          "null_evidence": "0 file(s) match: -"
+        },
+        {
+          "index": 3,
+          "type": "pdf_pages",
+          "oracle_passed": true,
+          "oracle_evidence": "report.pdf: 1 page(s)",
+          "null_passed": false,
+          "null_evidence": "no PDF matches the glob"
+        },
+        {
+          "index": 4,
+          "type": "numbers_grounded",
+          "oracle_passed": true,
+          "oracle_evidence": "47 number(s) checked against 1 summary file(s)",
+          "null_passed": false,
+          "null_evidence": "no summary.json to ground numbers against"
+        },
+        {
+          "index": 5,
+          "type": "caveats_relayed",
+          "oracle_passed": true,
+          "oracle_evidence": "reliability is high everywhere; nothing to relay",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 6,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "status = \"ok\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 7,
+          "type": "max_turns",
+          "oracle_passed": true,
+          "oracle_evidence": "3 turn(s), budget 25",
+          "null_passed": true,
+          "null_evidence": "1 turn(s), budget 25"
+        },
+        {
+          "index": 8,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "request.report.language = \"pl\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        }
+      ]
+    },
+    {
+      "scenario_id": "period-before-2015",
+      "error": null,
+      "exit_codes": [
+        0
+      ],
+      "checks": [
+        {
+          "index": 0,
+          "type": "tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "1 matching call(s); first: Bash uv run scripts/run.py request-1.json",
+          "null_passed": false,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 1,
+          "type": "no_tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "0 matching call(s); first: -",
+          "null_passed": true,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 2,
+          "type": "file_exists",
+          "oracle_passed": true,
+          "oracle_evidence": "1 file(s) match: runs\\o-btc\\20260922-203910-557f\\report.pdf",
+          "null_passed": false,
+          "null_evidence": "0 file(s) match: -"
+        },
+        {
+          "index": 3,
+          "type": "pdf_pages",
+          "oracle_passed": true,
+          "oracle_evidence": "report.pdf: 1 page(s)",
+          "null_passed": false,
+          "null_evidence": "no PDF matches the glob"
+        },
+        {
+          "index": 4,
+          "type": "numbers_grounded",
+          "oracle_passed": true,
+          "oracle_evidence": "17 number(s) checked against 1 summary file(s)",
+          "null_passed": false,
+          "null_evidence": "no summary.json to ground numbers against"
+        },
+        {
+          "index": 5,
+          "type": "caveats_relayed",
+          "oracle_passed": true,
+          "oracle_evidence": "reliability is high everywhere; nothing to relay",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 6,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "status = \"ok\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 7,
+          "type": "max_turns",
+          "oracle_passed": true,
+          "oracle_evidence": "3 turn(s), budget 25",
+          "null_passed": true,
+          "null_evidence": "1 turn(s), budget 25"
+        },
+        {
+          "index": 8,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "period.start = \"2015-07\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 9,
+          "type": "answer_contains",
+          "oracle_passed": true,
+          "oracle_evidence": "matched 1/1 pattern(s): ['2015']",
+          "null_passed": false,
+          "null_evidence": "matched 0/1 pattern(s): []"
+        }
+      ]
+    },
+    {
+      "scenario_id": "followup-absolute",
+      "error": null,
+      "exit_codes": [
+        0,
+        0
+      ],
+      "checks": [
+        {
+          "index": 0,
+          "type": "tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "2 matching call(s); first: Bash uv run scripts/run.py request-1.json",
+          "null_passed": false,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 1,
+          "type": "no_tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "0 matching call(s); first: -",
+          "null_passed": true,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 2,
+          "type": "file_exists",
+          "oracle_passed": true,
+          "oracle_evidence": "2 file(s) match: runs\\o-football\\20260922-203913-2313\\report.pdf, runs\\o-football\\20260922-203919-1a74\\report.pdf",
+          "null_passed": false,
+          "null_evidence": "0 file(s) match: -"
+        },
+        {
+          "index": 3,
+          "type": "pdf_pages",
+          "oracle_passed": true,
+          "oracle_evidence": "report.pdf: 1 page(s); report.pdf: 1 page(s)",
+          "null_passed": false,
+          "null_evidence": "no PDF matches the glob"
+        },
+        {
+          "index": 4,
+          "type": "numbers_grounded",
+          "oracle_passed": true,
+          "oracle_evidence": "33 number(s) checked against 2 summary file(s)",
+          "null_passed": false,
+          "null_evidence": "no summary.json to ground numbers against"
+        },
+        {
+          "index": 5,
+          "type": "caveats_relayed",
+          "oracle_passed": true,
+          "oracle_evidence": "reliability is high everywhere; nothing to relay",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 6,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "status = \"ok\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 7,
+          "type": "max_turns",
+          "oracle_passed": true,
+          "oracle_evidence": "6 turn(s), budget 50",
+          "null_passed": true,
+          "null_evidence": "2 turn(s), budget 50"
+        },
+        {
+          "index": 8,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "request.normalization = \"absolute\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        }
+      ]
+    },
+    {
+      "scenario_id": "followup-add-editions",
+      "error": null,
+      "exit_codes": [
+        0,
+        0
+      ],
+      "checks": [
+        {
+          "index": 0,
+          "type": "tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "2 matching call(s); first: Bash uv run scripts/run.py request-1.json",
+          "null_passed": false,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 1,
+          "type": "no_tool_called",
+          "oracle_passed": true,
+          "oracle_evidence": "0 matching call(s); first: -",
+          "null_passed": true,
+          "null_evidence": "0 matching call(s); first: -"
+        },
+        {
+          "index": 2,
+          "type": "file_exists",
+          "oracle_passed": true,
+          "oracle_evidence": "2 file(s) match: runs\\o-med\\20260922-203922-d150\\report.pdf, runs\\o-med\\20260922-203925-a7d8\\report.pdf",
+          "null_passed": false,
+          "null_evidence": "0 file(s) match: -"
+        },
+        {
+          "index": 3,
+          "type": "pdf_pages",
+          "oracle_passed": true,
+          "oracle_evidence": "report.pdf: 1 page(s); report.pdf: 1 page(s)",
+          "null_passed": false,
+          "null_evidence": "no PDF matches the glob"
+        },
+        {
+          "index": 4,
+          "type": "numbers_grounded",
+          "oracle_passed": true,
+          "oracle_evidence": "67 number(s) checked against 2 summary file(s)",
+          "null_passed": false,
+          "null_evidence": "no summary.json to ground numbers against"
+        },
+        {
+          "index": 5,
+          "type": "caveats_relayed",
+          "oracle_passed": true,
+          "oracle_evidence": "reliability is high everywhere; nothing to relay",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 6,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "status = \"ok\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        },
+        {
+          "index": 7,
+          "type": "max_turns",
+          "oracle_passed": true,
+          "oracle_evidence": "6 turn(s), budget 50",
+          "null_passed": true,
+          "null_evidence": "2 turn(s), budget 50"
+        },
+        {
+          "index": 8,
+          "type": "summary_field",
+          "oracle_passed": true,
+          "oracle_evidence": "request.projects.2 = \"pl.wikipedia\"",
+          "null_passed": false,
+          "null_evidence": "no summary.json found"
+        }
+      ]
+    }
+  ]
+}

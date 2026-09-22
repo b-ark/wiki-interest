@@ -1,0 +1,25 @@
+{
+  "requests": [
+    {
+      "question_type": "assess",
+      "topics": [
+        {
+          "query": "біткоїн",
+          "query_language": "uk",
+          "id": "bitcoin"
+        }
+      ],
+      "projects": [
+        "uk"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-btc",
+      "period": {
+        "start": "2015-07",
+        "end": "2026-08"
+      }
+    }
+  ]
+}

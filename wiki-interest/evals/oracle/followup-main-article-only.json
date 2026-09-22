@@ -1,0 +1,41 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "machine learning",
+          "query_language": "en",
+          "id": "ml"
+        }
+      ],
+      "projects": [
+        "de",
+        "fr"
+      ],
+      "report": {
+        "language": "en"
+      },
+      "session": "o-ml"
+    },
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "machine learning",
+          "query_language": "en",
+          "id": "ml",
+          "bundle": "main"
+        }
+      ],
+      "projects": [
+        "de",
+        "fr"
+      ],
+      "report": {
+        "language": "en"
+      },
+      "session": "o-ml"
+    }
+  ]
+}

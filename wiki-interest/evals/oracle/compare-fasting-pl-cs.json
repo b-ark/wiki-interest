@@ -1,0 +1,26 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "intermittent fasting",
+          "query_language": "en",
+          "id": "fasting"
+        }
+      ],
+      "projects": [
+        "pl",
+        "cs"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-fasting",
+      "period": {
+        "start": "2024-09",
+        "end": "2026-08"
+      }
+    }
+  ]
+}

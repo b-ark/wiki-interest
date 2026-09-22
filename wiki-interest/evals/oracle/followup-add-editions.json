@@ -1,0 +1,40 @@
+{
+  "requests": [
+    {
+      "question_type": "assess",
+      "topics": [
+        {
+          "query": "meditation",
+          "query_language": "en",
+          "id": "meditation"
+        }
+      ],
+      "projects": [
+        "cs"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-med"
+    },
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "meditation",
+          "query_language": "en",
+          "id": "meditation"
+        }
+      ],
+      "projects": [
+        "cs",
+        "sk",
+        "pl"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-med"
+    }
+  ]
+}

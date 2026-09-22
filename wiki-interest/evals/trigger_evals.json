@@ -1,0 +1,19 @@
+[
+  {"query": "Ми думаємо запускати застосунок для медитацій у Польщі чи Чехії. Подивись, де інтерес до медитації росте швидше, за переглядами Вікіпедії", "should_trigger": true},
+  {"query": "is interest in sourdough baking growing or fading in german and dutch speaking countries? need something i can show my cofounder, ideally a pdf", "should_trigger": true},
+  {"query": "Какие языковые аудитории стоит исследовать для курса по личным финансам: украинская, казахская или польская? Опирайся на данные, не на догадки", "should_trigger": true},
+  {"query": "Compare Wikipedia pageviews for 'Stoicism' in English vs Spanish over the last 3 years and chart it", "should_trigger": true},
+  {"query": "We're choosing the next localisation language for our chess app: Romanian, Hungarian or Czech. Which market shows the most interest?", "should_trigger": true},
+  {"query": "Чи можна довіряти зростанню інтересу до астрономії в українській Вікіпедії, чи це просто сезонний сплеск?", "should_trigger": true},
+  {"query": "Porównaj, jak zmieniało się zainteresowanie jogą w polskiej i czeskiej Wikipedii przez ostatnie dwa lata", "should_trigger": true},
+  {"query": "make me a one-page report on how much attention 'intermittent fasting' gets in pl vs cs wikipedia, trend + how reliable it is", "should_trigger": true},
+  {"query": "Which topic should our edtech app add next, astronomy or chemistry? Look at how interest is trending among Ukrainian readers.", "should_trigger": true},
+  {"query": "Fix the typo in the second paragraph of the Wikipedia article about Kyiv and tell me how to submit the edit", "should_trigger": false},
+  {"query": "Summarise the Wikipedia article on intermittent fasting in three bullet points for my blog post", "should_trigger": false},
+  {"query": "How many edits did the English Wikipedia article on ChatGPT get last month and who were the top editors?", "should_trigger": false},
+  {"query": "Pull Google Trends data for 'meditation app' in Poland and plot it with pandas", "should_trigger": false},
+  {"query": "Write a Python script that downloads the Wikipedia dump for Czech and counts articles per category", "should_trigger": false},
+  {"query": "Translate our app store description into Polish and Czech, keep it under 170 characters", "should_trigger": false},
+  {"query": "What is the population of Czechia and Poland and which has higher smartphone penetration?", "should_trigger": false},
+  {"query": "Our Mixpanel shows DAU dropping in Hungary since May. Build a chart of weekly retention by country from this CSV: data/retention.csv", "should_trigger": false}
+]

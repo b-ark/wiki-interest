@@ -1,0 +1,825 @@
+{
+  "skill_name": "wiki-interest",
+  "scenarios": [
+    {
+      "id": "compare-fasting-pl-cs",
+      "name": "Assignment 1: intermittent fasting, Polish vs Czech, two years",
+      "tags": [
+        "assignment",
+        "compare",
+        "uk"
+      ],
+      "turns": [
+        "Порівняй зростання інтересу до інтервального голодування в польськомовній та чеськомовній Wikipedia за останні два роки."
+      ],
+      "expected": "Runs the pipeline once with pl and cs, relays summary.md in Ukrainian; says Polish Wikipedia has no article on the topic (not zero interest); PDF attached.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.question_type",
+          "equals": "compare"
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "немає статті",
+            "нема статті",
+            "відсутн",
+            "не знайдено"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The answer compares the growth of interest between the Polish and Czech editions and says which one looks stronger, or explains why one of them cannot be measured."
+        },
+        {
+          "id": "missing-article-honest",
+          "criterion": "If an edition has no article on the topic, the answer says so and does not present it as zero or low interest."
+        },
+        {
+          "id": "limitations-stated",
+          "criterion": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "assess-astronomy-uk",
+      "name": "Assignment 2: is interest in astronomy growing in Ukrainian Wikipedia, can we trust it",
+      "tags": [
+        "assignment",
+        "assess",
+        "uk"
+      ],
+      "turns": [
+        "Ми думаємо додати курс з астрономії до освітнього застосунку. Чи зростає інтерес до цієї теми в україномовній Wikipedia, і наскільки цьому зростанню можна довіряти?"
+      ],
+      "expected": "Assess run for uk; states direction and year-over-year change, the trust level with reasons, and seasonality.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.question_type",
+          "regex": "assess|compare"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The answer states whether interest in astronomy in Ukrainian Wikipedia is growing, flat or falling, with a number for the change."
+        },
+        {
+          "id": "trust-explained",
+          "criterion": "The answer says how much the result can be trusted (a trust level such as high, medium or low) and gives at least one concrete reason taken from the analysis."
+        },
+        {
+          "id": "limitations-stated",
+          "criterion": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "rank-english-learning",
+      "name": "Assignment 3: English learning across chosen editions, which audiences to research next",
+      "tags": [
+        "assignment",
+        "rank",
+        "uk"
+      ],
+      "turns": [
+        "Ми створюємо застосунок для вивчення мов. Порівняй інтерес до вивчення англійської в українському, польському, чеському, румунському та угорському розділах Wikipedia та підготуй короткий звіт: які аудиторії варто дослідити наступними й чому?"
+      ],
+      "expected": "Rank (or compare) over five editions; names the next audiences to research with reasons; admits that interest declines everywhere if it does.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.projects.4",
+          "regex": "wikipedia"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "recommends-audiences",
+          "criterion": "The answer names which language audiences to research next and gives a data-based reason for each (growth, volume, trust)."
+        },
+        {
+          "id": "honest-about-decline",
+          "criterion": "If interest is falling in the recommended editions, the answer says so rather than calling them growing markets."
+        },
+        {
+          "id": "limitations-stated",
+          "criterion": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "followup-longer-period",
+      "name": "Follow-up: extend the period to five years",
+      "tags": [
+        "followup",
+        "assess",
+        "uk"
+      ],
+      "turns": [
+        "Чи зростає інтерес до астрономії в українській Вікіпедії?",
+        "А якщо подивитися за останні 5 років?"
+      ],
+      "expected": "Second run in the same session with a ~60-month period; explains how the picture changed.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 50
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf",
+          "min_count": 2
+        },
+        {
+          "type": "summary_field",
+          "path": "period.start",
+          "regex": "^202[01]-"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "explains-change",
+          "criterion": "The final answer describes the five-year picture and how it differs from (or confirms) the shorter period."
+        },
+        {
+          "id": "trust-explained",
+          "criterion": "The answer says how much the result can be trusted (a trust level such as high, medium or low) and gives at least one concrete reason taken from the analysis."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "followup-main-article-only",
+      "name": "Follow-up (English): analyse the main article only",
+      "tags": [
+        "followup",
+        "compare",
+        "en"
+      ],
+      "turns": [
+        "How is interest in machine learning trending on German and French Wikipedia?",
+        "Please redo it using only the main article, without the related articles."
+      ],
+      "expected": "Second run with bundle=main; answer explains the difference.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 50
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics.0.bundle",
+          "equals": "main"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The final answer reports the trend in both German and French Wikipedia based on the main article only."
+        },
+        {
+          "id": "limitations-stated",
+          "criterion": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ru-chess-compare",
+      "name": "Russian user: chess in Russian vs Ukrainian Wikipedia, three years, PDF",
+      "tags": [
+        "compare",
+        "ru"
+      ],
+      "turns": [
+        "Сравни интерес к шахматам в русской и украинской Википедии за последние 3 года, мне нужен PDF-отчёт."
+      ],
+      "expected": "Compare ru/uk over ~36 months, report in Russian, PDF path given.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.report.language",
+          "equals": "ru"
+        },
+        {
+          "type": "answer_contains",
+          "patterns": [
+            "\\.pdf"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The answer compares interest in chess between the Russian and Ukrainian editions with numbers."
+        },
+        {
+          "id": "trust-explained",
+          "criterion": "The answer says how much the result can be trusted (a trust level such as high, medium or low) and gives at least one concrete reason taken from the analysis."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Russian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "en-stoicism-assess",
+      "name": "English user: is Stoicism growing on German Wikipedia, one-page PDF",
+      "tags": [
+        "assess",
+        "en"
+      ],
+      "turns": [
+        "Is interest in Stoicism growing on German Wikipedia? I need a one-page PDF I can share with my cofounder."
+      ],
+      "expected": "Assess de, report in English, PDF path given.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.report.language",
+          "equals": "en"
+        },
+        {
+          "type": "answer_contains",
+          "patterns": [
+            "\\.pdf"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The answer says whether interest in Stoicism on German Wikipedia is growing, with a number."
+        },
+        {
+          "id": "trust-explained",
+          "criterion": "The answer says how much the result can be trusted (a trust level such as high, medium or low) and gives at least one concrete reason taken from the analysis."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ambiguous-mercury",
+      "name": "Ambiguous topic: Mercury must trigger a clarifying question",
+      "tags": [
+        "clarification",
+        "uk"
+      ],
+      "turns": [
+        "Порівняй інтерес до Mercury в англійській і німецькій Вікіпедії."
+      ],
+      "expected": "The pipeline exits with code 3; the agent lists candidates (planet, element, deity...) and asks which one; no report is produced.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "needs_clarification"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        }
+      ],
+      "rubric": [
+        {
+          "id": "asks-not-guesses",
+          "criterion": "The answer does not analyse any particular meaning of Mercury; it lists the possible meanings and asks the user which one they mean."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "pl-yoga-compare",
+      "name": "Polish user: yoga in Polish vs Czech Wikipedia",
+      "tags": [
+        "compare",
+        "pl"
+      ],
+      "turns": [
+        "Porównaj zainteresowanie jogą w polskiej i czeskiej Wikipedii. Który rynek wygląda lepiej?"
+      ],
+      "expected": "Compare pl/cs, report in Polish.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.report.language",
+          "equals": "pl"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The answer says which of the two markets looks better and why, using the numbers."
+        },
+        {
+          "id": "limitations-stated",
+          "criterion": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "period-before-2015",
+      "name": "Period before the data starts: bitcoin since 2010",
+      "tags": [
+        "edge",
+        "assess",
+        "uk"
+      ],
+      "turns": [
+        "Покажи динаміку інтересу до біткоїна в українській Вікіпедії з 2010 року."
+      ],
+      "expected": "The agent notices data starts in 2015-07 (from the validation error or the docs), reruns from 2015-07 and tells the user.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "period.start",
+          "regex": "^2015-(0[7-9]|1[0-2])"
+        },
+        {
+          "type": "answer_contains",
+          "patterns": [
+            "2015"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "explains-data-start",
+          "criterion": "The answer tells the user that pageview data is only available from mid-2015, so the analysis starts there instead of 2010."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "followup-absolute",
+      "name": "Follow-up: switch to absolute views",
+      "tags": [
+        "followup",
+        "compare",
+        "uk"
+      ],
+      "turns": [
+        "Порівняй інтерес до футболу в польській і чеській Вікіпедії.",
+        "Покажи абсолютні перегляди, без нормалізації на розмір розділу."
+      ],
+      "expected": "Second run with normalization=absolute.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 50
+        },
+        {
+          "type": "summary_field",
+          "path": "request.normalization",
+          "equals": "absolute"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "explains-absolute",
+          "criterion": "The final answer reports raw monthly views for both editions and notes that they are not normalised by edition size."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "followup-add-editions",
+      "name": "Follow-up: add editions for comparison",
+      "tags": [
+        "followup",
+        "assess",
+        "compare",
+        "uk"
+      ],
+      "turns": [
+        "Чи зростає інтерес до медитації в чеській Вікіпедії?",
+        "Додай ще словацьку і польську для порівняння."
+      ],
+      "expected": "Second run with cs, sk, pl.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 50
+        },
+        {
+          "type": "summary_field",
+          "path": "request.projects.2",
+          "regex": "wikipedia"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The final answer compares interest in meditation across the Czech, Slovak and Polish editions."
+        },
+        {
+          "id": "trust-explained",
+          "criterion": "The answer says how much the result can be trusted (a trust level such as high, medium or low) and gives at least one concrete reason taken from the analysis."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    }
+  ]
+}

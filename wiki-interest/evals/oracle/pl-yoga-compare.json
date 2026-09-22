@@ -1,0 +1,22 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "joga",
+          "query_language": "pl",
+          "id": "yoga"
+        }
+      ],
+      "projects": [
+        "pl",
+        "cs"
+      ],
+      "report": {
+        "language": "pl"
+      },
+      "session": "o-yoga"
+    }
+  ]
+}

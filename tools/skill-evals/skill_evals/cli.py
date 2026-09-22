@@ -16,6 +16,8 @@ import typer
 from rich.console import Console
 
 from skill_evals.graders.judge import ClaudeCliJudge, Judge
+from skill_evals.oracle import render_markdown as render_oracle_markdown
+from skill_evals.oracle import run_oracle, uv_pipeline_runner
 from skill_evals.providers.base import ModelProvider
 from skill_evals.providers.claude_cli import (
     DEFAULT_ALLOWED_TOOLS,
@@ -149,6 +151,40 @@ def compare(
     _console.print(f"wrote {md} and {js}")
     for note in report.notes:
         _console.print(f"- {note}")
+
+
+@app.command("oracle")
+def oracle(
+    scenarios: Annotated[Path, typer.Option("--scenarios", "-s", help="Path to evals.json")],
+    skill: Annotated[Path, typer.Option("--skill", "-k", help="Skill directory")],
+    oracle_dir: Annotated[
+        Path | None, typer.Option("--oracle-dir", help="Default: <evals.json dir>/oracle")
+    ] = None,
+    out: Annotated[Path, typer.Option("--out", "-o")] = _DEFAULT_RUNS_ROOT / "_oracle",
+) -> None:
+    """Check the graders: an ideal answer must pass every assertion, "I don't know" must fail.
+
+    Runs the skill's pipeline on hand-written requests (no model, no cost) and exits 1 when an
+    assertion is too strict or does not discriminate.
+    """
+    try:
+        loaded = load_scenarios(scenarios)
+    except ScenarioLoadError as exc:
+        _console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=2) from exc
+    report = run_oracle(
+        loaded.scenarios,
+        oracle_dir or scenarios.parent / "oracle",
+        out,
+        uv_pipeline_runner(skill),
+    )
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "oracle.md").write_text(render_oracle_markdown(report), encoding="utf-8")
+    (out / "oracle.json").write_text(
+        json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    _console.print(render_oracle_markdown(report))
+    raise typer.Exit(code=0 if report.healthy else 1)
 
 
 @app.command("trigger")

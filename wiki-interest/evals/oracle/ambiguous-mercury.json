@@ -1,0 +1,22 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "Mercury",
+          "query_language": "en",
+          "id": "mercury"
+        }
+      ],
+      "projects": [
+        "en",
+        "de"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-mercury"
+    }
+  ]
+}

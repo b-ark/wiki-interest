@@ -1,0 +1,25 @@
+{
+  "requests": [
+    {
+      "question_type": "rank",
+      "topics": [
+        {
+          "query": "English language",
+          "query_language": "en",
+          "id": "english"
+        }
+      ],
+      "projects": [
+        "uk",
+        "pl",
+        "cs",
+        "ro",
+        "hu"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-english"
+    }
+  ]
+}

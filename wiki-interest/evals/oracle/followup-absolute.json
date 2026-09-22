@@ -1,0 +1,41 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "футбол",
+          "query_language": "uk",
+          "id": "football"
+        }
+      ],
+      "projects": [
+        "pl",
+        "cs"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-football"
+    },
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "футбол",
+          "query_language": "uk",
+          "id": "football"
+        }
+      ],
+      "projects": [
+        "pl",
+        "cs"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-football",
+      "normalization": "absolute"
+    }
+  ]
+}

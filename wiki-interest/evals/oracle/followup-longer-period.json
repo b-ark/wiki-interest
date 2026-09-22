@@ -1,0 +1,42 @@
+{
+  "requests": [
+    {
+      "question_type": "assess",
+      "topics": [
+        {
+          "query": "астрономія",
+          "query_language": "uk",
+          "id": "astronomy"
+        }
+      ],
+      "projects": [
+        "uk"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-astro5"
+    },
+    {
+      "question_type": "assess",
+      "topics": [
+        {
+          "query": "астрономія",
+          "query_language": "uk",
+          "id": "astronomy"
+        }
+      ],
+      "projects": [
+        "uk"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-astro5",
+      "period": {
+        "start": "2021-09",
+        "end": "2026-08"
+      }
+    }
+  ]
+}

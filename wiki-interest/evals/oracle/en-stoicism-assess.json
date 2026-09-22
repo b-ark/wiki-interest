@@ -1,0 +1,21 @@
+{
+  "requests": [
+    {
+      "question_type": "assess",
+      "topics": [
+        {
+          "query": "Stoicism",
+          "query_language": "en",
+          "id": "stoicism"
+        }
+      ],
+      "projects": [
+        "de"
+      ],
+      "report": {
+        "language": "en"
+      },
+      "session": "o-stoic"
+    }
+  ]
+}
