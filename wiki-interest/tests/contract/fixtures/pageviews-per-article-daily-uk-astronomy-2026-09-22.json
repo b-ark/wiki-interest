@@ -1,0 +1,293 @@
+{
+  "case": "pageviews-per-article-daily-uk-astronomy",
+  "recorded_at": "2026-09-22T16:40:14+00:00",
+  "exchanges": [
+    {
+      "url": "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/uk.wikipedia/all-access/user/%D0%90%D1%81%D1%82%D1%80%D0%BE%D0%BD%D0%BE%D0%BC%D1%96%D1%8F/daily/20240301/20240331",
+      "status": 200,
+      "body": {
+        "items": [
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024030100",
+            "access": "all-access",
+            "agent": "user",
+            "views": 69
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024030200",
+            "access": "all-access",
+            "agent": "user",
+            "views": 65
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024030300",
+            "access": "all-access",
+            "agent": "user",
+            "views": 71
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024030400",
+            "access": "all-access",
+            "agent": "user",
+            "views": 87
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024030500",
+            "access": "all-access",
+            "agent": "user",
+            "views": 85
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024030600",
+            "access": "all-access",
+            "agent": "user",
+            "views": 74
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024030700",
+            "access": "all-access",
+            "agent": "user",
+            "views": 60
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024030800",
+            "access": "all-access",
+            "agent": "user",
+            "views": 42
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024030900",
+            "access": "all-access",
+            "agent": "user",
+            "views": 57
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024031000",
+            "access": "all-access",
+            "agent": "user",
+            "views": 73
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024031100",
+            "access": "all-access",
+            "agent": "user",
+            "views": 70
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024031200",
+            "access": "all-access",
+            "agent": "user",
+            "views": 97
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024031300",
+            "access": "all-access",
+            "agent": "user",
+            "views": 102
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024031400",
+            "access": "all-access",
+            "agent": "user",
+            "views": 92
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024031500",
+            "access": "all-access",
+            "agent": "user",
+            "views": 58
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024031600",
+            "access": "all-access",
+            "agent": "user",
+            "views": 53
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024031700",
+            "access": "all-access",
+            "agent": "user",
+            "views": 54
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024031800",
+            "access": "all-access",
+            "agent": "user",
+            "views": 120
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024031900",
+            "access": "all-access",
+            "agent": "user",
+            "views": 83
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024032000",
+            "access": "all-access",
+            "agent": "user",
+            "views": 93
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024032100",
+            "access": "all-access",
+            "agent": "user",
+            "views": 109
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024032200",
+            "access": "all-access",
+            "agent": "user",
+            "views": 50
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024032300",
+            "access": "all-access",
+            "agent": "user",
+            "views": 49
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024032400",
+            "access": "all-access",
+            "agent": "user",
+            "views": 48
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024032500",
+            "access": "all-access",
+            "agent": "user",
+            "views": 67
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024032600",
+            "access": "all-access",
+            "agent": "user",
+            "views": 57
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024032700",
+            "access": "all-access",
+            "agent": "user",
+            "views": 56
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024032800",
+            "access": "all-access",
+            "agent": "user",
+            "views": 49
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024032900",
+            "access": "all-access",
+            "agent": "user",
+            "views": 55
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024033000",
+            "access": "all-access",
+            "agent": "user",
+            "views": 44
+          },
+          {
+            "project": "uk.wikipedia",
+            "article": "Астрономія",
+            "granularity": "daily",
+            "timestamp": "2024033100",
+            "access": "all-access",
+            "agent": "user",
+            "views": 51
+          }
+        ]
+      }
+    }
+  ]
+}

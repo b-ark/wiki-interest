@@ -245,6 +245,18 @@ class TestRelatedEntities:
         assert result == {"P279": ("Q14632398", "Q413"), "P361": (), "P527": ()}
         assert route.call_count == 3, "one request per property"
 
+    def test_other_api_errors_propagate(
+        self, respx_mock: respx.MockRouter, wikidata: WikidataApi
+    ) -> None:
+        respx_mock.get(WD).mock(
+            return_value=httpx.Response(
+                200, json={"error": {"code": "param-missing", "info": "entity required"}}
+            )
+        )
+        with pytest.raises(ActionApiError) as info:
+            wikidata.related_entities("Q333", ["P279"])
+        assert info.value.code == "param-missing"
+
     def test_unknown_entity_yields_empty_tuples(
         self, respx_mock: respx.MockRouter, wikidata: WikidataApi
     ) -> None:

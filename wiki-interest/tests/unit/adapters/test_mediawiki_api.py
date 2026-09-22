@@ -99,6 +99,24 @@ class TestPageInfo:
         assert len(result) == 120
         assert all(info is not None for info in result.values())
 
+    def test_redirect_loop_does_not_hang(
+        self, respx_mock: respx.MockRouter, mediawiki: MediaWikiApi
+    ) -> None:
+        respx_mock.get(API).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "query": {
+                        "redirects": [{"from": "A", "to": "B"}, {"from": "B", "to": "A"}],
+                        "pages": [_page("A", "Q1"), _page("B", "Q2")],
+                    }
+                },
+            )
+        )
+        result = mediawiki.page_info(UK, ["A"])
+        assert result["A"] is not None
+        assert result["A"].title in {"A", "B"}
+
     def test_empty_input_makes_no_request(
         self, respx_mock: respx.MockRouter, mediawiki: MediaWikiApi
     ) -> None:

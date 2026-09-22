@@ -1,0 +1,69 @@
+{
+  "case": "mediawiki-search-uk-fasting",
+  "recorded_at": "2026-09-22T16:40:23+00:00",
+  "exchanges": [
+    {
+      "url": "https://uk.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&list=search&srlimit=5&srnamespace=0&srsearch=%D1%96%D0%BD%D1%82%D0%B5%D1%80%D0%B2%D0%B0%D0%BB%D1%8C%D0%BD%D0%B5+%D0%B3%D0%BE%D0%BB%D0%BE%D0%B4%D1%83%D0%B2%D0%B0%D0%BD%D0%BD%D1%8F",
+      "status": 200,
+      "body": {
+        "batchcomplete": true,
+        "continue": {
+          "sroffset": 5,
+          "continue": "-||"
+        },
+        "query": {
+          "searchinfo": {
+            "totalhits": 22
+          },
+          "search": [
+            {
+              "ns": 0,
+              "title": "Інтервальне голодування",
+              "pageid": 3283494,
+              "size": 16144,
+              "wordcount": 1397,
+              "snippet": "<span class=\"searchmatch\">Інтервальне</span> <span class=\"searchmatch\">голодування</span> (також переривчасте <span class=\"searchmatch\">голодування</span> та періодичне <span class=\"searchmatch\">голодування</span>) — спосіб прийняття їжі, за якого протягом доби є періоди голодування",
+              "timestamp": "2025-02-12T02:50:46Z"
+            },
+            {
+              "ns": 0,
+              "title": "Голодування",
+              "pageid": 2455847,
+              "size": 2232,
+              "wordcount": 65,
+              "snippet": "потрібних для підтримки життя організму. Голодний протест <span class=\"searchmatch\">Інтервальне</span> <span class=\"searchmatch\">голодування</span> Оздоровче <span class=\"searchmatch\">голодування</span> World Community Grid - Розподілені обчислення для прогнозування",
+              "timestamp": "2022-06-10T23:30:48Z"
+            },
+            {
+              "ns": 0,
+              "title": "Інтервальне харчування",
+              "pageid": 3817824,
+              "size": 1684,
+              "wordcount": 81,
+              "snippet": "<span class=\"searchmatch\">Інтервальне</span> харчування — вид <span class=\"searchmatch\">інтервального</span> <span class=\"searchmatch\">голодування</span>, який обмежує щоденне харчувальне вікно до інтервалу, що може становити від 1 до 12 годин. Західна",
+              "timestamp": "2026-06-22T09:44:23Z"
+            },
+            {
+              "ns": 0,
+              "title": "Оздоровче голодування",
+              "pageid": 642644,
+              "size": 2559,
+              "wordcount": 147,
+              "snippet": "встановлено, що періоди <span class=\"searchmatch\">голодування</span> позитивно позначаються на оновлення клітин і допомагають уповільнити процеси старіння. <span class=\"searchmatch\">Інтервальне</span> <span class=\"searchmatch\">голодування</span> Піст Команда EQUITES",
+              "timestamp": "2026-07-02T20:03:17Z"
+            },
+            {
+              "ns": 0,
+              "title": "Дієта",
+              "pageid": 447131,
+              "size": 24537,
+              "wordcount": 1152,
+              "snippet": "оскільки сприяє зменшенню навантаження на суглоби. Періодична дієти (<span class=\"searchmatch\">інтервальне</span> <span class=\"searchmatch\">голодування</span>) багатообіцяльні, але довгострокові дані про їхню безпеку та ефективність",
+              "timestamp": "2026-06-05T18:25:20Z"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
