@@ -112,7 +112,7 @@ MESSAGES: dict[str, str] = {
     "col.topic": "Тема",
     "col.project": "Розділ",
     "col.views_avg": "Переглядів/міс.",
-    "col.per_million_avg": "На мільйон",
+    "col.per_million_avg": "На млн переглядів розділу",
     "col.growth_yoy": "Зростання р/р",
     "col.growth_halves": "Зростання П2/П1",
     "col.trend": "Тренд",
@@ -157,7 +157,9 @@ MESSAGES: dict[str, str] = {
         "Інтерес до теми «{topic}» у {project}: тренд {direction}, {growth} рік до року; "
         "довіра: {level}"
     ),
-    "verdict.compare.share": "Найбільша частка уваги: {label} ({value} на мільйон)",
+    "verdict.compare.share": (
+        "Найбільша частка уваги: {label} ({value} на мільйон переглядів розділу)"
+    ),
     "verdict.compare.share_absolute": "Найбільше переглядів: {label} ({value} переглядів/міс)",
     "verdict.compare.growth": "найшвидше зростання: {label} ({growth})",
     "verdict.compare.decline": (
@@ -173,7 +175,8 @@ MESSAGES: dict[str, str] = {
         "Немає даних для аналізу тем {topics}: статей у {projects} не знайдено"
     ),
     "verdict.bullet.pair": (
-        "{label}: {per_million} на мільйон, {views} переглядів/міс, зростання {growth}, "
+        "{label}: {per_million} на мільйон переглядів розділу, {views} переглядів/міс, "
+        "зростання {growth}, "
         "довіра {level}"
     ),
     "verdict.bullet.pair_absolute": (

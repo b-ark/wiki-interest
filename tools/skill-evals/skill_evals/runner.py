@@ -429,7 +429,9 @@ def regrade(
 ) -> list[CaseResult]:
     """Re-grade every finished case of a run with the current graders and scenarios.
 
-    Trajectories, artifacts, usage and timings are kept; only ``grades`` change. The previous
+    Trajectories, artifacts, usage and timings are kept; only ``grades`` change. Without a
+    judge, only deterministic grades are recomputed and earlier judge verdicts are kept. The
+    previous
     ``results.jsonl`` is preserved as ``results.before-regrade.jsonl`` so the effect of a
     grader change stays auditable.
 
@@ -448,6 +450,9 @@ def regrade(
         grades = grade_case(
             scenarios[result.scenario_id], trajectory, case_dir, judge, reference_glob
         )
+        if judge is None:
+            # Deterministic-only regrade: keep the verdicts the judge already gave.
+            grades += [g for g in result.grades if g.kind == "judge"]
         (case_dir / "grades.json").write_text(
             json.dumps([g.model_dump() for g in grades], indent=2, ensure_ascii=False),
             encoding="utf-8",

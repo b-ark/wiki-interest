@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -234,3 +235,14 @@ def test_clarification_asked(tmp_path: Path) -> None:
 def test_describe_is_readable() -> None:
     text = describe(MaxTurns(type="max_turns", n=5))
     assert text == "max_turns(n=5)"
+
+
+def test_caveats_come_from_the_newest_summary_only(tmp_path: Path) -> None:
+    abandoned = tmp_path / "artifacts" / "r1"
+    final = tmp_path / "artifacts" / "r2"
+    write_summary(abandoned, make_summary(level="low", checks=CHECKS))
+    write_summary(final, make_summary(level="high", checks=CHECKS))
+    os.utime(abandoned / "summary.json", (1_000, 1_000))
+    os.utime(final / "summary.json", (2_000, 2_000))
+    outcome = grade(CaveatsRelayed(type="caveats_relayed"), _ctx(tmp_path, "All good."))
+    assert outcome.passed, outcome.evidence

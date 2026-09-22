@@ -48,7 +48,7 @@ def test_english_report_contains_every_section(tmp_path: Path) -> None:
 
 def test_key_numbers_table_is_formatted_in_report_locale(tmp_path: Path) -> None:
     text = _render(example_summary(), tmp_path)
-    assert "| Topic | Edition | Views/month | Per million | Growth YoY |" in text
+    assert "| Topic | Edition | Views/month | Per million edition views | Growth YoY |" in text
     assert "| Přerušovaný půst | cs.wikipedia |" in text
     assert "+32% | +19% | rising | medium |" in text
     assert "*Notes:*" in text

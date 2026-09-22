@@ -102,7 +102,7 @@ MESSAGES: dict[str, str] = {
     "col.topic": "Temat",
     "col.project": "Edycja",
     "col.views_avg": "Odsłon/mies.",
-    "col.per_million_avg": "Na milion",
+    "col.per_million_avg": "Na mln odsłon edycji",
     "col.growth_yoy": "Wzrost r/r",
     "col.growth_halves": "Wzrost H2/H1",
     "col.trend": "Trend",
@@ -147,7 +147,7 @@ MESSAGES: dict[str, str] = {
         "Zainteresowanie tematem „{topic}” w {project}: trend {direction}, {growth} rok do roku; "
         "zaufanie: {level}"
     ),
-    "verdict.compare.share": "Największy udział uwagi: {label} ({value} na milion)",
+    "verdict.compare.share": "Największy udział uwagi: {label} ({value} na milion odsłon edycji)",
     "verdict.compare.share_absolute": "Najwięcej odsłon: {label} ({value} odsłon/mies.)",
     "verdict.compare.growth": "najszybszy wzrost: {label} ({growth})",
     "verdict.compare.decline": (
@@ -165,7 +165,8 @@ MESSAGES: dict[str, str] = {
         "Brak danych do analizy tematów {topics}: nie znaleziono artykułów w {projects}"
     ),
     "verdict.bullet.pair": (
-        "{label}: {per_million} na milion, {views} odsłon/mies., wzrost {growth}, zaufanie {level}"
+        "{label}: {per_million} na milion odsłon edycji, {views} odsłon/mies., wzrost "
+        "{growth}, zaufanie {level}"
     ),
     "verdict.bullet.pair_absolute": (
         "{label}: {views} odsłon/mies., wzrost {growth}, zaufanie {level}"

@@ -64,6 +64,23 @@ class GradeContext:
                 docs.append(loaded)
         return docs
 
+    def latest_summary(self, pattern: str) -> dict[str, object] | None:
+        """The most recently written summary matching ``pattern``, or ``None``.
+
+        The final answer relays the last pipeline run. Earlier runs in the same case may be
+        abandoned attempts (verified 2026-09-23: a query that matched no article anywhere,
+        retried with better wording), and their caveats must not be demanded of the answer.
+        """
+        paths = sorted(self.files(pattern), key=lambda p: (p.stat().st_mtime, str(p)))
+        for path in reversed(paths):
+            try:
+                loaded = json.loads(path.read_text(encoding="utf-8-sig"))
+            except (json.JSONDecodeError, OSError):
+                continue
+            if isinstance(loaded, dict):
+                return loaded
+        return None
+
 
 @dataclass(frozen=True, slots=True)
 class GradeOutcome:
@@ -248,10 +265,10 @@ def _field_matches(a: SummaryField, value: object) -> bool:
 
 
 def _caveats_relayed(a: CaveatsRelayed, ctx: GradeContext) -> GradeOutcome:
-    docs = ctx.summaries(a.summary_glob)
-    if not docs:
+    latest = ctx.latest_summary(a.summary_glob)
+    if latest is None:
         return _outcome(a, False, "no summary.json found")
-    messages = _caveat_messages(docs)
+    messages = _caveat_messages([latest])
     if not messages:
         return _outcome(a, True, "reliability is high everywhere; nothing to relay")
     answer = ctx.trajectory.final_answer

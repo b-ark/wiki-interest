@@ -104,7 +104,7 @@ MESSAGES: dict[str, str] = {
     "col.topic": "Téma",
     "col.project": "Edice",
     "col.views_avg": "Zobrazení/měs.",
-    "col.per_million_avg": "Na milion",
+    "col.per_million_avg": "Na mil. zobrazení edice",
     "col.growth_yoy": "Růst meziročně",
     "col.growth_halves": "Růst H2/H1",
     "col.trend": "Trend",
@@ -148,7 +148,9 @@ MESSAGES: dict[str, str] = {
     "verdict.assess.headline": (
         "Zájem o téma „{topic}“ v {project}: trend {direction}, {growth} meziročně; důvěra: {level}"
     ),
-    "verdict.compare.share": "Největší podíl pozornosti: {label} ({value} na milion)",
+    "verdict.compare.share": (
+        "Největší podíl pozornosti: {label} ({value} na milion zobrazení edice)"
+    ),
     "verdict.compare.share_absolute": "Nejvíce zobrazení: {label} ({value} zobrazení/měs.)",
     "verdict.compare.growth": "nejrychlejší růst: {label} ({growth})",
     "verdict.compare.decline": "zájem neroste v žádné edici; nejmenší pokles: {label} ({growth})",
@@ -162,7 +164,8 @@ MESSAGES: dict[str, str] = {
         "Pro témata {topics} nejsou data k analýze: v {projects} nebyly nalezeny články"
     ),
     "verdict.bullet.pair": (
-        "{label}: {per_million} na milion, {views} zobrazení/měs., růst {growth}, důvěra {level}"
+        "{label}: {per_million} na milion zobrazení edice, {views} zobrazení/měs., růst "
+        "{growth}, důvěra {level}"
     ),
     "verdict.bullet.pair_absolute": (
         "{label}: {views} zobrazení/měs., růst {growth}, důvěra {level}"

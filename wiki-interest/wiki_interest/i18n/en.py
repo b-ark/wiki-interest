@@ -109,7 +109,7 @@ MESSAGES: dict[str, str] = {
     "col.topic": "Topic",
     "col.project": "Edition",
     "col.views_avg": "Views/month",
-    "col.per_million_avg": "Per million",
+    "col.per_million_avg": "Per million edition views",
     "col.growth_yoy": "Growth YoY",
     "col.growth_halves": "Growth H2/H1",
     "col.trend": "Trend",
@@ -153,7 +153,7 @@ MESSAGES: dict[str, str] = {
     "verdict.assess.headline": (
         "Interest in {topic} in {project} is {direction} ({growth} year over year); trust: {level}"
     ),
-    "verdict.compare.share": "Highest attention share: {label} ({value} per million)",
+    "verdict.compare.share": "Highest attention share: {label} ({value} per million edition views)",
     "verdict.compare.share_absolute": "Most views: {label} ({value} views/month)",
     "verdict.compare.growth": "fastest growth: {label} ({growth})",
     "verdict.compare.decline": (
@@ -169,7 +169,8 @@ MESSAGES: dict[str, str] = {
         "Nothing could be analysed for {topics}: no articles were found in {projects}"
     ),
     "verdict.bullet.pair": (
-        "{label}: {per_million} per million, {views} views/month, growth {growth}, trust {level}"
+        "{label}: {per_million} per million edition views, {views} views/month, growth "
+        "{growth}, trust {level}"
     ),
     "verdict.bullet.pair_absolute": "{label}: {views} views/month, growth {growth}, trust {level}",
     "verdict.bullet.not_found": "{label}: no article in this edition",

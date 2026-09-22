@@ -94,6 +94,10 @@ Errors are JSON on stdout with `error`, `exit_code` and `hint`.
 - A caveats section, every time, including follow-ups: Wikipedia readership measures
   curiosity, not willingness to pay, and editions differ in how well they cover a topic.
   `summary.md` phrases these for you.
+- Any change you made to what the user asked for, stated plainly: a period moved because
+  data starts in 2015-07, a topic reworded after "no article" everywhere, an edition dropped.
+- "Per million" means per million page views of that Wikipedia edition, not per million
+  people; keep the summary's wording.
 - Directions and profiles in the summary's own words. A falling edition is falling even if it
   ranks first; do not call it "growth potential". When everything declines, say so, then say
   which edition declines least.

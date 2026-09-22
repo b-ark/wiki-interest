@@ -31,7 +31,7 @@
           "index": 2,
           "type": "file_exists",
           "oracle_passed": true,
-          "oracle_evidence": "1 file(s) match: runs\\o-fasting\\20260922-203837-259e\\report.pdf",
+          "oracle_evidence": "1 file(s) match: runs\\o-fasting\\20260922-215621-83a9\\report.pdf",
           "null_passed": false,
           "null_evidence": "0 file(s) match: -"
         },
@@ -120,7 +120,7 @@
           "index": 2,
           "type": "file_exists",
           "oracle_passed": true,
-          "oracle_evidence": "1 file(s) match: runs\\o-astro\\20260922-203840-e7dc\\report.pdf",
+          "oracle_evidence": "1 file(s) match: runs\\o-astro\\20260922-215624-5f61\\report.pdf",
           "null_passed": false,
           "null_evidence": "0 file(s) match: -"
         },
@@ -136,7 +136,7 @@
           "index": 4,
           "type": "numbers_grounded",
           "oracle_passed": true,
-          "oracle_evidence": "28 number(s) checked against 1 summary file(s)",
+          "oracle_evidence": "30 number(s) checked against 1 summary file(s)",
           "null_passed": false,
           "null_evidence": "no summary.json to ground numbers against"
         },
@@ -201,7 +201,7 @@
           "index": 2,
           "type": "file_exists",
           "oracle_passed": true,
-          "oracle_evidence": "1 file(s) match: runs\\o-english\\20260922-203843-20e9\\report.pdf",
+          "oracle_evidence": "1 file(s) match: runs\\o-english\\20260922-215627-4803\\report.pdf",
           "null_passed": false,
           "null_evidence": "0 file(s) match: -"
         },
@@ -217,7 +217,7 @@
           "index": 4,
           "type": "numbers_grounded",
           "oracle_passed": true,
-          "oracle_evidence": "129 number(s) checked against 1 summary file(s)",
+          "oracle_evidence": "139 number(s) checked against 1 summary file(s)",
           "null_passed": false,
           "null_evidence": "no summary.json to ground numbers against"
         },
@@ -283,7 +283,7 @@
           "index": 2,
           "type": "file_exists",
           "oracle_passed": true,
-          "oracle_evidence": "2 file(s) match: runs\\o-astro5\\20260922-203847-27c3\\report.pdf, runs\\o-astro5\\20260922-203850-e2eb\\report.pdf",
+          "oracle_evidence": "2 file(s) match: runs\\o-astro5\\20260922-215631-d32c\\report.pdf, runs\\o-astro5\\20260922-215633-7b53\\report.pdf",
           "null_passed": false,
           "null_evidence": "0 file(s) match: -"
         },
@@ -299,7 +299,7 @@
           "index": 4,
           "type": "numbers_grounded",
           "oracle_passed": true,
-          "oracle_evidence": "26 number(s) checked against 2 summary file(s)",
+          "oracle_evidence": "28 number(s) checked against 2 summary file(s)",
           "null_passed": false,
           "null_evidence": "no summary.json to ground numbers against"
         },
@@ -331,7 +331,7 @@
           "index": 8,
           "type": "file_exists",
           "oracle_passed": true,
-          "oracle_evidence": "2 file(s) match: runs\\o-astro5\\20260922-203847-27c3\\report.pdf, runs\\o-astro5\\20260922-203850-e2eb\\report.pdf",
+          "oracle_evidence": "2 file(s) match: runs\\o-astro5\\20260922-215631-d32c\\report.pdf, runs\\o-astro5\\20260922-215633-7b53\\report.pdf",
           "null_passed": false,
           "null_evidence": "0 file(s) match: -"
         },
@@ -373,7 +373,7 @@
           "index": 2,
           "type": "file_exists",
           "oracle_passed": true,
-          "oracle_evidence": "2 file(s) match: runs\\o-ml\\20260922-203853-e3d6\\report.pdf, runs\\o-ml\\20260922-203855-8851\\report.pdf",
+          "oracle_evidence": "2 file(s) match: runs\\o-ml\\20260922-215636-e4da\\report.pdf, runs\\o-ml\\20260922-215639-607a\\report.pdf",
           "null_passed": false,
           "null_evidence": "0 file(s) match: -"
         },
@@ -454,7 +454,7 @@
           "index": 2,
           "type": "file_exists",
           "oracle_passed": true,
-          "oracle_evidence": "1 file(s) match: runs\\o-chess\\20260922-203858-991a\\report.pdf",
+          "oracle_evidence": "1 file(s) match: runs\\o-chess\\20260922-215641-909b\\report.pdf",
           "null_passed": false,
           "null_evidence": "0 file(s) match: -"
         },
@@ -470,7 +470,7 @@
           "index": 4,
           "type": "numbers_grounded",
           "oracle_passed": true,
-          "oracle_evidence": "51 number(s) checked against 1 summary file(s)",
+          "oracle_evidence": "55 number(s) checked against 1 summary file(s)",
           "null_passed": false,
           "null_evidence": "no summary.json to ground numbers against"
         },
@@ -543,7 +543,7 @@
           "index": 2,
           "type": "file_exists",
           "oracle_passed": true,
-          "oracle_evidence": "1 file(s) match: runs\\o-stoic\\20260922-203902-56b3\\report.pdf",
+          "oracle_evidence": "1 file(s) match: runs\\o-stoic\\20260922-215644-ee7b\\report.pdf",
           "null_passed": false,
           "null_evidence": "0 file(s) match: -"
         },
@@ -559,7 +559,7 @@
           "index": 4,
           "type": "numbers_grounded",
           "oracle_passed": true,
-          "oracle_evidence": "26 number(s) checked against 1 summary file(s)",
+          "oracle_evidence": "28 number(s) checked against 1 summary file(s)",
           "null_passed": false,
           "null_evidence": "no summary.json to ground numbers against"
         },
@@ -681,7 +681,7 @@
           "index": 2,
           "type": "file_exists",
           "oracle_passed": true,
-          "oracle_evidence": "1 file(s) match: runs\\o-yoga\\20260922-203907-8254\\report.pdf",
+          "oracle_evidence": "1 file(s) match: runs\\o-yoga\\20260922-215649-454e\\report.pdf",
           "null_passed": false,
           "null_evidence": "0 file(s) match: -"
         },
@@ -697,7 +697,7 @@
           "index": 4,
           "type": "numbers_grounded",
           "oracle_passed": true,
-          "oracle_evidence": "47 number(s) checked against 1 summary file(s)",
+          "oracle_evidence": "51 number(s) checked against 1 summary file(s)",
           "null_passed": false,
           "null_evidence": "no summary.json to ground numbers against"
         },
@@ -762,7 +762,7 @@
           "index": 2,
           "type": "file_exists",
           "oracle_passed": true,
-          "oracle_evidence": "1 file(s) match: runs\\o-btc\\20260922-203910-557f\\report.pdf",
+          "oracle_evidence": "1 file(s) match: runs\\o-btc\\20260922-215651-674f\\report.pdf",
           "null_passed": false,
           "null_evidence": "0 file(s) match: -"
         },
@@ -852,7 +852,7 @@
           "index": 2,
           "type": "file_exists",
           "oracle_passed": true,
-          "oracle_evidence": "2 file(s) match: runs\\o-football\\20260922-203913-2313\\report.pdf, runs\\o-football\\20260922-203919-1a74\\report.pdf",
+          "oracle_evidence": "2 file(s) match: runs\\o-football\\20260922-215654-d168\\report.pdf, runs\\o-football\\20260922-215657-d62f\\report.pdf",
           "null_passed": false,
           "null_evidence": "0 file(s) match: -"
         },
@@ -934,7 +934,7 @@
           "index": 2,
           "type": "file_exists",
           "oracle_passed": true,
-          "oracle_evidence": "2 file(s) match: runs\\o-med\\20260922-203922-d150\\report.pdf, runs\\o-med\\20260922-203925-a7d8\\report.pdf",
+          "oracle_evidence": "2 file(s) match: runs\\o-med\\20260922-215700-fbec\\report.pdf, runs\\o-med\\20260922-215702-7ffb\\report.pdf",
           "null_passed": false,
           "null_evidence": "0 file(s) match: -"
         },
@@ -950,7 +950,7 @@
           "index": 4,
           "type": "numbers_grounded",
           "oracle_passed": true,
-          "oracle_evidence": "67 number(s) checked against 2 summary file(s)",
+          "oracle_evidence": "73 number(s) checked against 2 summary file(s)",
           "null_passed": false,
           "null_evidence": "no summary.json to ground numbers against"
         },
