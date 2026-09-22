@@ -364,7 +364,10 @@ def _judge(
     references = ctx.files(config.reference_glob)
     reference = references[0].read_text(encoding="utf-8-sig") if references else None
     context = JudgeContext(
-        turns=scenario.turns, answer=trajectory.final_answer, reference=reference
+        turns=scenario.turns,
+        answer=trajectory.final_answer,
+        reference=reference,
+        earlier_answers=[t.final_answer for t in trajectory.turns[:-1]],
     )
     records: list[GradeRecord] = []
     for item in scenario.rubric:

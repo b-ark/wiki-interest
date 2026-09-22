@@ -88,6 +88,7 @@ def test_variant_stats_means_and_std(tmp_path: Path) -> None:
     assert v.deterministic_pass_rate == pytest.approx(0.75)
     assert v.judge_pass_rate == pytest.approx(0.5)
     assert v.errors_by_class == {"timeout": 1}
+    assert v.n_errors_resolved_by_resume == 0
     assert v.mean_input_tokens == pytest.approx(150.0)
     assert v.mean_cost_usd == pytest.approx(0.1)
     assert v.noise_floor == pytest.approx(0.5)
@@ -159,3 +160,11 @@ def test_empty_run_dir_is_handled(tmp_path: Path) -> None:
     assert v.n_results == 0
     assert v.pass_rate_mean is None
     assert "n/a" in render_markdown(report)
+
+
+def test_error_resolved_by_resume_is_not_counted(tmp_path: Path) -> None:
+    run_dir = _write_run(tmp_path, "base", {"s0": [[True, True]]}, errors=1)
+    v = benchmark([run_dir]).variants[0]
+    assert v.n_errors == 0
+    assert v.n_errors_resolved_by_resume == 1
+    assert v.errors_by_class == {}

@@ -113,6 +113,7 @@ def test_run_writes_results_in_deterministic_order_with_artifacts(
     assert (case_dir / "artifacts" / "workspace" / "runs" / "s" / "r1" / "summary.json").exists()
     assert judge.contexts[0].reference == "ref"
     assert list(judge.contexts[0].turns) == ["first prompt", "follow-up"]
+    assert list(judge.contexts[0].earlier_answers) == ["intermediate"]
     written = read_jsonl(result.run_dir / "results.jsonl", CaseResult)
     assert len(written) == 4
     assert json.loads((result.run_dir / "run.json").read_text(encoding="utf-8"))["variant"] == "v1"

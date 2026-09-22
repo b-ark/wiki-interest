@@ -23,6 +23,7 @@ def test_prompt_wraps_answer_as_data_and_warns_about_length() -> None:
     assert "untrusted data" in prompt
     assert "NOT better" in prompt
     assert "[user message 2]\nQ2" in prompt
+    assert "[assistant answer" not in prompt
     assert "<reference_material>\nref\n</reference_material>" in prompt
     assert "variant" not in prompt.lower()
 
@@ -107,3 +108,29 @@ def test_judge_model_mismatch_and_errors(tmp_path: Path) -> None:
     garbage = ClaudeCliJudge(binary, run_command=lambda _a, _s: "not json")
     with pytest.raises(MalformedOutputError):
         garbage.judge("c", JudgeContext(turns=["q"], answer="a"))
+
+
+def test_judge_accepts_side_call_in_model_usage(tmp_path: Path) -> None:
+    binary = tmp_path / "claude.exe"
+    binary.write_bytes(b"")
+    envelope = json.dumps(
+        {
+            "type": "result",
+            "is_error": False,
+            "result": '{"passed": true, "evidence": "x"}',
+            "modelUsage": {
+                "claude-haiku-4-5-20251001": {"costUSD": 0.001},
+                "claude-sonnet-5": {"costUSD": 0.011},
+            },
+        }
+    )
+    judge = ClaudeCliJudge(binary, model="sonnet", run_command=lambda _a, _s: envelope)
+    assert judge.judge("c", JudgeContext(turns=["q"], answer="a")).passed
+
+
+def test_prompt_interleaves_earlier_answers() -> None:
+    ctx = JudgeContext(turns=["Q1", "Q2"], answer="final", earlier_answers=["A1"])
+    prompt = build_judge_prompt("c", ctx)
+    assert prompt.index("[user message 1]\nQ1") < prompt.index("[assistant answer 1]\nA1")
+    assert prompt.index("[assistant answer 1]\nA1") < prompt.index("[user message 2]\nQ2")
+    assert "<candidate_answer>\nfinal\n</candidate_answer>" in prompt

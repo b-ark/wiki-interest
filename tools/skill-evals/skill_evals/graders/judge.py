@@ -31,7 +31,11 @@ from skill_evals.providers.base import (
     ProviderTimeoutError,
     TransportError,
 )
-from skill_evals.providers.claude_cli import expected_model_prefix, locate_claude_binary
+from skill_evals.providers.claude_cli import (
+    expected_model_prefix,
+    locate_claude_binary,
+    primary_model,
+)
 
 __all__ = [
     "ClaudeCliJudge",
@@ -73,12 +77,15 @@ class JudgeContext:
     """What the judge may look at: the conversation, the answer and optional reference text.
 
     ``reference`` is typically ``summary.md`` from the pipeline, i.e. the ground truth the
-    answer should relay. It never includes variant names or file paths.
+    answer should relay. ``earlier_answers`` are the assistant's replies to all but the last
+    user message, so a criterion about a follow-up can be judged in context. Nothing here
+    names the variant or a file path.
     """
 
     turns: Sequence[str]
     answer: str
     reference: str | None = None
+    earlier_answers: Sequence[str] = ()
 
 
 class Judge(Protocol):
@@ -100,9 +107,7 @@ def build_judge_prompt(criterion: str, context: JudgeContext) -> str:
     The candidate answer is fenced with unambiguous delimiters and labelled as data so prompt
     injection from a misbehaving agent cannot flip the verdict.
     """
-    conversation = "\n\n".join(
-        f"[user message {i + 1}]\n{turn}" for i, turn in enumerate(context.turns)
-    )
+    conversation = "\n\n".join(_exchange(context))
     reference = (
         f"<reference_material>\n{context.reference}\n</reference_material>\n\n"
         if context.reference
@@ -118,11 +123,21 @@ def build_judge_prompt(criterion: str, context: JudgeContext) -> str:
         "present; unverifiable claims count against the answer.\n"
         "- When in doubt, fail: the burden of proof is on the answer.\n"
         "- Quote the specific words that support your verdict in 'evidence'.\n\n"
-        f"USER MESSAGES:\n{conversation}\n\n"
+        f"CONVERSATION (the final answer is fenced separately below):\n{conversation}\n\n"
         f"{reference}"
         f"<candidate_answer>\n{context.answer}\n</candidate_answer>\n\n"
         'Reply with exactly one JSON object: {"passed": true|false, "evidence": "..."}'
     )
+
+
+def _exchange(context: JudgeContext) -> list[str]:
+    """User messages interleaved with the earlier answers; the final answer is fenced apart."""
+    parts: list[str] = []
+    for i, turn in enumerate(context.turns):
+        parts.append(f"[user message {i + 1}]\n{turn}")
+        if i < len(context.earlier_answers):
+            parts.append(f"[assistant answer {i + 1}]\n{context.earlier_answers[i]}")
+    return parts
 
 
 def parse_verdict(text: str) -> JudgeVerdict:
@@ -241,5 +256,5 @@ class ClaudeCliJudge:
 def _served_model(envelope: dict[str, object]) -> str | None:
     model_usage = envelope.get("modelUsage")
     if isinstance(model_usage, dict) and model_usage:
-        return str(next(iter(model_usage)))
+        return primary_model(model_usage)
     return None

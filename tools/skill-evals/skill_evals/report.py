@@ -55,6 +55,7 @@ class VariantStats(_Model):
     reps: int
     n_results: int
     n_errors: int
+    n_errors_resolved_by_resume: int
     errors_by_class: dict[str, int]
     status_counts: dict[str, int]
     pass_rate_mean: float | None
@@ -186,6 +187,8 @@ def _kind_rate(results: Sequence[CaseResult], kind: str) -> float | None:
 def _variant_stats(run: _Run) -> VariantStats:
     results = run.results
     per_scenario = _per_scenario(results)
+    measured = {(r.scenario_id, r.rep) for r in results}
+    unresolved = [e for e in run.errors if (e.scenario_id, e.rep) not in measured]
     reps = max((r.rep for r in results), default=int(str(run.manifest.get("reps", 0)) or 0))
     n_scenarios = len(per_scenario)
     rep_means = _rep_means(results)
@@ -200,8 +203,9 @@ def _variant_stats(run: _Run) -> VariantStats:
         n_scenarios=n_scenarios,
         reps=reps,
         n_results=len(results),
-        n_errors=len(run.errors),
-        errors_by_class=dict(sorted(Counter(e.failure_class for e in run.errors).items())),
+        n_errors=len(unresolved),
+        n_errors_resolved_by_resume=len(run.errors) - len(unresolved),
+        errors_by_class=dict(sorted(Counter(e.failure_class for e in unresolved).items())),
         status_counts=dict(sorted(Counter(r.status for r in results).items())),
         pass_rate_mean=_mean(per_scenario.values()),
         pass_rate_std=_std(rep_means),
@@ -325,7 +329,10 @@ def _breakdown_tables(variants: Sequence[VariantStats]) -> list[str]:
         lines.append(f"- run dir: `{v.run_dir}`")
         lines.append(f"- requested model: `{v.requested_model}`; served: {v.served_models}")
         lines.append(f"- skill hash(es): {[h[:12] for h in v.skill_hashes]}")
-        lines.append(f"- statuses: {v.status_counts}; errors by class: {v.errors_by_class}")
+        lines.append(
+            f"- statuses: {v.status_counts}; unmeasured cases by class: {v.errors_by_class}; "
+            f"errors later resolved by resume: {v.n_errors_resolved_by_resume}"
+        )
         lines.append("")
         if v.per_assertion:
             lines += ["| Assertion type | Pass rate |", "|---|---|"]

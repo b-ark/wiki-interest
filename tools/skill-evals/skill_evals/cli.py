@@ -141,7 +141,7 @@ def compare(
     run_dirs: Annotated[list[Path], typer.Argument(help="Run directories; the first is the base")],
     out: Annotated[
         Path, typer.Option("--out", "-o", help="Where to write benchmark.md/json")
-    ] = Path("benchmarks"),
+    ] = _DEFAULT_RUNS_ROOT / "_benchmarks",
 ) -> None:
     """Aggregate run directories into benchmark.md and benchmark.json."""
     report = benchmark(run_dirs)

@@ -19,7 +19,7 @@ import subprocess
 import sys
 import time
 import uuid
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from pathlib import Path
@@ -43,6 +43,7 @@ __all__ = [
     "expected_model_prefix",
     "locate_claude_binary",
     "parse_stream",
+    "primary_model",
 ]
 
 BINARY_ENV = "SKILL_EVALS_CLAUDE_BIN"
@@ -303,7 +304,25 @@ def _apply_result(run: ParsedRun, event: dict[str, object]) -> None:
     model_usage = event.get("modelUsage")
     if isinstance(model_usage, dict) and model_usage:
         # The result is authoritative about which model actually served the turn.
-        run.served_model = str(next(iter(model_usage)))
+        run.served_model = primary_model(model_usage)
+
+
+def primary_model(model_usage: Mapping[str, object]) -> str:
+    """The model that did the work: the ``modelUsage`` entry with the highest cost.
+
+    Claude Code makes small side calls (observed: a Haiku call of ~12 output tokens next to
+    the real Sonnet judge call), so the first key is not the served model. Cost is the most
+    robust signal; output tokens break ties when cost is missing.
+    """
+
+    def weight(item: tuple[str, object]) -> tuple[float, float]:
+        stats = item[1] if isinstance(item[1], dict) else {}
+        return (
+            _opt_float(stats.get("costUSD")) or 0.0,
+            _opt_float(stats.get("outputTokens")) or 0.0,
+        )
+
+    return str(max(model_usage.items(), key=weight)[0])
 
 
 def _opt_str(value: object) -> str | None:

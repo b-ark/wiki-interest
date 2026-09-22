@@ -19,6 +19,7 @@ from skill_evals.providers.claude_cli import (
     expected_model_prefix,
     locate_claude_binary,
     parse_stream,
+    primary_model,
 )
 from tests.conftest import FIXTURES
 
@@ -233,3 +234,18 @@ def test_run_end_to_end_with_stubbed_process(
     events = (tmp_path / "events.jsonl").read_text(encoding="utf-8").splitlines()
     assert events[0].startswith('{"type": "harness_turn"')
     assert sum(1 for e in events if '"harness_turn"' in e) == 2
+
+
+def test_primary_model_ignores_cheap_side_calls() -> None:
+    usage = {
+        "claude-haiku-4-5-20251001": {"costUSD": 0.001139, "outputTokens": 12},
+        "claude-sonnet-5": {"costUSD": 0.0112688, "outputTokens": 108},
+    }
+    assert primary_model(usage) == "claude-sonnet-5"
+    assert primary_model({"a": {"outputTokens": 5}, "b": {"outputTokens": 50}}) == "b"
+
+
+def test_result_served_model_uses_primary_entry() -> None:
+    usage = {"claude-haiku-4-5-20251001": {"costUSD": 0.001}, "claude-sonnet-5": {"costUSD": 0.01}}
+    parsed = parse_stream([_result_event(modelUsage=usage)])
+    assert parsed.served_model == "claude-sonnet-5"
