@@ -1,0 +1,13 @@
+{
+  "schema_version": "1",
+  "question_type": "assess",
+  "topics": [
+    { "query": "астрономія", "query_language": "uk", "id": "astronomy" }
+  ],
+  "projects": ["uk.wikipedia"],
+  "report": {
+    "language": "uk",
+    "audience_note": "Educational app considering an astronomy course"
+  },
+  "session": "astronomy-uk"
+}

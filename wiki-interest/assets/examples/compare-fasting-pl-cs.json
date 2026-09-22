@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "question_type": "compare",
+  "topics": [
+    { "query": "intermittent fasting", "query_language": "en", "id": "intermittent-fasting" }
+  ],
+  "projects": ["pl.wikipedia", "cs.wikipedia"],
+  "period": { "start": "2024-09", "end": "2026-08" },
+  "report": { "language": "uk" },
+  "session": "fasting-pl-cs"
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1",
+  "question_type": "rank",
+  "topics": [
+    { "query": "English language", "query_language": "en", "id": "english-language" }
+  ],
+  "projects": ["uk.wikipedia", "pl.wikipedia", "cs.wikipedia", "ro.wikipedia", "hu.wikipedia"],
+  "period": { "start": "2023-09", "end": "2026-08" },
+  "ranking_weights": { "growth": 0.4, "volume": 0.3, "stability": 0.2, "reliability": 0.1 },
+  "report": {
+    "language": "uk",
+    "audience_note": "Language-learning app choosing the next audiences to research"
+  },
+  "session": "english-learning"
+}
