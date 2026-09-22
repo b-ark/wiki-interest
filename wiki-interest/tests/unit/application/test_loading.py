@@ -1,0 +1,136 @@
+"""Series loading: fetch planning, deduplication, assembly of bundles and redirects."""
+
+from __future__ import annotations
+
+from datetime import date
+
+import pytest
+
+from fakes import FakePageviews
+from wiki_interest.application.loading import LoadSettings, SeriesLoader
+from wiki_interest.application.resolution import ResolvedTopic
+from wiki_interest.contracts.request import Period
+from wiki_interest.domain.models import (
+    Access,
+    Agent,
+    ArticleRef,
+    ArticleRole,
+    BundleStatus,
+    Granularity,
+    ResolutionSource,
+    Series,
+    TopicBundle,
+    WikiProject,
+    Window,
+)
+from wiki_interest.errors import UpstreamError
+
+UK = WikiProject("uk")
+PERIOD = Period.model_validate({"start": "2025-01", "end": "2025-03"})
+MONTHS = (date(2025, 1, 1), date(2025, 2, 1), date(2025, 3, 1))
+
+
+def _bundle() -> TopicBundle:
+    main = ArticleRef(
+        UK,
+        "Астрономія",
+        ArticleRole.MAIN,
+        ResolutionSource.SITELINK,
+        qid="Q333",
+        redirects=("Astronomy",),
+    )
+    related = ArticleRef(UK, "Телескоп", ArticleRole.RELATED, ResolutionSource.LEAD_LINK, 0.5)
+    return TopicBundle("astronomy", UK, BundleStatus.FOUND, (main, related))
+
+
+def _topic(bundle: TopicBundle) -> ResolvedTopic:
+    return ResolvedTopic("astronomy", "astronomy", "Q333", "astronomy", (bundle,))
+
+
+def _source() -> FakePageviews:
+    source = FakePageviews()
+    source.set_article(UK, "Астрономія", dict(zip(MONTHS, [100.0, 200.0, 300.0], strict=True)))
+    source.set_article(UK, "Astronomy", dict(zip(MONTHS, [10.0, 20.0, 30.0], strict=True)))
+    source.set_article(UK, "Телескоп", dict(zip(MONTHS, [50.0, 50.0, 50.0], strict=True)))
+    source.set_aggregate(UK, dict(zip(MONTHS, [1e6, 1e6, 2e6], strict=True)))
+    source.set_article(
+        UK,
+        "Астрономія",
+        {date(2025, 1, 1): 5.0, date(2025, 3, 31): 7.0},
+        granularity=Granularity.DAILY,
+    )
+    source.set_article(UK, "Астрономія", {date(2025, 2, 1): 40.0}, agent=Agent.AUTOMATED)
+    return source
+
+
+class TestAssembly:
+    def test_bundle_sums_weighted_articles_and_their_redirects(self) -> None:
+        loaded = SeriesLoader(_source()).load([_topic(_bundle())], PERIOD)
+        assert len(loaded) == 1
+        item = loaded[0]
+        assert item.bundle_views is not None
+        assert item.bundle_views.values == (135.0, 245.0, 355.0)
+        assert item.main_views is not None
+        assert item.main_views.values == (110.0, 220.0, 330.0)
+        assert item.project_total.values == (1e6, 1e6, 2e6)
+
+    def test_daily_window_covers_the_whole_last_month(self) -> None:
+        source = _source()
+        item = SeriesLoader(source).load([_topic(_bundle())], PERIOD)[0]
+        assert item.main_daily is not None
+        assert item.main_daily.start == date(2025, 1, 1)
+        assert item.main_daily.end == date(2025, 3, 31)
+        assert item.main_daily.observed == (5.0, 7.0)
+
+    def test_automated_series_is_fetched_for_user_agent_only(self) -> None:
+        with_user = SeriesLoader(_source()).load([_topic(_bundle())], PERIOD)[0]
+        assert with_user.main_automated is not None
+        assert with_user.main_automated.values == (None, 40.0, None)
+        settings = LoadSettings(agent=Agent.ALL, fetch_daily=False)
+        with_all = SeriesLoader(_source(), settings=settings).load([_topic(_bundle())], PERIOD)[0]
+        assert with_all.main_automated is None
+        assert with_all.main_daily is None
+
+    def test_not_found_bundle_yields_no_article_series_but_a_total(self) -> None:
+        empty = TopicBundle("astronomy", UK, BundleStatus.NOT_FOUND)
+        item = SeriesLoader(_source()).load([_topic(empty)], PERIOD)[0]
+        assert item.bundle_views is None
+        assert item.main_views is None
+        assert item.main_daily is None
+        assert item.project_total.values == (1e6, 1e6, 2e6)
+
+    def test_unknown_article_becomes_gaps_not_errors(self) -> None:
+        source = _source()
+        source.articles.pop((UK.domain, "Телескоп", Granularity.MONTHLY, Agent.USER, Access.ALL))
+        item = SeriesLoader(source).load([_topic(_bundle())], PERIOD)[0]
+        assert item.bundle_views is not None
+        # The related article is missing entirely; the main article still counts.
+        assert item.bundle_views.values == (110.0, 220.0, 330.0)
+
+
+class TestPlanning:
+    def test_shared_titles_are_fetched_once(self) -> None:
+        source = _source()
+        topic_a = _topic(_bundle())
+        topic_b = ResolvedTopic("b", "b", "Q333", "b", (_bundle(),))
+        SeriesLoader(source).load([topic_a, topic_b], PERIOD)
+        monthly_user_calls = [
+            call
+            for call in source.calls
+            if call[0] == "per_article"
+            and isinstance(call[1][2], Window)
+            and call[1][2].granularity is Granularity.MONTHLY
+            and call[1][4] is Agent.USER
+        ]
+        assert len(monthly_user_calls) == 3  # Астрономія, Astronomy, Телескоп
+        assert len([c for c in source.calls if c[0] == "aggregate"]) == 1
+
+    def test_upstream_failure_fails_the_whole_load(self) -> None:
+        class Failing(FakePageviews):
+            def aggregate(
+                self, project: WikiProject, window: Window, *, access: Access, agent: Agent
+            ) -> Series:
+                raise UpstreamError("boom", retryable=True)
+
+        with pytest.raises(UpstreamError):
+            SeriesLoader(Failing()).load([_topic(_bundle())], PERIOD)

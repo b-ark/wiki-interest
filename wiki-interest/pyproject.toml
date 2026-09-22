@@ -91,7 +91,9 @@ known-first-party = ["wiki_interest"]
 "tests/**" = [
   "D",        # test names are the documentation
   "PLR2004",  # literal expected values are the point of a test
+  "PLR0913",  # fake/builder helpers legitimately take many keyword arguments
   "ARG001",   # fixtures are injected by name
+  "ARG002",   # fakes must honour port signatures even when they ignore an argument
 ]
 
 # ---------------------------------------------------------------------------
@@ -137,6 +139,7 @@ layers = [
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]
 addopts = "-q --strict-markers --strict-config -m 'not live'"
 markers = [
   "live: talks to the real Wikimedia APIs; deselected by default, run with `pytest -m live`",
