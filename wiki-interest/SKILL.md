@@ -20,7 +20,10 @@ The code does the thinking; you translate. Write a small `request.json`, run one
 relay what it wrote. Never compute growth or percentages yourself, never call the Wikimedia
 API by hand, never write your own analysis code: the script already normalises traffic by
 edition size, tests the trend, checks reliability and writes the caveats. Numbers in your
-answer come only from `summary.md`.
+answer come only from `summary.md`, copied as written. That rules out anything you would
+have to calculate: ratios ("14 times more"), shares ("62 % of the bundle"), differences, sums
+and counts of articles. If a number is not in `summary.md`, leave it out; the summary already
+states how many articles each bundle contains.
 
 ## Workflow
 
@@ -55,9 +58,19 @@ which may be read-only.
 4. **Answer.** Read `summary_md` and relay it almost verbatim in the user's language: the
    one-line answer, the key numbers table, the trust level with its reasons, the caveats.
    Tell the user where `report.pdf` and the charts are. Keep every number exactly as written.
-5. **Follow-ups** ("and over five years?", "add German", "that article is not what I
-   meant"): edit the same `request.json`, keep the same `session`, run again. Cached data
-   makes it fast. To explain what the new assumption changed, compare two runs:
+5. **Follow-ups:** edit the same `request.json`, keep the same `session`, run again (cached
+   data makes it fast), then answer from the *new* `summary.md`:
+
+   | The user says | Change |
+   |---|---|
+   | "over five years", "since 2020" | `period` (`{"start": "2021-09", "end": "2026-08"}`) |
+   | "add German", "also Slovak" | append to `projects` |
+   | "only the main article", "without related articles" | `topics[].bundle: "main"` |
+   | "that article is not what I meant" | `topics[].exclude_titles` |
+   | "raw numbers", "without normalisation" | `normalization: "absolute"` |
+   | "growth matters most" | `ranking_weights` |
+
+   To explain what the change did, compare the two runs:
    `uv run --project "<skill>" "<skill>/scripts/run.py" --diff <run_dir-a> <run_dir-b>`.
 
 ## Exit codes
@@ -74,10 +87,16 @@ Errors are JSON on stdout with `error`, `exit_code` and `hint`.
 
 ## What the answer must contain
 
-- The trust level (`high` / `medium` / `low`) and the reasons behind it. A low level is not a
-  failure; it tells the user a decision should not rest on this signal alone.
-- The caveat that Wikipedia readership measures curiosity, not willingness to pay, and that
-  editions differ in how well they cover a topic. `summary.md` phrases these for you.
+- The trust level (`high` / `medium` / `low`) **with at least one reason** taken from the
+  "how much to trust this" section of `summary.md`, for every edition you report. A level
+  without a reason tells the user nothing; a low level is not a failure, it says a decision
+  should not rest on this signal alone.
+- A caveats section, every time, including follow-ups: Wikipedia readership measures
+  curiosity, not willingness to pay, and editions differ in how well they cover a topic.
+  `summary.md` phrases these for you.
+- Directions and profiles in the summary's own words. A falling edition is falling even if it
+  ranks first; do not call it "growth potential". When everything declines, say so, then say
+  which edition declines least.
 - When an edition has no article for the topic, say "no article", not "no interest".
 - The bundle composition (which articles were counted) if the user might dispute it, and
   the offer to exclude or add articles.
@@ -89,3 +108,5 @@ Errors are JSON on stdout with `error`, `exit_code` and `hint`.
   level means.
 - `references/troubleshooting.md`: a command fails or output looks wrong.
 - `references/api-notes.md`: only when debugging data issues.
+- `references/roadmap.md`: the user asks for something the skill cannot do yet (topic
+  discovery, hundreds of topics, confidence intervals, countries); explain what is planned.

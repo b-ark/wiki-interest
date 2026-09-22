@@ -45,6 +45,9 @@ __all__ = [
     "RunResult",
     "case_status",
     "collect_artifacts",
+    "grade_case",
+    "latest_reference",
+    "regrade",
     "run",
 ]
 
@@ -338,6 +341,21 @@ def _skipped(rel: Path) -> bool:
 def _grade(
     scenario: Scenario, trajectory: Trajectory, case_dir: Path, config: RunConfig
 ) -> list[GradeRecord]:
+    return grade_case(scenario, trajectory, case_dir, config.judge, config.reference_glob)
+
+
+def grade_case(
+    scenario: Scenario,
+    trajectory: Trajectory,
+    case_dir: Path,
+    judge: Judge | None,
+    reference_glob: str = "**/summary.md",
+) -> list[GradeRecord]:
+    """Grade one case from its trajectory and copied artifacts.
+
+    Used by :func:`run` right after the agent finishes and by :func:`regrade` when graders
+    change, so a grader fix never requires paying for new agent runs.
+    """
     ctx = GradeContext(case_dir=case_dir / "artifacts", trajectory=trajectory)
     grades = [
         GradeRecord(
@@ -351,27 +369,44 @@ def _grade(
         for i, assertion in enumerate(scenario.assertions)
         for outcome in [grade(assertion, ctx)]
     ]
-    if config.judge is not None and scenario.rubric:
-        grades.extend(_judge(scenario, trajectory, ctx, config))
+    if judge is not None and scenario.rubric:
+        grades.extend(_judge(scenario, trajectory, ctx, judge, reference_glob))
     return grades
 
 
+def latest_reference(ctx: GradeContext, reference_glob: str) -> str | None:
+    """Text of the most recently written reference artifact, or ``None``.
+
+    In a multi-turn scenario every turn writes its own ``summary.md``; the final answer
+    relays the last one. Picking the first match by path (verified 2026-09-23) showed the
+    judge the first turn's two-year summary while it graded a five-year answer, and the
+    judge then called correct numbers invented. Artifacts are copied with their
+    modification times, so the newest file is the last turn's.
+    """
+    references = ctx.files(reference_glob)
+    if not references:
+        return None
+    newest = max(references, key=lambda path: (path.stat().st_mtime, str(path)))
+    return newest.read_text(encoding="utf-8-sig")
+
+
 def _judge(
-    scenario: Scenario, trajectory: Trajectory, ctx: GradeContext, config: RunConfig
+    scenario: Scenario,
+    trajectory: Trajectory,
+    ctx: GradeContext,
+    judge: Judge,
+    reference_glob: str,
 ) -> list[GradeRecord]:
     """One judge call per rubric item; the judge sees no variant name or path."""
-    assert config.judge is not None
-    references = ctx.files(config.reference_glob)
-    reference = references[0].read_text(encoding="utf-8-sig") if references else None
     context = JudgeContext(
         turns=scenario.turns,
         answer=trajectory.final_answer,
-        reference=reference,
+        reference=latest_reference(ctx, reference_glob),
         earlier_answers=[t.final_answer for t in trajectory.turns[:-1]],
     )
     records: list[GradeRecord] = []
     for item in scenario.rubric:
-        verdict = config.judge.judge(item.criterion, context)
+        verdict = judge.judge(item.criterion, context)
         records.append(
             GradeRecord(
                 id=item.id,
@@ -383,6 +418,47 @@ def _judge(
             )
         )
     return records
+
+
+def regrade(
+    run_dir: Path,
+    scenarios_path: Path,
+    judge: Judge | None,
+    *,
+    reference_glob: str = "**/summary.md",
+) -> list[CaseResult]:
+    """Re-grade every finished case of a run with the current graders and scenarios.
+
+    Trajectories, artifacts, usage and timings are kept; only ``grades`` change. The previous
+    ``results.jsonl`` is preserved as ``results.before-regrade.jsonl`` so the effect of a
+    grader change stays auditable.
+
+    Raises:
+        KeyError: If a result refers to a scenario no longer in ``scenarios_path``.
+    """
+    scenarios = {s.id: s for s in load_scenarios(scenarios_path).scenarios}
+    results_path = run_dir / "results.jsonl"
+    previous = read_jsonl(results_path, CaseResult)
+    updated: list[CaseResult] = []
+    for result in previous:
+        case_dir = Path(result.case_dir)
+        trajectory = Trajectory.model_validate_json(
+            (case_dir / "trajectory.json").read_text(encoding="utf-8")
+        )
+        grades = grade_case(
+            scenarios[result.scenario_id], trajectory, case_dir, judge, reference_glob
+        )
+        (case_dir / "grades.json").write_text(
+            json.dumps([g.model_dump() for g in grades], indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        updated.append(result.model_copy(update={"grades": grades}))
+    backup = run_dir / "results.before-regrade.jsonl"
+    shutil.copyfile(results_path, backup)
+    results_path.write_text("", encoding="utf-8")
+    for record in updated:
+        append_jsonl(results_path, record)
+    return updated
 
 
 def case_status(trajectory: Trajectory) -> CaseStatus:

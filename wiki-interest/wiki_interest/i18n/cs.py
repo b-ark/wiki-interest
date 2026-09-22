@@ -131,6 +131,7 @@ MESSAGES: dict[str, str] = {
         "Zeptejte se uživatele, kterou entitu má na mysli, a spusťte běh znovu s tímto qid"
     ),
     "summary.bundles": "Analyzované články",
+    "summary.bundle_count": "článků: {total} (souvisejících: {related})",
     # -- charts ----------------------------------------------------------------------------
     "chart.axis_per_million": "zobrazení na milion zobrazení edice",
     "chart.axis_views": "zobrazení měsíčně",

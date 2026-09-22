@@ -37,6 +37,7 @@ from wiki_interest.contracts.summary import (
     Verdict,
 )
 from wiki_interest.domain.models import (
+    ArticleRole,
     AudienceProfile,
     BundleStatus,
     RankedAudience,
@@ -176,6 +177,8 @@ class SummaryBuilder:
                     topic_id=bundle.topic_id,
                     project=bundle.project.domain,
                     status=bundle.status,
+                    article_count=len(bundle.articles),
+                    related_count=sum(1 for a in bundle.articles if a.role is not ArticleRole.MAIN),
                     articles=[
                         ArticleOut(
                             title=a.title,

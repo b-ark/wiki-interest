@@ -136,6 +136,7 @@ MESSAGES: dict[str, str] = {
         "Ask the user which entity they mean, then rerun with that qid in the request"
     ),
     "summary.bundles": "Articles analysed",
+    "summary.bundle_count": "articles: {total} (related: {related})",
     # -- charts ----------------------------------------------------------------------------
     "chart.axis_per_million": "views per million edition views",
     "chart.axis_views": "views per month",

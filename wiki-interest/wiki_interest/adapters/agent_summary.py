@@ -143,7 +143,10 @@ class AgentSummaryRenderer:
             f"{a.title} ({t.label('role', a.role)}, {t.number(a.weight, WEIGHT_DECIMALS)})"
             for a in bundle.articles
         ]
-        return f"**{bundle.project}**: {status} — {'; '.join(parts)}"
+        count = t.t(
+            "summary.bundle_count", total=bundle.article_count, related=bundle.related_count
+        )
+        return f"**{bundle.project}**: {status}, {count} — {'; '.join(parts)}"
 
     def _artifacts(self, summary: AnalysisSummary) -> list[str]:
         artifacts = summary.artifacts

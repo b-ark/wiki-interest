@@ -116,6 +116,14 @@ class TestCompare:
         assert bundle_series.points[0].period == "2024-09"
         assert bundle_series.points[0].per_million is not None
 
+    def test_bundles_state_their_article_counts(self, tmp_path: Path) -> None:
+        summary = _build(tmp_path)
+        uk = next(b for b in summary.resolution[0].bundles if b.project == "uk.wikipedia")
+        assert uk.article_count == len(uk.articles)
+        assert uk.related_count == len(uk.articles) - 1
+        pl = next(b for b in summary.resolution[0].bundles if b.project == "pl.wikipedia")
+        assert (pl.article_count, pl.related_count) == (0, 0)
+
     def test_charts_for_compare(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
         assert [(c.id, c.kind) for c in summary.charts] == [

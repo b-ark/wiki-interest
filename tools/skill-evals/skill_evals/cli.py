@@ -27,7 +27,7 @@ from skill_evals.providers.claude_cli import (
 )
 from skill_evals.providers.openrouter import OpenRouterProvider
 from skill_evals.report import benchmark, write_report
-from skill_evals.runner import RunConfig, run
+from skill_evals.runner import RunConfig, regrade, run
 from skill_evals.scenarios import ScenarioLoadError, load_scenarios
 from skill_evals.trigger import TriggerConfig, run_trigger
 
@@ -136,6 +136,19 @@ def run_command(
     )
     if result.errors:
         raise typer.Exit(code=2)
+
+
+@app.command("regrade")
+def regrade_command(
+    run_dir: Annotated[Path, typer.Argument(help="runs/<name> directory to re-grade")],
+    scenarios: Annotated[Path, typer.Option("--scenarios", "-s", help="Path to evals.json")],
+    judge: Annotated[bool, typer.Option("--judge/--no-judge", help="Run the LLM judge")] = True,
+    judge_model: Annotated[str, typer.Option()] = "sonnet",
+) -> None:
+    """Re-grade a finished run with the current graders, without re-running the agent."""
+    judge_obj: Judge | None = ClaudeCliJudge(model=judge_model) if judge else None
+    results = regrade(run_dir, scenarios, judge_obj)
+    _console.print(f"[green]re-graded[/] {len(results)} case(s) in {run_dir}")
 
 
 @app.command("compare")

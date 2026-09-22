@@ -55,7 +55,8 @@ def test_artifacts_are_listed_with_absolute_paths(compare_summary: AnalysisSumma
 def test_bundles_are_compact(compare_summary: AnalysisSummary) -> None:
     text = _build(compare_summary)
     assert (
-        "- **uk.wikipedia**: found — Інтервальне голодування (main, 1.00); "
+        "- **uk.wikipedia**: found, articles: 2 (related: 1) — "
+        "Інтервальне голодування (main, 1.00); "
         "Голодування (related, 0.50)" in text
     )
 
@@ -75,7 +76,10 @@ def test_rank_summary_includes_ranking_table() -> None:
     text = _build(example_summary(question_type="rank"))
     assert "| # | Topic | Edition | Score | Profile | Reliability | Why |" in text
     assert "| 3 | Post przerywany | pl.wikipedia | 0.22 | insufficient data | low |" in text
-    assert "- **pl.wikipedia**: found via search — Post przerywany (main, 1.00)" in text
+    assert (
+        "- **pl.wikipedia**: found via search, articles: 1 (related: 0) — "
+        "Post przerywany (main, 1.00)" in text
+    )
 
 
 def test_clarification_branch_shows_question_and_candidates_only() -> None:

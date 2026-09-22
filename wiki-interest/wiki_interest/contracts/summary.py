@@ -66,12 +66,19 @@ class ArticleOut(_Model):
 
 
 class BundleOut(_Model):
-    """Resolution result for one topic in one project."""
+    """Resolution result for one topic in one project.
+
+    ``article_count`` and ``related_count`` are stated explicitly (rather than left for the
+    reader to count) because agents that counted the list themselves were the most common
+    source of numbers not backed by the summary in the first Haiku evaluation.
+    """
 
     topic_id: str
     project: str
     status: BundleStatus
     articles: list[ArticleOut] = Field(default_factory=list)
+    article_count: int = 0
+    related_count: int = 0
 
 
 class TopicResolutionOut(_Model):

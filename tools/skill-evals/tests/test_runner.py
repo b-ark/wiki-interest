@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from rich.console import Console
 
+from skill_evals.graders.deterministic import GradeContext
 from skill_evals.graders.judge import JudgeContext, JudgeVerdict
 from skill_evals.providers.base import (
     ModelMismatchError,
@@ -16,7 +18,7 @@ from skill_evals.providers.base import (
     Trajectory,
 )
 from skill_evals.records import CaseResult, ErrorRecord, read_jsonl
-from skill_evals.runner import RateLimitGate, RunConfig, case_status, run
+from skill_evals.runner import RateLimitGate, RunConfig, case_status, latest_reference, regrade, run
 from tests.conftest import FakeProvider, make_summary, make_trajectory, write_summary
 
 SCENARIOS = {
@@ -223,3 +225,29 @@ def test_gate_waits_until_pause_elapses() -> None:
     gate.pause(0.0)
     gate.wait()
     assert slept == []
+
+
+def test_latest_reference_is_the_newest_summary(tmp_path: Path) -> None:
+    first = tmp_path / "runs" / "s" / "b-first" / "summary.md"
+    second = tmp_path / "runs" / "s" / "a-second" / "summary.md"
+    for path, text, mtime in ((first, "two years", 1_000), (second, "five years", 2_000)):
+        path.parent.mkdir(parents=True)
+        path.write_text(text, encoding="utf-8")
+        os.utime(path, (mtime, mtime))
+    ctx = GradeContext(case_dir=tmp_path, trajectory=make_trajectory("x"))
+    assert latest_reference(ctx, "**/summary.md") == "five years"
+    assert latest_reference(ctx, "**/nothing.md") is None
+
+
+def test_regrade_rewrites_grades_and_keeps_a_backup(tmp_path: Path, skill_dir: Path) -> None:
+    provider = FakeProvider({"first prompt": _good_first})
+    config = _config(tmp_path, skill_dir, provider)
+    run(config)
+    judge = StubJudge()
+    updated = regrade(config.run_dir, config.scenarios_path, judge)
+    assert len(updated) == 4
+    assert any(g.kind == "judge" for g in updated[0].grades)
+    assert (config.run_dir / "results.before-regrade.jsonl").exists()
+    reread = read_jsonl(config.run_dir / "results.jsonl", CaseResult)
+    assert [r.grades for r in reread] == [r.grades for r in updated]
+    assert reread[0].cost_usd == updated[0].cost_usd

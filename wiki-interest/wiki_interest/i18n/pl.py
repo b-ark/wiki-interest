@@ -129,6 +129,7 @@ MESSAGES: dict[str, str] = {
         "Zapytaj użytkownika, o którą encję chodzi, i uruchom ponownie z tym qid w żądaniu"
     ),
     "summary.bundles": "Analizowane artykuły",
+    "summary.bundle_count": "artykułów: {total} (powiązanych: {related})",
     # -- charts ----------------------------------------------------------------------------
     "chart.axis_per_million": "odsłon na milion odsłon edycji",
     "chart.axis_views": "odsłon miesięcznie",

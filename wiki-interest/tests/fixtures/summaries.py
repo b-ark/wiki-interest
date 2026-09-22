@@ -274,6 +274,7 @@ def _resolution(projects: list[str]) -> TopicResolutionOut:
                     topic_id=TOPIC_ID,
                     project=project,
                     status=BundleStatus.FOUND_VIA_SEARCH,
+                    article_count=1,
                     articles=[
                         ArticleOut(
                             title=_TITLES[project],
@@ -307,7 +308,12 @@ def _resolution(projects: list[str]) -> TopicResolutionOut:
             )
         bundles.append(
             BundleOut(
-                topic_id=TOPIC_ID, project=project, status=BundleStatus.FOUND, articles=articles
+                topic_id=TOPIC_ID,
+                project=project,
+                status=BundleStatus.FOUND,
+                articles=articles,
+                article_count=len(articles),
+                related_count=len(articles) - 1,
             )
         )
     return TopicResolutionOut(
