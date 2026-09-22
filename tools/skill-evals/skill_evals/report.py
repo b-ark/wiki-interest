@@ -376,6 +376,6 @@ def write_report(report: BenchmarkReport, target_dir: Path) -> tuple[Path, Path]
     target_dir.mkdir(parents=True, exist_ok=True)
     md = target_dir / "benchmark.md"
     js = target_dir / "benchmark.json"
-    md.write_text(render_markdown(report), encoding="utf-8")
-    js.write_text(report.model_dump_json(indent=2), encoding="utf-8")
+    md.write_text(render_markdown(report), encoding="utf-8", newline="\n")
+    js.write_text(report.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
     return md, js

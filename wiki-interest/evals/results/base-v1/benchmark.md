@@ -1,10 +1,10 @@
-# Benchmark (2026-09-22 21:11 UTC)
+# Benchmark (2026-09-22 21:28 UTC)
 
 ## Variants
 
 | Variant | Scenarios × reps | Pass rate (mean ± std over reps) | Noise floor | Deterministic | Judge | Turns | Tokens in/out | Cost USD | Duration s | Errors |
 |---|---|---|---|---|---|---|---|---|---|---|
-| base-v1 | 12 × 3 | 96.0% ± 1.2% | 0.167 | 97.6% | 90.7% | 9.6 | 353410/3334 | 0.1009 | 76 | 0 |
+| base-v1 | 12 × 3 | 97.3% ± 1.2% | 0.167 | 97.6% | 96.3% | 9.6 | 353410/3334 | 0.1009 | 76 | 0 |
 
 ## base-v1
 
@@ -28,17 +28,17 @@
 
 | Rubric | Pass rate |
 |---|---|
-| answers-question | 90.5% |
+| answers-question | 100.0% |
 | asks-not-guesses | 100.0% |
 | explains-absolute | 100.0% |
-| explains-change | 0.0% |
+| explains-change | 100.0% |
 | explains-data-start | 100.0% |
-| honest-about-decline | 66.7% |
+| honest-about-decline | 100.0% |
 | limitations-stated | 93.3% |
 | missing-article-honest | 100.0% |
 | recommends-audiences | 100.0% |
-| trust-explained | 80.0% |
-| user-language | 100.0% |
+| trust-explained | 86.7% |
+| user-language | 97.2% |
 
 | Scenario | Pass rate |
 |---|---|
@@ -48,9 +48,9 @@
 | en-stoicism-assess | 94.9% |
 | followup-absolute | 100.0% |
 | followup-add-editions | 94.4% |
-| followup-longer-period | 87.2% |
-| followup-main-article-only | 88.9% |
+| followup-longer-period | 97.4% |
+| followup-main-article-only | 91.7% |
 | period-before-2015 | 91.7% |
 | pl-yoga-compare | 100.0% |
-| rank-english-learning | 97.4% |
+| rank-english-learning | 100.0% |
 | ru-chess-compare | 97.4% |

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-22T21:11:28.981317Z",
+  "generated_at": "2026-09-22T21:28:43.895971Z",
   "variants": [
     {
       "variant": "base-v1",
@@ -20,10 +20,10 @@
       "status_counts": {
         "ok": 36
       },
-      "pass_rate_mean": 0.9599358974358975,
-      "pass_rate_std": 0.01202813060811716,
+      "pass_rate_mean": 0.9729344729344729,
+      "pass_rate_std": 0.011731884907428115,
       "deterministic_pass_rate": 0.9755351681957186,
-      "judge_pass_rate": 0.9074074074074074,
+      "judge_pass_rate": 0.9629629629629629,
       "per_assertion": {
         "answer_contains": 1.0,
         "caveats_relayed": 0.9696969696969697,
@@ -37,17 +37,17 @@
         "tool_called": 1.0
       },
       "per_rubric": {
-        "answers-question": 0.9047619047619048,
+        "answers-question": 1.0,
         "asks-not-guesses": 1.0,
         "explains-absolute": 1.0,
-        "explains-change": 0.0,
+        "explains-change": 1.0,
         "explains-data-start": 1.0,
-        "honest-about-decline": 0.6666666666666666,
+        "honest-about-decline": 1.0,
         "limitations-stated": 0.9333333333333333,
         "missing-article-honest": 1.0,
         "recommends-audiences": 1.0,
-        "trust-explained": 0.8,
-        "user-language": 1.0
+        "trust-explained": 0.8666666666666667,
+        "user-language": 0.9722222222222222
       },
       "per_scenario": {
         "ambiguous-mercury": 1.0,
@@ -56,11 +56,11 @@
         "en-stoicism-assess": 0.9487179487179488,
         "followup-absolute": 1.0,
         "followup-add-editions": 0.9444444444444443,
-        "followup-longer-period": 0.8717948717948718,
-        "followup-main-article-only": 0.8888888888888888,
+        "followup-longer-period": 0.9743589743589745,
+        "followup-main-article-only": 0.9166666666666666,
         "period-before-2015": 0.9166666666666666,
         "pl-yoga-compare": 1.0,
-        "rank-english-learning": 0.9743589743589745,
+        "rank-english-learning": 1.0,
         "ru-chess-compare": 0.9743589743589745
       },
       "mean_turns": 9.61111111111111,

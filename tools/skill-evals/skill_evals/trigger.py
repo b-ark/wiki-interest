@@ -180,8 +180,12 @@ def run_trigger(config: TriggerConfig) -> TriggerReport:
     observations = read_jsonl(obs_path, TriggerObservation)
     errors = read_jsonl(config.run_dir / "errors.jsonl", ErrorRecord)
     report = _summarise(observations, errors, len(cases), config.reps)
-    (config.run_dir / "trigger.json").write_text(report.model_dump_json(indent=2), encoding="utf-8")
-    (config.run_dir / "trigger.md").write_text(render_trigger_markdown(report), encoding="utf-8")
+    (config.run_dir / "trigger.json").write_text(
+        report.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n"
+    )
+    (config.run_dir / "trigger.md").write_text(
+        render_trigger_markdown(report), encoding="utf-8", newline="\n"
+    )
     return report
 
 
