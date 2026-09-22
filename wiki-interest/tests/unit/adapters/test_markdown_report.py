@@ -145,3 +145,28 @@ def test_relative_chart_path_falls_back_to_absolute_across_drives() -> None:
 def test_other_languages_render_without_missing_keys(tmp_path: Path, language: str) -> None:
     text = _render(example_summary(language=language), tmp_path)
     assert "{" not in text
+
+
+def test_not_found_bundle_has_status_line_without_table(tmp_path: Path) -> None:
+    summary = example_summary(question_type="rank")
+    topic = summary.resolution[0]
+    bundles = [
+        b.model_copy(update={"status": "not_found", "articles": []})
+        if b.project == "pl.wikipedia"
+        else b
+        for b in topic.bundles
+    ]
+    summary = summary.model_copy(
+        update={"resolution": [topic.model_copy(update={"bundles": bundles})]}
+    )
+    text = _render(summary, tmp_path)
+    assert "**pl.wikipedia** — not found" in text
+    assert "| Post przerywany | main |" not in text, "no article table for a not_found bundle"
+
+
+def test_svg_only_chart_list_is_still_embedded(tmp_path: Path) -> None:
+    summary = example_summary()
+    renderer = MarkdownReportRenderer(Translator("en"))
+    text = renderer.build(summary, [tmp_path / "charts" / "x.svg"], tmp_path)
+    assert "## Chart" + chr(10) in text
+    assert "![x](charts/x.svg)" in text

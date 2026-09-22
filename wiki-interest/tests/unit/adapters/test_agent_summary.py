@@ -122,3 +122,19 @@ def test_unwritable_output_raises_render_error(
     blocker.mkdir()
     with pytest.raises(RenderError):
         AgentSummaryRenderer(Translator("en")).render(compare_summary, [], blocker)
+
+
+def test_not_found_bundle_is_reported_honestly() -> None:
+    summary = example_summary(question_type="rank")
+    topic = summary.resolution[0]
+    bundles = [
+        b.model_copy(update={"status": "not_found", "articles": []})
+        if b.project == "pl.wikipedia"
+        else b
+        for b in topic.bundles
+    ]
+    summary = summary.model_copy(
+        update={"resolution": [topic.model_copy(update={"bundles": bundles})]}
+    )
+    text = _build(summary)
+    assert "- **pl.wikipedia**: not found" in text
