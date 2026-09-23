@@ -243,7 +243,11 @@ def test_latest_reference_adds_the_data_of_the_same_runs_facts(tmp_path: Path) -
     run_dir = tmp_path / "runs" / "s" / "r1"
     run_dir.mkdir(parents=True)
     (run_dir / "summary.md").write_text("summary", encoding="utf-8")
-    facts = {"pairs": [{"display": "-0,5 %"}], "rules": ["write short"], "ui_strings": {}}
+    facts = {
+        "pairs": [{"display": "-0,5 %"}],
+        "rules": ["write short"],
+        "template": {"headline": "the code's own words"},
+    }
     (run_dir / "facts.json").write_text(json.dumps(facts), encoding="utf-8")
     ctx = GradeContext(case_dir=tmp_path, trajectory=make_trajectory("x"))
     reference = latest_reference(ctx, "**/summary.md")
@@ -251,6 +255,7 @@ def test_latest_reference_adds_the_data_of_the_same_runs_facts(tmp_path: Path) -
     assert reference.startswith("summary\n\nfacts.json")
     assert "-0,5 %" in reference
     assert "write short" not in reference
+    assert "own words" not in reference
 
 
 def test_regrade_rewrites_grades_and_keeps_a_backup(tmp_path: Path, skill_dir: Path) -> None:

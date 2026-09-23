@@ -14,7 +14,6 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from string import Formatter
 
 from wiki_interest.contracts.narrative import Facts, Narrative, NarrativeProblem
@@ -138,7 +137,7 @@ class _Checker:
         self.length("happening", n.happening)
         self.length("decision", n.decision)
         self.length("next_step", [n.next_step])
-        self.length("chat_answer", [n.chat_answer])
+        self.length("caveats", n.caveats)
         self.robustness()
 
     def length(self, block: str, items: Sequence[str]) -> None:
@@ -191,7 +190,8 @@ class _Checker:
         for line in n.decision:
             yield "decision", line, None
         yield "next_step", n.next_step, None
-        yield "chat_answer", n.chat_answer, None
+        for line in n.caveats:
+            yield "caveats", line, None
 
     def numbers_and_terms(self) -> None:
         for block, text, pair in self.texts():
@@ -231,7 +231,13 @@ class _Checker:
             if not check_terms or not named or _is_count(number, hits):
                 continue
             text = f"{context} {sentence}"
-            if not any(self.names(text, m, hits) for m in named):
+            if any(self.names(text, m, hits) for m in named):
+                continue
+            # A number only one metric has may go without its name, unless the sentence
+            # names another metric: then it is attributed to the wrong one. Rejecting the
+            # bare number cost a turn and often the whole text (verified 2026-09-23).
+            others = [m for m in self.terms if m not in named]
+            if len(named) > 1 or any(self.names(text, m, hits) for m in others):
                 self.add(block, self.metric_hint(number, hits), sentence[:120])
 
     def names(self, text: str, metric: str, hits: Sequence[_Known]) -> bool:
@@ -287,19 +293,16 @@ class _Checker:
     # -- caveats and interface --------------------------------------------------------------
 
     def caveats(self) -> None:
-        pdf = self.facts.report_pdf
-        if pdf and Path(pdf).name not in self.narrative.chat_answer:
-            self.add("chat_answer", f"Give the path to the PDF in chat_answer: {pdf}.")
         declared = set(self.narrative.covered_caveats)
+        items = " ".join(self.narrative.caveats)
         for caveat in self.facts.caveats:
             if not _declared(caveat.id, declared):
                 self.add(
                     "covered_caveats",
-                    f"Cover caveat '{caveat.id}' in chat_answer "
-                    f"({caveat.meaning}) and list its id.",
+                    f"Cover caveat '{caveat.id}' in caveats ({caveat.meaning}) and list its id.",
                 )
-            elif caveat.pair and caveat.pair.split(" ")[0] not in self.narrative.chat_answer:
-                self.add("chat_answer", f"Caveat '{caveat.id}' must name {caveat.pair}.")
+            elif caveat.pair and caveat.pair.split(" ")[0] not in items:
+                self.add("caveats", f"Caveat '{caveat.id}' must name {caveat.pair}.")
 
     def ui(self) -> None:
         """Translations keep their placeholders; a missing one stays English, not a rejection.
@@ -309,7 +312,7 @@ class _Checker:
         analysis (verified 2026-09-23 on the evals).
         """
         for key, text in self.narrative.ui.items():
-            english = self.facts.ui_strings.get(key)
+            english = self.facts.template.ui.get(key)
             if english is not None and _fields(english) != _fields(text):
                 self.add(
                     "ui",

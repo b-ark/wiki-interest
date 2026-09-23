@@ -150,16 +150,19 @@ into `facts.json` with each number's metric, window and display form, and the ag
 
 - every number in it is one of the facts (within the rounding it was written with), and a
   percentage in the robustness text of an edition is one of that edition's;
-- every sentence with a number names its metric with the term the agent declared;
+- a number several metrics share is named with its metric, using the term the agent
+  declared, and no number sits in a sentence that names another metric;
 - the headline is one sentence without numbers, and every measured edition has its
   robustness text, naming the edition;
 - every caveat of `facts.caveats` is declared, and an edition it concerns is named in the
-  chat answer;
+  caveat items;
 - the descriptive blocks never call views demand, and no block uses statistical jargon or
   "1 in N" (word lists for en, uk, ru, pl, cs, de; other languages skip this check).
 
 A rejected text comes back with the reasons; after the second rejection the report keeps
-the code's own text, the template the agent started from.
+the code's own text, the template the agent started from. The chat answer is not written
+separately: the code lays out the checked blocks, adds the item analysed, a few next steps
+and the path to the PDF, so the user reads the same checked text as the PDF.
 
 ## 6. Further findings
 

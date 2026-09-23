@@ -146,20 +146,24 @@ class TestRenderNarrative:
         assert code == 0, payload
         return payload
 
-    def test_run_points_to_the_facts_and_the_template(
+    @staticmethod
+    def _template(payload: dict[str, object]) -> dict[str, object]:
+        facts = json.loads(Path(str(payload["facts_json"])).read_text(encoding="utf-8"))
+        template: dict[str, object] = facts["template"]
+        return template
+
+    def test_run_points_to_the_facts_with_the_template(
         self, tmp_path: Path, fakes: Container
     ) -> None:
         payload = self._run(tmp_path)
-        assert Path(str(payload["facts_json"])).is_file()
-        assert Path(str(payload["narrative_template"])).is_file()
+        assert self._template(payload)["headline"]
 
     def test_the_template_is_accepted_and_returns_the_chat_answer(
         self, tmp_path: Path, fakes: Container
     ) -> None:
         payload = self._run(tmp_path)
-        code, rendered = _invoke(
-            "render", str(payload["run_dir"]), "--narrative", str(payload["narrative_template"])
-        )
+        path = _write_request(tmp_path, self._template(payload), "narrative.json")
+        code, rendered = _invoke("render", str(payload["run_dir"]), "--narrative", str(path))
         assert code == 0, rendered
         assert rendered["status"] == "accepted"
         assert rendered["chat_answer"]
@@ -169,7 +173,7 @@ class TestRenderNarrative:
         self, tmp_path: Path, fakes: Container
     ) -> None:
         payload = self._run(tmp_path)
-        template = json.loads(Path(str(payload["narrative_template"])).read_text(encoding="utf-8"))
+        template = self._template(payload)
         path = _write_request(tmp_path, {**template, "headline": "Up 21 %."}, "narrative.json")
         code, rendered = _invoke("render", str(payload["run_dir"]), "--narrative", str(path))
         assert code == 2
@@ -184,4 +188,4 @@ class TestRenderNarrative:
         code, rendered = _invoke("render", str(payload["run_dir"]), "--narrative", str(path))
         assert code == 2
         assert "narrative schema" in str(rendered["error"])
-        assert "narrative.template.json" in str(rendered["hint"])
+        assert "facts.json's template" in str(rendered["hint"])

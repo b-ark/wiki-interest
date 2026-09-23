@@ -5,7 +5,8 @@ Usage:
     uv run scripts/render.py runs/<session>/<run-id>
 
 With ``--narrative`` the text is checked against the run's facts.json first. Accepted: the
-PDF and reports are rebuilt with it and stdout carries ``chat_answer`` (exit 0). Rejected:
+PDF and reports are rebuilt with it and stdout carries ``chat_answer``, the reply composed
+from that text (exit 0). Rejected:
 stdout lists ``problems`` (exit 2); fix them and render again. A second rejection keeps the
 template text (``status: fallback``, exit 0).
 

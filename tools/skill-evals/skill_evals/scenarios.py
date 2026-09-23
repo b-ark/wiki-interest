@@ -177,10 +177,11 @@ class NarrativeAccepted(_Strict):
 class ChatAnswerRelayed(_Strict):
     """The final answer is the report text the skill accepted (``chat_brief.md``), as it is.
 
-    The skill checks the agent's ``chat_answer``; a final answer that rewrites it (an English
-    preface, a summary, dropped caveats) reaches the user unchecked. Word overlap in both
-    directions must reach ``min_overlap``: the answer carries the accepted text, and little
-    besides it. Passes when no text was accepted; ``narrative_accepted`` covers that case.
+    The skill composes ``chat_answer`` from the text it checked; a final answer that rewrites
+    it (an English preface, a summary, dropped caveats) reaches the user unchecked. Word
+    overlap in both directions must reach ``min_overlap``: the answer carries the accepted
+    text, and little besides it. Passes when no text was accepted; ``narrative_accepted``
+    covers that case.
     """
 
     type: Literal["chat_answer_relayed"]

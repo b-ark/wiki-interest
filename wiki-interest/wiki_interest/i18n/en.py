@@ -81,6 +81,15 @@ MESSAGES: dict[str, str] = {
         "topics[].qid."
     ),
     "summary.bundles": "Articles analysed",
+    # -- chat answer (composed from the report text) ---------------------------------------
+    "chat.follow_ups": "I can also:",
+    "chat.follow_up.seasons": "show which months of the year are strongest",
+    "chat.follow_up.longer_period": "look at a longer period, back to 2015-07",
+    "chat.follow_up.add_editions": "add more language editions to compare",
+    "chat.follow_up.raw_views": "compare raw article views instead of the attention share",
+    "chat.follow_up.method_page": "add a page with the method and the data checks",
+    "chat.instant": "instant: the data are already loaded",
+    "chat.pdf": "PDF report: {path}",
     # -- charts ----------------------------------------------------------------------------
     "chart.axis_views": "views per month",
     "chart.no_data": "No data for this period",

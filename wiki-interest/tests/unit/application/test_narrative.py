@@ -4,7 +4,7 @@ Runs use the fake world (no network): ``astronomy`` in uk.wikipedia (37.9 per mi
 +21 %) and cs.wikipedia. The template text the code writes must pass its own checks in every
 language; each broken variant must be rejected with a problem the agent can act on. Only
 English has a catalog: in any other language the template is English with that language's
-numbers, and the agent must also translate the interface labels (``facts.ui_strings``).
+numbers, and the agent must also translate the interface labels (``facts.template.ui``).
 """
 
 from __future__ import annotations
@@ -59,8 +59,7 @@ def _facts(run_dir: Path) -> Facts:
 
 
 def _template(run_dir: Path) -> Narrative:
-    path = run_dir / "narrative.template.json"
-    return Narrative.model_validate_json(path.read_text(encoding="utf-8"))
+    return _facts(run_dir).template
 
 
 def _messages(facts: Facts, narrative: Narrative) -> list[str]:
@@ -68,8 +67,8 @@ def _messages(facts: Facts, narrative: Narrative) -> list[str]:
 
 
 def _with_ui(facts: Facts, narrative: Narrative) -> Narrative:
-    """``narrative`` with every label of ``facts.ui_strings`` answered (kept in English)."""
-    return narrative.model_copy(update={"ui": dict(facts.ui_strings)})
+    """``narrative`` with every label of ``facts.template.ui`` answered (kept in English)."""
+    return narrative.model_copy(update={"ui": dict(facts.template.ui)})
 
 
 def _russian(facts: Facts, template: Narrative) -> Narrative:
@@ -105,21 +104,24 @@ class TestFacts:
         assert change.display.startswith("+21")
         assert uk.states["momentum"] == "growing"
         assert {c.id for c in facts.caveats} >= {"curiosity_not_demand", "coverage_differs"}
-        assert facts.ui_strings  # no Russian catalog: the agent translates the labels
-        assert Path(facts.template_file).name == "narrative.template.json"
+        assert facts.template.ui  # no Russian catalog: the agent translates the labels
+        assert facts.template.language == "ru"
+        assert not (run_dir / "narrative.template.json").exists()  # one file to read
 
     def test_english_needs_no_interface_labels(self, tmp_path: Path) -> None:
         _, run_dir = _run(tmp_path, "en")
-        assert _facts(run_dir).ui_strings == {}
+        assert _facts(run_dir).template.ui == {}
 
     @pytest.mark.parametrize("language", ["ru", "de"])
     def test_language_without_a_catalog_asks_for_the_interface_labels(
         self, tmp_path: Path, language: str
     ) -> None:
         _, run_dir = _run(tmp_path, language)
-        ui = _facts(run_dir).ui_strings
+        ui = _facts(run_dir).template.ui
         # A section heading of the PDF, as the English template the agent translates.
         assert ui["report.decision"] == CATALOGS["en"]["report.decision"]
+        # The chat answer's labels are translated with the report's.
+        assert ui["chat.pdf"] == CATALOGS["en"]["chat.pdf"]
         assert "chart.no_data" not in ui or ui["chart.no_data"]
 
 
@@ -179,13 +181,14 @@ class TestAnalysisFacts:
         caveat = next(c for c in facts.caveats if c.id == "months:astronomy/uk")
         assert month in caveat.meaning
         # The template does not describe the month, so the agent has to.
+        uncovered = "Cover caveat 'months:astronomy/uk'"
         messages = _messages(facts, _template(run_dir))
-        assert any("months:astronomy/uk" in m for m in messages)
+        assert any(uncovered in m for m in messages)
         # A text written against the per-month ids of earlier versions still covers it.
         old_id = _template(run_dir).model_copy(
             update={"covered_caveats": [f"month:astronomy/uk:{month}"]}
         )
-        assert not any("months:astronomy/uk" in m for m in _messages(facts, old_id))
+        assert not any(uncovered in m for m in _messages(facts, old_id))
 
 
 class TestChatBrief:
@@ -198,11 +201,15 @@ class TestChatBrief:
         assert not follow_ups["longer_period"].cached
         assert "appendix" in follow_ups["method_page"].change
 
-    def test_the_chat_answer_gives_the_pdf(self, tmp_path: Path) -> None:
-        _, run_dir = _run(tmp_path, "en")
+    def test_a_caveat_of_an_edition_names_it(self, tmp_path: Path) -> None:
+        _, run_dir = _run(tmp_path, "en", world=_spiky_world())
         facts, template = _facts(run_dir), _template(run_dir)
-        without = template.model_copy(update={"chat_answer": "The share grows in uk.wikipedia."})
-        assert any("path to the PDF" in m for m in _messages(facts, without))
+        declared = template.model_copy(
+            update={"covered_caveats": [*template.covered_caveats, "months:astronomy/uk"]}
+        )
+        assert not any("Cover caveat" in m for m in _messages(facts, declared))
+        unnamed = declared.model_copy(update={"caveats": ["Views show curiosity."]})
+        assert any("must name uk.wikipedia" in m for m in _messages(facts, unnamed))
 
     def test_the_run_writes_the_method_next_to_the_report(self, tmp_path: Path) -> None:
         _, run_dir = _run(tmp_path, "ru")
@@ -255,7 +262,7 @@ class TestRejections:
         ("sentence", "expected"),
         [
             ("Доля просмотров выросла на 57 %.", "57 % is not in facts.json"),
-            ("uk.wikipedia: +21 % за год.", "needs its metric"),
+            ("uk.wikipedia: +21 % за год.", "needs its metric"),  # a share or article views
             ("Спрос на астрономию растёт, доля просмотров +21 %.", "not demand"),
             ("Рост доли просмотров +21 % статистически значим.", "No statistical jargon"),
             ("Это 1 из 26 000 просмотров.", "1 in N"),
@@ -290,13 +297,22 @@ class TestRejections:
             "Трафик раздела uk.wikipedia за 12 месяцев: +21 %.",
         ],
     )
-    def test_a_number_under_another_metric_or_none_is_rejected_with_the_words_to_use(
+    def test_a_number_several_metrics_share_or_under_another_metric_is_rejected(
         self, ru: tuple[Facts, Narrative], text: str
     ) -> None:
         facts, narrative = ru
         broken = narrative.model_copy(update={"happening": [*narrative.happening, text]})
         messages = _messages(facts, broken)
         assert any("write it as 'доля просмотров" in m for m in messages), messages
+
+    def test_a_number_only_one_metric_has_may_go_without_its_name(
+        self, ru: tuple[Facts, Narrative]
+    ) -> None:
+        facts, narrative = ru
+        bare = narrative.model_copy(
+            update={"happening": [*narrative.happening, "uk.wikipedia: 37,9."]}
+        )
+        assert _messages(facts, bare) == []
 
     def test_characters_of_another_script_are_rejected(self, ru: tuple[Facts, Narrative]) -> None:
         facts, narrative = ru
@@ -350,13 +366,13 @@ class TestRejections:
         _, run_dir = _run(tmp_path, "de")
         facts, narrative = _facts(run_dir), _template(run_dir)
         # The template carries every label to translate; one left out stays English.
-        assert set(narrative.ui) == set(facts.ui_strings)
+        assert narrative.ui
         untranslated = narrative.model_copy(update={"ui": {}})
         assert not any(p.block == "ui" for p in check_narrative(facts, untranslated))
-        ui = {key: f"DE {text}" for key, text in facts.ui_strings.items()}
+        ui = {key: f"DE {text}" for key, text in narrative.ui.items()}
         with_ui = narrative.model_copy(update={"ui": ui})
         assert _messages(facts, with_ui) == []
-        key = next(k for k, v in facts.ui_strings.items() if "{" in v)
+        key = next(k for k, v in narrative.ui.items() if "{" in v)
         bad = with_ui.model_copy(update={"ui": {**ui, key: "ohne Platzhalter"}})
         assert any("placeholders" in m for m in _messages(facts, bad))
 
@@ -375,10 +391,15 @@ class TestNarrate:
         assert "21\u202f%" in report  # the typed space before % no longer breaks the line
         pdf = "".join(page.extract_text() for page in PdfReader(run_dir / "report.pdf").pages)
         assert "украинской" in pdf
-        brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8")
-        assert brief.strip() == narrative.chat_answer.strip()
+        # The chat answer is laid out from the accepted blocks, with next steps and the PDF.
+        brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8").strip()
+        assert narrative.headline in brief
+        assert "37,9 на миллион" in brief
+        assert all(item in brief for item in narrative.caveats)
+        assert "(instant: the data are already loaded)" in brief
+        assert brief.endswith("report.pdf")
         payload = outcome.to_dict()
-        assert payload["chat_answer"] == narrative.chat_answer
+        assert payload["chat_answer"] == brief
         saved = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
         assert saved["narrative_source"] == "agent"
 
@@ -397,13 +418,14 @@ class TestNarrate:
     def test_interface_translations_are_kept_for_the_session(self, tmp_path: Path) -> None:
         pipeline, run_dir = _run(tmp_path, "de")
         facts = _facts(run_dir)
-        ui = {key: f"DE {text}" for key, text in facts.ui_strings.items()}
-        narrative = _template(run_dir).model_copy(update={"ui": ui})
+        ui = {key: f"DE {text}" for key, text in facts.template.ui.items()}
+        narrative = facts.template.model_copy(update={"ui": ui})
         assert pipeline.narrate(run_dir, narrative).status == "accepted"
         assert "DE " in (run_dir / "summary.md").read_text(encoding="utf-8")
+        assert "DE PDF report" in (run_dir / "chat_brief.md").read_text(encoding="utf-8")
         cache = run_dir.parent / "ui-de.json"
         assert json.loads(cache.read_text(encoding="utf-8")) == ui
         # The next run of the session renders with them and asks only for new labels.
         _, next_dir = _run(tmp_path, "de", run_id="r2")
         assert "DE " in (next_dir / "summary.md").read_text(encoding="utf-8")
-        assert not set(_facts(next_dir).ui_strings) & set(ui)
+        assert not set(_facts(next_dir).template.ui) & set(ui)

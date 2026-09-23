@@ -40,7 +40,7 @@ EXIT_PROBLEMS_FOUND = 1
 EXIT_INTERNAL = 5
 DEFAULT_SESSION = "default"
 SCHEMA_HINT = "See references/request-schema.md and assets/examples/ for valid requests."
-NARRATIVE_HINT = "Start from narrative.template.json in the run directory; keep its fields."
+NARRATIVE_HINT = "Start from facts.json's template in the run directory; keep its fields."
 
 build_container: Callable[[], Container] = Container.build
 """Factory for the composition root; tests replace it with one built on fakes."""

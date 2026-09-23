@@ -76,7 +76,8 @@ DEFAULT_ARTIFACT_GLOBS: tuple[str, ...] = (
 
 FACTS_FILE = "facts.json"
 _FACTS_INSTRUCTION_KEYS = frozenset(
-    {"blocks", "rules", "ui_strings", "template_file", "follow_ups", "report_pdf", "schema_version"}
+    {"blocks", "rules", "template", "follow_ups", "report_pdf", "schema_version"}
+    | {"ui_strings", "template_file"}  # schema 1, for regrading older runs
 )
 """Keys of ``facts.json`` that tell the agent how to write, not what the data says."""
 

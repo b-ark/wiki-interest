@@ -28,7 +28,7 @@ __all__ = ["CATALOGS", "DEFAULT_LANGUAGE", "SUPPORTED_LANGUAGES", "Translator"]
 
 SUPPORTED_LANGUAGES: tuple[str, ...] = ("en",)
 """Report languages with a catalog. Any other language gets the English templates, and the
-agent translates the interface labels the report uses (``facts.ui_strings``)."""
+agent translates the interface labels the report uses (``facts.template.ui``)."""
 
 DEFAULT_LANGUAGE = "en"
 """Language used for keys missing from a catalog and for unsupported request languages."""

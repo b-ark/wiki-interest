@@ -2,8 +2,9 @@
 
 The summary already holds every number and state; this module lays them out for the agent
 (each number with its metric, window and display form), writes the code's own text as a
-``narrative.template.json`` the agent can reuse (and the report falls back to), and puts an
-accepted narrative into the summary so the renderers print it.
+template inside the facts (the agent rewrites it; the report falls back to it), puts an
+accepted narrative into the summary so the renderers print it, and composes the chat answer
+from the report text.
 """
 
 from __future__ import annotations
@@ -34,7 +35,9 @@ __all__ = [
     "RULES",
     "apply_narrative",
     "build_facts",
+    "compose_chat",
     "pair_id",
+    "template_caveats",
     "template_narrative",
 ]
 
@@ -128,22 +131,19 @@ BLOCKS: tuple[BlockRule, ...] = (
         max_chars=300,
     ),
     BlockRule(
-        name="chat_answer",
+        name="caveats",
         rule=(
-            "Your whole reply in the chat, sent as it is: which item was analysed (one line); "
-            "the conclusion in two or three sentences with the key numbers, including whether "
-            "the topic grows faster or slower than its edition; one line per edition on "
-            "robustness; the decision and the next step; every caveat of caveats[] in one "
-            "short list; two or three next steps from follow_ups, marking the instant ones "
-            "(cached); the path to report_pdf. Short paragraphs or bullets; no tables, no "
-            "headings."
+            "Every caveat of caveats[] in the report language, one short item each (related "
+            "ones may share an item); an item for a pair names its edition. List their ids "
+            "in covered_caveats."
         ),
-        max_chars=1100,
+        max_items=12,
+        max_chars=250,
     ),
 )
-_CHAT_CHARS_PER_EDITION = 500
-"""The chat answer grows by one robustness line and a caveat or two per measured edition; its
-limit is the base above plus this per edition (1 600 for one, 3 600 for five)."""
+_CHAT_FOLLOW_UPS = 3
+"""How many next steps the chat answer offers."""
+_BLANK_LINES = re.compile(r"\n{3,}")
 
 RULES: tuple[str, ...] = (
     "Write in the report language, for the user; use audience_note when given.",
@@ -168,16 +168,6 @@ RULES: tuple[str, ...] = (
 )
 
 
-def _blocks(measured: int) -> list[BlockRule]:
-    """The block rules of this run: the chat answer's limit follows the number of editions."""
-    return [
-        b.model_copy(update={"max_chars": b.max_chars + _CHAT_CHARS_PER_EDITION * max(1, measured)})
-        if b.name == "chat_answer"
-        else b
-        for b in BLOCKS
-    ]
-
-
 def pair_id(assessment: AssessmentOut) -> str:
     """``<topic>/<language>``: how facts and narrative refer to one (topic, edition)."""
     return f"{assessment.topic_id}/{assessment.project.split('.')[0]}"
@@ -187,16 +177,14 @@ def build_facts(
     summary: AnalysisSummary,
     translator: Translator,
     *,
-    ui_strings: Mapping[str, str] | None = None,
-    template_file: str,
+    template: Narrative,
 ) -> Facts:
     """Lay out a finished summary for the agent that writes the text.
 
     Args:
         summary: A summary with status ``ok``.
         translator: The report-language translator (formats the display values).
-        ui_strings: Interface labels still to be translated, ``key: English template``.
-        template_file: Path of the template narrative, for the agent to read.
+        template: The code's own text, with the interface labels still to translate in ``ui``.
     """
     english = Translator("en")
     measured = [a for a in summary.assessments if a.measured]
@@ -231,10 +219,9 @@ def build_facts(
         limitations=list(summary.limitations),
         caveats=_caveats(summary.assessments, measured_count=len(measured)),
         follow_ups=_follow_ups(summary),
-        blocks=_blocks(len(measured)),
+        blocks=list(BLOCKS),
         rules=list(RULES),
-        ui_strings=dict(ui_strings or {}),
-        template_file=template_file,
+        template=template,
         report_pdf=summary.artifacts.report_pdf,
     )
 
@@ -503,40 +490,18 @@ def _caveats(assessments: Sequence[AssessmentOut], *, measured_count: int) -> li
     return out
 
 
-def template_narrative(summary: AnalysisSummary, translator: Translator) -> Narrative:
-    """The code's own text as a narrative: the fallback, and a reference for the agent."""
+def template_narrative(
+    summary: AnalysisSummary, translator: Translator, *, ui: Mapping[str, str] | None = None
+) -> Narrative:
+    """The code's own text as a narrative: the fallback, and a reference for the agent.
+
+    Args:
+        summary: A summary with status ``ok``.
+        translator: The report-language translator.
+        ui: Interface labels still to translate, ``key: English template``.
+    """
     decision = summary.decision
-    decision_lines = _decision_lines(decision, summary.assessments)
-    robustness = [
-        PairText(pair=pair_id(a), text=a.robustness_line)
-        for a in summary.assessments
-        if a.measured and a.robustness_line
-    ]
-    next_step = decision.next_step if decision else ""
     measured = sum(1 for a in summary.assessments if a.measured)
-    # The chat keeps the general limitations to one line (the PDF and summary.md have them in
-    # full); the answer must stay short enough to be sent as it is.
-    caveats = [
-        *summary.limitations,
-        *([translator.t("limitation.coverage")] if measured > 1 else []),
-        translator.t("report.footer_caveats"),
-    ]
-    chat = [
-        *_topic_lines(summary, translator),
-        "",
-        f"**{summary.verdict.headline}**",
-        "",
-        *(f"- {line}" for line in summary.happening),
-        "",
-        *(f"- {r.text}" for r in robustness),
-        "",
-        *decision_lines,
-        next_step,
-        "",
-        *(f"- {line}" for line in caveats),
-    ]
-    if summary.artifacts.report_pdf:
-        chat += ["", f"PDF: {summary.artifacts.report_pdf}"]
     return Narrative(
         language=summary.request.report.language,
         glossary={
@@ -546,17 +511,83 @@ def template_narrative(summary: AnalysisSummary, translator: Translator) -> Narr
         },
         headline=summary.verdict.headline,
         happening=list(summary.happening),
-        robustness=robustness,
-        decision=decision_lines,
-        next_step=next_step,
-        chat_answer="\n".join(chat).strip(),
+        robustness=[
+            PairText(pair=pair_id(a), text=a.robustness_line)
+            for a in summary.assessments
+            if a.measured and a.robustness_line
+        ],
+        decision=_decision_lines(decision, summary.assessments),
+        next_step=decision.next_step if decision else "",
+        caveats=template_caveats(summary, translator),
         # Anomalous months are the agent's to describe: the template does not name them.
         covered_caveats=[
             c.id
             for c in _caveats(summary.assessments, measured_count=measured)
             if not c.id.startswith("months:")
         ],
+        ui=dict(ui or {}),
     )
+
+
+def template_caveats(summary: AnalysisSummary, translator: Translator) -> list[str]:
+    """The caveats of the template text: this run's limitations and the general ones in brief.
+
+    The chat keeps the general limitations to one line; the PDF and ``summary.md`` have them
+    in full.
+    """
+    measured = sum(1 for a in summary.assessments if a.measured)
+    return [
+        *summary.limitations,
+        *([translator.t("limitation.coverage")] if measured > 1 else []),
+        translator.t("report.footer_caveats"),
+    ]
+
+
+def compose_chat(summary: AnalysisSummary, caveats: Sequence[str], translator: Translator) -> str:
+    """The answer the agent sends to the chat as it is, built from the report text.
+
+    The agent's blocks are already checked and in the user's language; the code only lays
+    them out and adds the item analysed, a few next steps and the path to the PDF, so the
+    answer needs no second text and no second check.
+
+    Args:
+        summary: The summary as rendered, with the agent's text when it was accepted.
+        caveats: The caveat items, the agent's or :func:`template_caveats`.
+        translator: The report-language translator, with the agent's interface labels.
+    """
+    decision = summary.decision
+    lines = [
+        *_topic_lines(summary, translator),
+        "",
+        f"**{summary.verdict.headline}**",
+        "",
+        *(f"- {line}" for line in summary.happening),
+        "",
+        *(
+            f"- {a.robustness_line}"
+            for a in summary.assessments
+            if a.measured and a.robustness_line
+        ),
+        "",
+        *_decision_lines(decision, summary.assessments),
+        decision.next_step if decision else "",
+        "",
+        *(f"- {line}" for line in caveats),
+    ]
+    offers = _follow_ups(summary)[:_CHAT_FOLLOW_UPS]
+    if offers:
+        instant = f" ({translator.t('chat.instant')})"
+        lines += [
+            "",
+            translator.t("chat.follow_ups"),
+            *(
+                f"- {translator.t(f'chat.follow_up.{f.id}')}{instant if f.cached else ''}"
+                for f in offers
+            ),
+        ]
+    if summary.artifacts.report_pdf:
+        lines += ["", translator.t("chat.pdf", path=summary.artifacts.report_pdf)]
+    return _BLANK_LINES.sub("\n\n", "\n".join(lines)).strip()
 
 
 def _topic_lines(summary: AnalysisSummary, t: Translator) -> list[str]:
@@ -612,7 +643,8 @@ def apply_narrative(summary: AnalysisSummary, narrative: Narrative) -> AnalysisS
     """The summary with the agent's text in place of the template text.
 
     The first decision line becomes the conclusion, the rest the per-audience lines; the
-    robustness text replaces each pair's line.
+    robustness text replaces each pair's line. The chat answer is composed when the summary
+    is rendered.
     """
     narrative = _typeset(narrative)
     by_pair = {r.pair: r.text for r in narrative.robustness}
@@ -636,6 +668,5 @@ def apply_narrative(summary: AnalysisSummary, narrative: Narrative) -> AnalysisS
             "assessments": assessments,
             "decision": decision,
             "narrative_source": "agent",
-            "chat_answer": narrative.chat_answer,
         }
     )

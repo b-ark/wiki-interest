@@ -545,7 +545,7 @@ class AnalysisSummary(_Model):
     """Who wrote the headline, happening, robustness and decision text: the code's templates,
     or the agent (``narrative.json``, checked against ``facts.json``)."""
     chat_answer: str | None = None
-    """The agent's chat reply, when it wrote the text."""
+    """The reply the agent sends to the chat as it is, composed from the report text."""
     artifacts: Artifacts
     provenance: Provenance
     clarification: Clarification | None = None

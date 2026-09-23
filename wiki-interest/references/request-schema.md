@@ -54,7 +54,7 @@ Unknown keys are rejected on purpose: a misspelled field would otherwise be sile
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `language` | language code (`ru`, `de`, `es`...) | `en` | The language the user writes in: you write the report text in it. Only `en` has built-in interface labels; for any other language `facts.json` lists the labels (`ui_strings`) for you to translate in `narrative.json` (once per session: later runs reuse them). |
+| `language` | language code (`ru`, `de`, `es`...) | `en` | The language the user writes in: you write the report text in it. Only `en` has built-in interface labels; for any other language `facts.json` lists the labels (`template.ui`) for you to translate in `narrative.json` (once per session: later runs reuse them). |
 | `title` | string | derived | Report title. |
 | `audience_note` | string | none | One line of context that goes into the report ("educational app considering an astronomy course"). |
 | `seasonality` | `auto` / `show` | `auto` | `show` when the user asks about timing (which months, seasons, when to launch): the seasonal pattern is then always reported and charted, with a caveat if it is not solid. `auto` states it only when it is solid on the article's whole history (5+ full years, repeated in 80 % of years, material). |

@@ -67,36 +67,40 @@ which may be read-only.
    uv run --project "<skill>" "<skill>/scripts/run.py" request.json
    ```
 
-   It prints one JSON object on stdout (ignore stderr) with `run_dir`, `facts_json` and
-   `narrative_template`. A first run can take a few minutes: give the command a 10-minute
+   It prints one JSON object on stdout (ignore stderr) with `run_dir` and `facts_json`.
+   A first run can take a few minutes: give the command a 10-minute
    timeout (600000 ms) and wait for it; never send it to the background.
 5. **Check the topic.** `topics[]` in the output names the entity that was analysed, with
    its description and other meanings. If it is not what the user meant, set `topics[].qid`
    to the right one and rerun.
-6. **Write `narrative.json`.** Read `facts_json`: `pairs[]` (states and numbers per edition),
-   `conclusion`, `findings`, `caveats`, and `blocks` and `rules` (how each field is written).
-   `narrative_template` is the code's own text in the same schema (in English when the
-   language has no catalog): start from it and rewrite it for this user and their question.
-   Fields:
+6. **Write `narrative.json`** in one go, after reading `facts_json` once: `pairs[]` (states
+   and numbers per edition), `conclusion`, `findings`, `caveats`, and `blocks` and `rules`
+   (how each field is written). `facts.template` is the code's own text in the same schema
+   (in English when the language has no catalog): rewrite it for this user and their
+   question. Fields:
    - `language` = `facts.language`; `glossary`: your term for each metric, used in every
      sentence with a number (`{"attention_share": "доля внимания", "article_views": ...,
      "edition_traffic": ...}`);
    - `headline`, `happening[]`, `robustness[]` (one `{"pair": pairs[].id, "text": ...}` per
-     measured pair, naming its edition), `decision[]`, `next_step`, `chat_answer`;
-   - `covered_caveats`: the ids of `facts.caveats` your `chat_answer` carries;
-   - `ui`: the interface labels of the PDF, already in the template in English: translate
-     each value, keep `{placeholders}`.
+     measured pair, naming its edition), `decision[]`, `next_step`;
+   - `caveats[]`: every caveat of `facts.caveats`, one short item each; `covered_caveats`:
+     their ids;
+   - `ui`: the interface labels, in the template in English: translate each value, keep
+     `{placeholders}`.
+   The code builds your chat reply from these blocks; do not write one.
 7. **Render:**
 
    ```
    uv run --project "<skill>" "<skill>/scripts/render.py" <run_dir> --narrative narrative.json
    ```
 
-   - exit 0, `status: accepted`: send `chat_answer` as your final message, word for word:
-     nothing before or after it ("Here is the report", "Done!"), no summary of it, no other
-     language. The checks ran on that text; anything you change is unchecked.
-   - exit 2, `status: rejected`: fix every item of `problems` and render once more; where a
-     problem says "write it as ...", use exactly those words.
+   - exit 0, `status: accepted`: send `chat_answer` (built from your text) as your final
+     message, word for word: nothing before or after it ("Here is the report", "Done!"), no
+     summary of it, no other language. The checks ran on that text; anything you change is
+     unchecked.
+   - exit 2, `status: rejected`: fix every item of `problems` in one rewrite of
+     `narrative.json` and render once more; where a problem says "write it as ...", use
+     exactly those words.
    - `status: fallback` (rejected twice): the report keeps the code's text; relay
      `summary_md` instead, numbers exactly as written.
 8. **Follow-ups:** edit the same `request.json`, keep the same `session`, run again (cached

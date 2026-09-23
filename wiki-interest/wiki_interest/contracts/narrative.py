@@ -161,7 +161,7 @@ class FollowUpFact(_Model):
 
 
 class CaveatFact(_Model):
-    """A caveat the chat answer must carry; ``pair`` must then be named in it."""
+    """A caveat the ``caveats`` block must carry; ``pair`` must then be named in it."""
 
     id: str
     meaning: str
@@ -175,6 +175,45 @@ class BlockRule(_Model):
     rule: str
     max_items: int = 1
     max_chars: int
+
+
+class PairText(_Model):
+    """The robustness text of one pair."""
+
+    pair: str
+    text: str
+
+
+class Narrative(_Model):
+    """The report text the agent writes (``narrative.json``).
+
+    The chat answer is not part of it: the code composes it from these blocks, so the user
+    reads exactly the text that was checked.
+
+    Attributes:
+        language: The language it is written in; must be the report language.
+        glossary: The agent's term for each metric (``attention_share: "доля внимания"``);
+            every sentence with a number names its metric with one of these terms.
+        headline: The answer in one sentence, without numbers.
+        happening: What happened: two to four sentences with the numbers.
+        robustness: For every measured pair, whether the recent months confirm the trend.
+        decision: What it means for the decision: the conclusion first, then per-audience lines.
+        next_step: The next step in one sentence, with examples of independent sources.
+        caveats: The caveats of ``facts.caveats`` in the report language, one short item each.
+        covered_caveats: Ids of the caveats ``caveats`` carries.
+        ui: Interface labels of the report: the template lists them in English to translate.
+    """
+
+    language: str
+    glossary: dict[MetricId, str]
+    headline: str
+    happening: list[str]
+    robustness: list[PairText] = Field(default_factory=list)
+    decision: list[str]
+    next_step: str
+    caveats: list[str] = Field(default_factory=list)
+    covered_caveats: list[str] = Field(default_factory=list)
+    ui: dict[str, str] = Field(default_factory=dict)
 
 
 class Facts(_Model):
@@ -192,18 +231,18 @@ class Facts(_Model):
         findings: Further facts worth mentioning.
         data_note: The state of the data, in the report language.
         limitations: Caveats specific to this run, in the report language.
-        caveats: What the chat answer must mention.
-        follow_ups: Next steps the chat answer offers (three to five of them).
+        caveats: What the ``caveats`` block must carry.
+        follow_ups: Next steps the chat answer offers; the code adds them.
         blocks: The blocks of ``narrative.json`` with their rules.
         rules: Writing rules that apply to every block.
-        ui_strings: Interface labels to translate (``key: English template``); empty when the
-            report language has a catalog. Keep ``{placeholders}`` as they are.
-        template_file: The code's own text in the report language (``narrative.template.json``):
-            a reference to reuse or rewrite, and the fallback.
+        template: The code's own text in the same schema, in the report language when it has a
+            catalog: a reference to rewrite, and the fallback. Its ``ui`` holds the interface
+            labels still to translate (``key: English template``), none when the language has
+            a catalog or the session translated them already.
         report_pdf: Where the PDF is; the chat answer names it.
     """
 
-    schema_version: Literal["1"] = "1"
+    schema_version: Literal["2"] = "2"
     language: str
     question: str
     audience_note: str | None = None
@@ -219,45 +258,8 @@ class Facts(_Model):
     follow_ups: list[FollowUpFact] = Field(default_factory=list)
     blocks: list[BlockRule]
     rules: list[str]
-    ui_strings: dict[str, str] = Field(default_factory=dict)
-    template_file: str
+    template: Narrative
     report_pdf: str | None = None
-
-
-class PairText(_Model):
-    """The robustness text of one pair."""
-
-    pair: str
-    text: str
-
-
-class Narrative(_Model):
-    """The report text the agent writes (``narrative.json``).
-
-    Attributes:
-        language: The language it is written in; must be the report language.
-        glossary: The agent's term for each metric (``attention_share: "доля внимания"``);
-            every sentence with a number names its metric with one of these terms.
-        headline: The answer in one sentence, without numbers.
-        happening: What happened: two to four sentences with the numbers.
-        robustness: For every measured pair, whether the recent months confirm the trend.
-        decision: What it means for the decision: the conclusion first, then per-audience lines.
-        next_step: The next step in one sentence, with examples of independent sources.
-        chat_answer: The answer for the chat, with the caveats and the path to the PDF.
-        covered_caveats: Ids of the caveats the chat answer carries.
-        ui: Translations of ``facts.ui_strings``.
-    """
-
-    language: str
-    glossary: dict[MetricId, str]
-    headline: str
-    happening: list[str]
-    robustness: list[PairText] = Field(default_factory=list)
-    decision: list[str]
-    next_step: str
-    chat_answer: str
-    covered_caveats: list[str] = Field(default_factory=list)
-    ui: dict[str, str] = Field(default_factory=dict)
 
 
 class NarrativeProblem(_Model):

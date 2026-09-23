@@ -82,7 +82,7 @@ class TestSuccessfulRun:
         assert "report.pdf" in text
         facts = json.loads((Path(outcome.summary.artifacts.run_dir) / "facts.json").read_text())
         assert facts["language"] == "uk"
-        assert "report.happening" in facts["ui_strings"]
+        assert "report.happening" in facts["template"]["ui"]
 
     def test_default_period_is_the_last_24_full_months(self, tmp_path: Path) -> None:
         outcome = _pipeline(tmp_path).run(_request(period=None), _context(tmp_path))
