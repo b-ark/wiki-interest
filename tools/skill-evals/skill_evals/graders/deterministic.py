@@ -21,6 +21,7 @@ from skill_evals.scenarios import (
     AnswerNotContains,
     Assertion,
     CaveatsRelayed,
+    ChatAnswerRelayed,
     ClarificationAsked,
     FileExists,
     MaxCostUsd,
@@ -140,6 +141,8 @@ def grade(assertion: Assertion, ctx: GradeContext) -> GradeOutcome:  # noqa: PLR
             return _clarification_asked(assertion, ctx)
         case NarrativeAccepted():
             return _narrative_accepted(assertion, ctx)
+        case ChatAnswerRelayed():
+            return _chat_answer_relayed(assertion, ctx)
 
 
 def _outcome(assertion: Assertion, passed: bool, evidence: str) -> GradeOutcome:
@@ -365,6 +368,23 @@ def _narrative_accepted(a: NarrativeAccepted, ctx: GradeContext) -> GradeOutcome
     others = sorted({s for s in final.values() if s != "accepted"})
     evidence = f"{accepted}/{len(final)} rendered run(s) accepted"
     return _outcome(a, accepted == len(final), evidence + (f"; also {others}" if others else ""))
+
+
+def _chat_answer_relayed(a: ChatAnswerRelayed, ctx: GradeContext) -> GradeOutcome:
+    briefs = ctx.files(f"**/{_CHAT_BRIEF}")
+    if not briefs:
+        return _outcome(a, True, "no accepted text to relay")
+    newest = max(briefs, key=lambda p: (p.stat().st_mtime, str(p)))
+    accepted = _tokens(newest.read_text(encoding="utf-8-sig"))
+    answer = _tokens(ctx.trajectory.final_answer)
+    if not accepted or not answer:
+        return _outcome(a, False, "empty accepted text or answer")
+    carried = len(accepted & answer) / len(accepted)
+    own = len(answer & accepted) / len(answer)
+    evidence = (
+        f"answer carries {carried:.0%} of the accepted text; {own:.0%} of it comes from there"
+    )
+    return _outcome(a, min(carried, own) >= a.min_overlap, evidence)
 
 
 def _caveat_messages(docs: list[dict[str, object]]) -> list[str]:

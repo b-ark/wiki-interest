@@ -15,6 +15,7 @@ from skill_evals.scenarios import (
     AnswerContains,
     AnswerNotContains,
     CaveatsRelayed,
+    ChatAnswerRelayed,
     ClarificationAsked,
     FileExists,
     MaxCostUsd,
@@ -340,3 +341,29 @@ def test_caveats_of_another_language_after_a_fallback_name_the_editions(tmp_path
     outcome = grade(check, _ctx(tmp_path, "Zainteresowanie rośnie."))
     assert not outcome.passed
     assert "missing ['pl.wikipedia']" in outcome.evidence
+
+
+ACCEPTED = (
+    "Частка уваги до астрономії в uk.wikipedia падає: мінус сорок п'ять відсотків за рік, "
+    "швидше за трафік розділу. Останні місяці показують можливий поворот. Перевірте попит "
+    "через Google Trends. Звіт: report.pdf"
+)
+
+
+def test_chat_answer_relayed_as_it_is_passes_and_a_rewrite_fails(tmp_path: Path) -> None:
+    run_dir = tmp_path / "artifacts" / "r1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "chat_brief.md").write_text(ACCEPTED, encoding="utf-8")
+    check = ChatAnswerRelayed(type="chat_answer_relayed")
+    assert grade(check, _ctx(tmp_path, ACCEPTED)).passed
+    prefaced = "Here is the report I generated for you, with all the details below.\n\n" + ACCEPTED
+    outcome = grade(check, _ctx(tmp_path, prefaced))
+    assert not outcome.passed
+    assert "comes from there" in outcome.evidence
+    assert not grade(check, _ctx(tmp_path, "Астрономія падає. Звіт готовий.")).passed
+
+
+def test_chat_answer_relayed_passes_without_an_accepted_text(tmp_path: Path) -> None:
+    outcome = grade(ChatAnswerRelayed(type="chat_answer_relayed"), _ctx(tmp_path, "anything"))
+    assert outcome.passed
+    assert outcome.evidence == "no accepted text to relay"

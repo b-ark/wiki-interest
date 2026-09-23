@@ -128,6 +128,7 @@ last turn. Globs are matched under the case's `artifacts/` directory (see layout
 | `max_cost_usd` | `value` | provider-reported cost ≤ `value`; passes with a note when the provider reports no cost |
 | `summary_field` | `summary_glob`, `path`, `equals` or `regex` | `path` (`a.b[0].c` or `a.b.0.c`) in some matching summary equals the value / matches the regex |
 | `caveats_relayed` | `summary_glob`, `min_reasons=1` | for every `reliability[]` block with `level != high`, collect `checks[]` with status `warn`/`fail`. English report: at least `min_reasons` of their `message`s appear in the answer (fuzzy: ≥ 50 % of the message's words of 4+ letters). Other languages (the messages are English template text): the answer relays the accepted `chat_brief.md` of that run (same fuzzy rule), whose caveats the skill's render check verified; without one, it names every edition whose reliability is not high. Vacuously passes when reliability is high everywhere |
+| `chat_answer_relayed` | `min_overlap=0.9` | the final answer is the newest accepted `chat_brief.md` as it is: word overlap (words of 4+ letters) in both directions ≥ `min_overlap`, so neither a rewrite nor a preface passes; passes when no text was accepted |
 | `narrative_accepted` | `pattern="render\.py"` | every run directory rendered with `--narrative` ended with status `accepted` (the last status per run counts; `fallback` fails); at least one such render |
 | `clarification_asked` | – | final answer contains `?` and no `report.pdf` was produced |
 

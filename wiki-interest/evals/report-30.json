@@ -75,6 +75,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -149,6 +152,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -223,6 +229,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -303,6 +312,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -378,6 +390,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -453,6 +468,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -575,6 +593,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -655,6 +676,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -804,6 +828,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -873,6 +900,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -949,6 +979,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1016,6 +1049,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1084,6 +1120,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1154,6 +1193,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1224,6 +1266,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1294,6 +1339,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1364,6 +1412,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1434,6 +1485,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1504,6 +1558,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1574,6 +1631,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1644,6 +1704,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1714,6 +1777,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1784,6 +1850,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1854,6 +1923,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [
@@ -1924,6 +1996,9 @@
         },
         {
           "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
         }
       ],
       "rubric": [

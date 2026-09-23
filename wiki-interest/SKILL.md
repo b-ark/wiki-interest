@@ -37,7 +37,9 @@ which may be read-only.
    settles it ("our chemistry app"), write that meaning into the request (step 3) and use the
    name that has that meaning as `query`. If it does not, list the common meanings and ask; do
    not run. Search goes by spelling, not meaning: Ukrainian "Меркурій" finds the planet first,
-   the element is "ртуть".
+   the element is "ртуть". Interest in learning or teaching a subject ("learning English",
+   "an astronomy course") is measured on the subject itself: `query` is "English language",
+   "astronomy"; articles about learning it are missing from most editions.
 2. **Needs only `uv`.** The first run creates the Python environment by itself (about ten
    seconds). If `uv` is missing, run `<skill>/scripts/setup.sh` (Windows:
    `<skill>/scripts/setup.ps1`) once.
@@ -90,10 +92,9 @@ which may be read-only.
    uv run --project "<skill>" "<skill>/scripts/render.py" <run_dir> --narrative narrative.json
    ```
 
-   - exit 0, `status: accepted`: your answer is `chat_answer` as you wrote it. It names the
-     item analysed, gives the conclusion with the path to `report_pdf`, the assumptions
-     (`caveats`), what could change the conclusion, and three to five next steps from
-     `follow_ups`, saying which are instant (`cached`).
+   - exit 0, `status: accepted`: send `chat_answer` as your final message, word for word:
+     nothing before or after it ("Here is the report", "Done!"), no summary of it, no other
+     language. The checks ran on that text; anything you change is unchecked.
    - exit 2, `status: rejected`: fix every item of `problems` and render once more; where a
      problem says "write it as ...", use exactly those words.
    - `status: fallback` (rejected twice): the report keeps the code's text; relay

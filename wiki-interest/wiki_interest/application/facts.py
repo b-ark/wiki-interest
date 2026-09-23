@@ -130,16 +130,20 @@ BLOCKS: tuple[BlockRule, ...] = (
     BlockRule(
         name="chat_answer",
         rule=(
-            "Your reply in the chat: which item was analysed; the conclusion (headline, "
-            "what happened, robustness, decision and next step) with the path to report_pdf; "
-            "the assumptions (every caveat of caveats[]); what could change the conclusion "
-            "(recent_confirmation, months that stand out, data_quality); then three to five "
-            "next steps from follow_ups, saying which are instant (cached). Short paragraphs "
-            "or bullets, no tables."
+            "Your whole reply in the chat, sent as it is: which item was analysed (one line); "
+            "the conclusion in two or three sentences with the key numbers, including whether "
+            "the topic grows faster or slower than its edition; one line per edition on "
+            "robustness; the decision and the next step; every caveat of caveats[] in one "
+            "short list; two or three next steps from follow_ups, marking the instant ones "
+            "(cached); the path to report_pdf. Short paragraphs or bullets; no tables, no "
+            "headings."
         ),
-        max_chars=3500,
+        max_chars=1100,
     ),
 )
+_CHAT_CHARS_PER_EDITION = 500
+"""The chat answer grows by one robustness line and a caveat or two per measured edition; its
+limit is the base above plus this per edition (1 600 for one, 3 600 for five)."""
 
 RULES: tuple[str, ...] = (
     "Write in the report language, for the user; use audience_note when given.",
@@ -162,6 +166,16 @@ RULES: tuple[str, ...] = (
     "timing and it is not shown, say why (season.reason).",
     "Follow the states: a declining momentum is a decline even for the largest audience.",
 )
+
+
+def _blocks(measured: int) -> list[BlockRule]:
+    """The block rules of this run: the chat answer's limit follows the number of editions."""
+    return [
+        b.model_copy(update={"max_chars": b.max_chars + _CHAT_CHARS_PER_EDITION * max(1, measured)})
+        if b.name == "chat_answer"
+        else b
+        for b in BLOCKS
+    ]
 
 
 def pair_id(assessment: AssessmentOut) -> str:
@@ -217,7 +231,7 @@ def build_facts(
         limitations=list(summary.limitations),
         caveats=_caveats(summary.assessments, measured_count=len(measured)),
         follow_ups=_follow_ups(summary),
-        blocks=list(BLOCKS),
+        blocks=_blocks(len(measured)),
         rules=list(RULES),
         ui_strings=dict(ui_strings or {}),
         template_file=template_file,
@@ -499,7 +513,14 @@ def template_narrative(summary: AnalysisSummary, translator: Translator) -> Narr
         if a.measured and a.robustness_line
     ]
     next_step = decision.next_step if decision else ""
-    caveats = [*summary.limitations, *summary.general_limitations]
+    measured = sum(1 for a in summary.assessments if a.measured)
+    # The chat keeps the general limitations to one line (the PDF and summary.md have them in
+    # full); the answer must stay short enough to be sent as it is.
+    caveats = [
+        *summary.limitations,
+        *([translator.t("limitation.coverage")] if measured > 1 else []),
+        translator.t("report.footer_caveats"),
+    ]
     chat = [
         *_topic_lines(summary, translator),
         "",
@@ -516,7 +537,6 @@ def template_narrative(summary: AnalysisSummary, translator: Translator) -> Narr
     ]
     if summary.artifacts.report_pdf:
         chat += ["", f"PDF: {summary.artifacts.report_pdf}"]
-    measured = sum(1 for a in summary.assessments if a.measured)
     return Narrative(
         language=summary.request.report.language,
         glossary={
