@@ -154,3 +154,50 @@ class TestOtherCommands:
         code, payload = _invoke("diff", str(tmp_path / "a"), str(tmp_path / "b"))
         assert code == 2
         assert "not found" in str(payload["error"]).lower()
+
+
+class TestRenderNarrative:
+    def _run(self, tmp_path: Path) -> dict[str, object]:
+        code, payload = _invoke("run", str(_write_request(tmp_path, REQUEST)))
+        assert code == 0, payload
+        return payload
+
+    def test_run_points_to_the_facts_and_the_template(
+        self, tmp_path: Path, fakes: Container
+    ) -> None:
+        payload = self._run(tmp_path)
+        assert Path(str(payload["facts_json"])).is_file()
+        assert Path(str(payload["narrative_template"])).is_file()
+
+    def test_the_template_is_accepted_and_returns_the_chat_answer(
+        self, tmp_path: Path, fakes: Container
+    ) -> None:
+        payload = self._run(tmp_path)
+        code, rendered = _invoke(
+            "render", str(payload["run_dir"]), "--narrative", str(payload["narrative_template"])
+        )
+        assert code == 0, rendered
+        assert rendered["status"] == "accepted"
+        assert rendered["chat_answer"]
+        assert Path(str(rendered["chat_brief"])).is_file()
+
+    def test_a_rejected_text_is_exit_two_with_problems(
+        self, tmp_path: Path, fakes: Container
+    ) -> None:
+        payload = self._run(tmp_path)
+        template = json.loads(Path(str(payload["narrative_template"])).read_text(encoding="utf-8"))
+        path = _write_request(tmp_path, {**template, "headline": "Up 21 %."}, "narrative.json")
+        code, rendered = _invoke("render", str(payload["run_dir"]), "--narrative", str(path))
+        assert code == 2
+        assert rendered["status"] == "rejected"
+        assert rendered["problems"]
+
+    def test_a_file_off_the_schema_is_exit_two_with_a_hint(
+        self, tmp_path: Path, fakes: Container
+    ) -> None:
+        payload = self._run(tmp_path)
+        path = _write_request(tmp_path, {"headline": "x"}, "narrative.json")
+        code, rendered = _invoke("render", str(payload["run_dir"]), "--narrative", str(path))
+        assert code == 2
+        assert "narrative schema" in str(rendered["error"])
+        assert "narrative.template.json" in str(rendered["hint"])

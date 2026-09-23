@@ -1,0 +1,24 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "mercury",
+          "query_language": "en",
+          "id": "mercury",
+          "meaning": "the chemical element Hg",
+          "qid": "Q925"
+        }
+      ],
+      "projects": [
+        "en",
+        "de"
+      ],
+      "report": {
+        "language": "en"
+      },
+      "session": "o-chem-en"
+    }
+  ]
+}

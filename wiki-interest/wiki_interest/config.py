@@ -10,6 +10,7 @@ depend on it without cycles.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -88,6 +89,10 @@ class Settings(BaseSettings):
         cache_path: SQLite file for the HTTP cache; parent directories are created on demand.
         runs_dir: Where run directories are written; ``wiki-interest-runs/`` in the current
             working directory by default, so reports land in the user's project.
+        stop_after: ``"resolve"`` ends a run once the topics are resolved and every edition
+            has an article or a decision, without fetching pageviews. Used by the evaluation
+            harness to test the topic stage (questions, entity choice) on its own; a run in
+            this mode says so in ``summary.md``.
     """
 
     model_config = SettingsConfigDict(env_prefix="WIKI_INTEREST_", frozen=True)
@@ -103,6 +108,7 @@ class Settings(BaseSettings):
     resolution_ttl_s: int = Field(default=_RESOLUTION_TTL_DAYS * _SECONDS_PER_DAY, ge=0)
     cache_path: Path = Field(default_factory=_default_cache_path)
     runs_dir: Path = Field(default_factory=_default_runs_dir)
+    stop_after: Literal["resolve"] | None = None
 
     # Reliability thresholds; defaults come from the domain so there is one source of truth.
     min_periods_ok: int = Field(default=_DEFAULT_THRESHOLDS.min_periods_ok, ge=1)

@@ -157,9 +157,15 @@ class CaveatsRelayed(_Strict):
 
 
 class ClarificationAsked(_Strict):
-    """The agent asked the user a question and did not produce ``report.pdf``."""
+    """The agent asked the user a question and did not produce ``report.pdf``.
+
+    A question mark counts as asking. ``request_patterns`` add regular expressions for asking
+    by request instead ("send me a link"), which carries no question mark but is still the
+    agent handing the decision back to the user.
+    """
 
     type: Literal["clarification_asked"]
+    request_patterns: list[str] = Field(default_factory=list)
 
 
 Assertion = Annotated[
@@ -186,6 +192,27 @@ class RubricItem(_Strict):
     criterion: str = Field(min_length=1)
 
 
+STAGE_ENV: dict[str, dict[str, str]] = {"resolve": {"WIKI_INTEREST_STOP_AFTER": "resolve"}}
+"""Environment that makes the skill's pipeline stop after a stage (see ``Scenario.stage``)."""
+
+AGENT_SESSION_ENV: dict[str, str] = {
+    "BASH_DEFAULT_TIMEOUT_MS": "600000",
+    "BASH_MAX_TIMEOUT_MS": "600000",
+}
+"""Claude Code settings for every sandbox: shell commands may run up to ten minutes.
+
+By default a command running longer than two minutes is moved to the background. In an
+interactive session the agent is notified when it finishes; in ``claude -p`` the agent ends
+its turn with "waiting for results" and nothing reports back, so the case measures the
+harness (verified 2026-09-23: 13 of 30 cases under parallel load). Verified the same day that
+the variable governs the PowerShell tool too."""
+
+CACHE_PATH_ENV = "WIKI_INTEREST_CACHE_PATH"
+"""Where the skill keeps its HTTP cache. Set per sandbox when the Python environment is shared:
+the skill derives the default from its package location, which would then be one file for
+every concurrent case."""
+
+
 class Scenario(_Strict):
     """One conversation with the agent and the checks applied to it."""
 
@@ -197,6 +224,10 @@ class Scenario(_Strict):
     assertions: list[Assertion] = Field(default_factory=list)
     rubric: list[RubricItem] = Field(default_factory=list)
     should_trigger: bool = True
+    stage: Literal["full", "resolve"] = "full"
+    """``resolve`` stops the skill's pipeline after the topic stage (questions, entity choice),
+    so that stage can be evaluated on its own in a fraction of the time. The agent is not told:
+    the variable reaches only the skill's scripts, through the sandbox's project settings."""
 
     @field_validator("rubric")
     @classmethod

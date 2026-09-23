@@ -21,7 +21,20 @@ def _spec_of_kind(kind: str) -> ChartSpec:
     return next(c for c in example_summary().charts if c.kind == kind)
 
 
-@pytest.mark.parametrize("kind", ["lines", "bars", "trend"])
+def _bars() -> ChartSpec:
+    return ChartSpec(
+        id="season",
+        kind="bars",
+        size="half",
+        title="Months",
+        y_label="%",
+        series=[ChartSeries(label="m", x=["Jan", "Feb", "Mar"], y=[12.0, -4.5, 30.25])],
+        reference_y=0.0,
+        value_suffix="%",
+    )
+
+
+@pytest.mark.parametrize("kind", ["lines", "grouped_bars", "trend"])
 def test_each_kind_writes_png_and_svg(
     renderer: MatplotlibChartRenderer, tmp_path: Path, kind: str
 ) -> None:
@@ -33,10 +46,55 @@ def test_each_kind_writes_png_and_svg(
     assert "<svg" in paths[1].read_text(encoding="utf-8")
 
 
+def test_bars_render_with_percent_labels(renderer: MatplotlibChartRenderer, tmp_path: Path) -> None:
+    _, svg = renderer.render(_bars(), tmp_path)
+    text = svg.read_text(encoding="utf-8")
+    assert "30%" in text
+    assert "-4%" in text or "-5%" in text
+
+
+def test_value_labels_use_the_report_separators(tmp_path: Path) -> None:
+    renderer = MatplotlibChartRenderer(decimal_sep=",", thousands_sep=" ")
+    spec = ChartSpec(
+        id="score",
+        kind="bars",
+        title="Score",
+        y_label="score",
+        series=[ChartSeries(label="s", x=["uk", "pl"], y=[0.98, 1234.0])],
+    )
+    _, svg = renderer.render(spec, tmp_path)
+    text = svg.read_text(encoding="utf-8")
+    assert "0,98" in text
+    assert "1 234" in text
+
+
+def test_log_axis_and_reference_line_render(
+    renderer: MatplotlibChartRenderer, tmp_path: Path
+) -> None:
+    spec = _spec_of_kind("lines").model_copy(update={"log_y": True, "reference_y": 50.0})
+    assert len(renderer.render(spec, tmp_path)) == 2
+
+
+def test_grouped_bars_with_mixed_signs_render(
+    renderer: MatplotlibChartRenderer, tmp_path: Path
+) -> None:
+    spec = ChartSpec(
+        id="mixed",
+        kind="grouped_bars",
+        title="Mixed",
+        y_label="%",
+        series=[
+            ChartSeries(label="a", x=["uk", "cs"], y=[10.0, -5.0]),
+            ChartSeries(label="b", x=["uk", "cs"], y=[None, 3.0]),
+        ],
+    )
+    assert len(renderer.render(spec, tmp_path)) == 2
+
+
 def test_svg_contains_title_and_footnote_as_text(
     renderer: MatplotlibChartRenderer, tmp_path: Path
 ) -> None:
-    spec = _spec_of_kind("lines")
+    spec = _spec_of_kind("trend")
     _, svg = renderer.render(spec, tmp_path)
     text = svg.read_text(encoding="utf-8")
     assert spec.title in text
@@ -57,7 +115,7 @@ def test_svg_is_byte_identical_across_runs(
 def test_png_is_byte_identical_across_runs(
     renderer: MatplotlibChartRenderer, tmp_path: Path
 ) -> None:
-    spec = _spec_of_kind("bars")
+    spec = _bars()
     first = renderer.render(spec, tmp_path / "a")[0].read_bytes()
     second = renderer.render(spec, tmp_path / "b")[0].read_bytes()
     assert first == second

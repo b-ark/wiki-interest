@@ -24,7 +24,7 @@ from wiki_interest.domain.models import (
     ReliabilityLevel,
     ReliabilityThresholds,
     ResolutionSource,
-    TrendDirection,
+    SubstituteKind,
     TrendMetrics,
 )
 
@@ -39,7 +39,6 @@ CHECK_NAMES: frozenset[str] = frozenset(
         "resolution",
         "automated",
         "volume",
-        "bundle",
     }
 )
 """Every ``Check.name`` this module can emit."""
@@ -63,13 +62,14 @@ REASON_KEYS: frozenset[str] = frozenset(
         "resolution.search_fallback",
         "resolution.manual",
         "resolution.not_found",
+        "resolution.substitute_redirect",
+        "resolution.substitute_broader",
+        "resolution.substitute_mention",
         "automated.low",
         "automated.high",
         "automated.unavailable",
         "volume.ok",
         "volume.low",
-        "bundle.consistent",
-        "bundle.diverges",
     }
 )
 """Every ``Check.reason_key`` this module can emit; the i18n tables must cover all of them."""
@@ -85,8 +85,8 @@ class _Context:
     metrics: TrendMetrics
     bundle_status: BundleStatus
     main_source: ResolutionSource | None
-    main_metrics: TrendMetrics | None
     thresholds: ReliabilityThresholds
+    substitute_kind: SubstituteKind | None = None
 
 
 _Rule = Callable[[_Context], Check | None]
@@ -97,8 +97,8 @@ def assess_reliability(
     *,
     bundle_status: BundleStatus,
     main_source: ResolutionSource | None,
-    main_metrics: TrendMetrics | None = None,
     thresholds: ReliabilityThresholds = _DEFAULT_THRESHOLDS,
+    substitute_kind: SubstituteKind | None = None,
 ) -> Reliability:
     """Run every reliability rule and aggregate the verdict.
 
@@ -111,20 +111,19 @@ def assess_reliability(
     "window too short" for a series that does not exist would mislead.
 
     Args:
-        metrics: Metrics of the bundle series, or ``None`` when there is no series.
+        metrics: Metrics of the measured series, or ``None`` when there is no series.
         bundle_status: Outcome of resolving the topic in this project.
         main_source: How the main article's title was obtained, if there is one.
-        main_metrics: Metrics of the main article alone, when the bundle has related
-            articles; enables the bundle-consistency rule.
         thresholds: Rule thresholds.
+        substitute_kind: What stands in for a missing article, for ``SUBSTITUTE`` bundles.
 
     Returns:
         The level and the checks that produced it.
     """
     if metrics is None:
-        check = _resolution(bundle_status, main_source, thresholds)
+        check = _resolution(bundle_status, main_source, thresholds, substitute_kind)
         return Reliability(level=ReliabilityLevel.LOW, checks=(check,))
-    context = _Context(metrics, bundle_status, main_source, main_metrics, thresholds)
+    context = _Context(metrics, bundle_status, main_source, thresholds, substitute_kind)
     results = (rule(context) for rule in _RULES)
     checks = tuple(check for check in results if check is not None)
     return Reliability(level=_aggregate(checks), checks=checks)
@@ -191,14 +190,23 @@ def _resolution(
     bundle_status: BundleStatus,
     main_source: ResolutionSource | None,
     thresholds: ReliabilityThresholds,
+    substitute_kind: SubstituteKind | None = None,
 ) -> Check:
     """How confidently the topic was mapped to an article in this edition.
 
     A search fallback may have picked a neighbouring subject, so it warns by default; a
-    manually supplied title is the user's own choice and only informs.
+    manually supplied title is the user's own choice and only informs. A substitute for a
+    missing article was the user's informed choice too, but it measures something other than
+    the topic: a redirect only undercounts (WARN), while a broader or mentioning article
+    describes a different subject, so no conclusion about the topic may rest on it (FAIL).
     """
     if bundle_status is BundleStatus.NOT_FOUND:
         return Check("resolution", CheckStatus.FAIL, "resolution.not_found")
+    if bundle_status is BundleStatus.SUBSTITUTE and substitute_kind is not None:
+        status = (
+            CheckStatus.WARN if substitute_kind is SubstituteKind.REDIRECT else CheckStatus.FAIL
+        )
+        return Check("resolution", status, f"resolution.substitute_{substitute_kind.value}")
     via_search = (
         main_source is ResolutionSource.SEARCH_FALLBACK
         or bundle_status is BundleStatus.FOUND_VIA_SEARCH
@@ -213,7 +221,7 @@ def _resolution(
 
 def _resolution_rule(ctx: _Context) -> Check:
     """Adapter that lets :func:`_resolution` sit in the rule list."""
-    return _resolution(ctx.bundle_status, ctx.main_source, ctx.thresholds)
+    return _resolution(ctx.bundle_status, ctx.main_source, ctx.thresholds, ctx.substitute_kind)
 
 
 def _automated(ctx: _Context) -> Check:
@@ -236,23 +244,6 @@ def _volume(ctx: _Context) -> Check:
     return Check("volume", CheckStatus.WARN, "volume.low", params)
 
 
-def _bundle(ctx: _Context) -> Check | None:
-    """The bundle and its main article should tell the same story.
-
-    When they diverge the conclusion depends on which related articles were included, which
-    the reader must know before acting on it.
-    """
-    if ctx.main_metrics is None:
-        return None
-    main = ctx.main_metrics.trend_direction
-    bundle = ctx.metrics.trend_direction
-    unknown = TrendDirection.UNKNOWN
-    if main is bundle or main is unknown or bundle is unknown:
-        return Check("bundle", CheckStatus.INFO, "bundle.consistent")
-    params = {"main_direction": main.value, "bundle_direction": bundle.value}
-    return Check("bundle", CheckStatus.WARN, "bundle.diverges", params)
-
-
 _RULES: tuple[_Rule, ...] = (
     _window_length,
     _completeness,
@@ -261,5 +252,4 @@ _RULES: tuple[_Rule, ...] = (
     _resolution_rule,
     _automated,
     _volume,
-    _bundle,
 )

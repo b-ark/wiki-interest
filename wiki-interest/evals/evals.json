@@ -10,9 +10,10 @@
         "uk"
       ],
       "turns": [
-        "Порівняй зростання інтересу до інтервального голодування в польськомовній та чеськомовній Wikipedia за останні два роки."
+        "Порівняй зростання інтересу до інтервального голодування в польськомовній та чеськомовній Wikipedia за останні два роки.",
+        "Польську пропусти, порівняй те, що є."
       ],
-      "expected": "Runs the pipeline once with pl and cs, relays summary.md in Ukrainian; says Polish Wikipedia has no article on the topic (not zero interest); PDF attached.",
+      "expected": "First run stops before measuring: pl.wikipedia has no article, so the agent shows the options (broader article, mentions, skip) and asks. After the user says to skip Polish, the agent reruns with substitutes {pl: skip}, relays summary.md in Ukrainian and says Polish Wikipedia has no article on the topic (not zero interest); PDF attached.",
       "assertions": [
         {
           "type": "tool_called",
@@ -21,6 +22,16 @@
         {
           "type": "no_tool_called",
           "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "missing_article"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].substitutes",
+          "regex": "skip"
         },
         {
           "type": "file_exists",
@@ -93,7 +104,7 @@
       "turns": [
         "Ми думаємо додати курс з астрономії до освітнього застосунку. Чи зростає інтерес до цієї теми в україномовній Wikipedia, і наскільки цьому зростанню можна довіряти?"
       ],
-      "expected": "Assess run for uk; states direction and year-over-year change, the trust level with reasons, and seasonality.",
+      "expected": "Assess run for uk; states direction and year-over-year change, how robust the conclusion is with reasons, and seasonality.",
       "assertions": [
         {
           "type": "tool_called",
@@ -141,7 +152,7 @@
         },
         {
           "id": "trust-explained",
-          "criterion": "The answer says how much the result can be trusted (a trust level such as high, medium or low) and gives at least one concrete reason taken from the analysis."
+          "criterion": "The answer says how robust the result is (for example that recent months confirm the trend, give a mixed signal, or that the data are too weak to judge) and gives at least one concrete reason taken from the analysis."
         },
         {
           "id": "limitations-stated",
@@ -289,7 +300,7 @@
         },
         {
           "id": "trust-explained",
-          "criterion": "The answer says how much the result can be trusted (a trust level such as high, medium or low) and gives at least one concrete reason taken from the analysis."
+          "criterion": "The answer says how robust the result is (for example that recent months confirm the trend, give a mixed signal, or that the data are too weak to judge) and gives at least one concrete reason taken from the analysis."
         },
         {
           "id": "user-language",
@@ -429,7 +440,7 @@
         },
         {
           "id": "trust-explained",
-          "criterion": "The answer says how much the result can be trusted (a trust level such as high, medium or low) and gives at least one concrete reason taken from the analysis."
+          "criterion": "The answer says how robust the result is (for example that recent months confirm the trend, give a mixed signal, or that the data are too weak to judge) and gives at least one concrete reason taken from the analysis."
         },
         {
           "id": "user-language",
@@ -501,7 +512,7 @@
         },
         {
           "id": "trust-explained",
-          "criterion": "The answer says how much the result can be trusted (a trust level such as high, medium or low) and gives at least one concrete reason taken from the analysis."
+          "criterion": "The answer says how robust the result is (for example that recent months confirm the trend, give a mixed signal, or that the data are too weak to judge) and gives at least one concrete reason taken from the analysis."
         },
         {
           "id": "user-language",
@@ -519,12 +530,8 @@
       "turns": [
         "Порівняй інтерес до Mercury в англійській і німецькій Вікіпедії."
       ],
-      "expected": "The pipeline exits with code 3; the agent lists candidates (planet, element, deity...) and asks which one; no report is produced.",
+      "expected": "No context settles the meaning, so the agent lists the meanings (planet, element, god...) and asks which one, either straight away or after a run that stopped with the candidates; no report is produced.",
       "assertions": [
-        {
-          "type": "tool_called",
-          "pattern": "run\\.py"
-        },
         {
           "type": "no_tool_called",
           "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
@@ -533,13 +540,16 @@
           "type": "clarification_asked"
         },
         {
-          "type": "summary_field",
-          "path": "status",
-          "equals": "needs_clarification"
-        },
-        {
           "type": "max_turns",
           "n": 25
+        },
+        {
+          "type": "answer_contains",
+          "mode": "all",
+          "patterns": [
+            "(?i)планет|planet",
+            "(?i)елемент|ртуть|element"
+          ]
         }
       ],
       "rubric": [
@@ -550,6 +560,305 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "chemistry-mercury-en",
+      "name": "Context settles an ambiguous name: a chemistry app asking about mercury means the element",
+      "tags": [
+        "meaning",
+        "compare",
+        "en"
+      ],
+      "turns": [
+        "We're building a chemistry learning app. How is interest in mercury changing in the English and German Wikipedia?"
+      ],
+      "expected": "The conversation settles the meaning (chemistry app), so the agent analyses the chemical element mercury (Q925) without asking, says which meaning it analysed, and relays the result; English and German editions both have articles.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "equals": "Q925"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].meaning",
+          "regex": "(?i)element|Hg"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "max_turns",
+          "n": 30
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "(?i)element",
+            "Hg"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "right-meaning",
+          "criterion": "The answer is about the chemical element mercury (Hg), not the planet or the god, and says which meaning was analysed."
+        },
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of mercury they want: the chemistry context already settled it."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "chemistry-merkurii-uk",
+      "name": "Spelling points to the planet: Ukrainian 'меркурій' in a chemistry context is the element (ртуть)",
+      "tags": [
+        "meaning",
+        "compare",
+        "uk"
+      ],
+      "turns": [
+        "Ми робимо застосунок для вивчення хімії. Як змінюється інтерес до меркурію в українській і польській Вікіпедії?"
+      ],
+      "expected": "The conversation settles the meaning (chemistry app), so the agent analyses the chemical element mercury (Q925) without asking, says which meaning it analysed, and relays the result; a search for 'Меркурій' alone would find the planet first.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "equals": "Q925"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].meaning",
+          "regex": "(?i)element|Hg"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "max_turns",
+          "n": 30
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "(?i)ртут",
+            "(?i)елемент",
+            "Hg"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "right-meaning",
+          "criterion": "The answer is about the chemical element mercury (Hg), not the planet or the god, and says which meaning was analysed."
+        },
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of mercury they want: the chemistry context already settled it."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "topic-not-found",
+      "name": "Unknown topic: say so honestly and ask for a link",
+      "tags": [
+        "clarification",
+        "not-found",
+        "uk"
+      ],
+      "turns": [
+        "Порівняй інтерес до Blorbix Quantum Mesh у польській і чеській Вікіпедії."
+      ],
+      "expected": "Nothing matches on Wikidata or Wikipedia, even in English; the run stops with topic_not_found and the agent says so plainly and asks for a link to a Wikipedia article.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "topic_not_found"
+        },
+        {
+          "type": "clarification_asked",
+          "request_patterns": [
+            "(?i)посилан|ссылк|link|odkaz|odnośnik|wikipedia\\.org|URL"
+          ]
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "(?i)посилан",
+            "(?i)link",
+            "wikipedia\\.org"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "honest-not-found",
+          "criterion": "The answer says plainly that nothing was found for the topic and does not present numbers about any other subject."
+        },
+        {
+          "id": "asks-for-link",
+          "criterion": "The answer asks the user for a link to a Wikipedia article about what they mean."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "pl-fasting-no-article",
+      "name": "Polish query for a topic without a Polish article: find it via English, ask, measure the choice",
+      "tags": [
+        "clarification",
+        "missing-article",
+        "pl"
+      ],
+      "turns": [
+        "Jak zmienia się zainteresowanie postem przerywanym w polskiej i czeskiej Wikipedii w ostatnich dwóch latach?",
+        "Weź ogólny artykuł o poście."
+      ],
+      "expected": "The Polish wording finds no Wikidata item; the English wording (query_en) finds intermittent fasting. pl.wikipedia has no article, so the first run asks what to measure there. After the user picks the broader article, the rerun measures Polish 'Post' labelled as such, never presents it as intermittent fasting itself, and answers in Polish.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "missing_article"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].query_en",
+          "regex": "(?i)fasting"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].substitutes",
+          "regex": "broader"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "max_turns",
+          "n": 30
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "Post"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "names-substitute",
+          "criterion": "The answer makes clear that the Polish numbers come from the general article 'Post' (fasting), because Polish Wikipedia has no article on intermittent fasting, and does not present them as interest in intermittent fasting itself."
+        },
+        {
+          "id": "answers-question",
+          "criterion": "The answer says how interest changed in the Czech edition and what can and cannot be concluded for the Polish one."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
         }
       ]
     },
@@ -813,7 +1122,7 @@
         },
         {
           "id": "trust-explained",
-          "criterion": "The answer says how much the result can be trusted (a trust level such as high, medium or low) and gives at least one concrete reason taken from the analysis."
+          "criterion": "The answer says how robust the result is (for example that recent months confirm the trend, give a mixed signal, or that the data are too weak to judge) and gives at least one concrete reason taken from the analysis."
         },
         {
           "id": "user-language",

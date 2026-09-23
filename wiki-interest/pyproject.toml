@@ -60,6 +60,8 @@ target-version = "py312"
 src = ["wiki_interest", "tests", "scripts"]
 
 [tool.ruff.lint]
+# Report prose uses typographic ranges (2024-03 – 2024-05) and multiples (×6).
+allowed-confusables = ["–", "×"]
 select = [
   "E", "W",   # pycodestyle
   "F",        # pyflakes

@@ -1,0 +1,48 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "post przerywany",
+          "query_language": "pl",
+          "query_en": "intermittent fasting",
+          "id": "fasting"
+        }
+      ],
+      "projects": [
+        "pl",
+        "cs"
+      ],
+      "report": {
+        "language": "pl"
+      },
+      "session": "o-pl-fasting"
+    },
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "post przerywany",
+          "query_language": "pl",
+          "query_en": "intermittent fasting",
+          "id": "fasting",
+          "substitutes": {
+            "pl": {
+              "title": "Post",
+              "kind": "broader"
+            }
+          }
+        }
+      ],
+      "projects": [
+        "pl",
+        "cs"
+      ],
+      "report": {
+        "language": "pl"
+      },
+      "session": "o-pl-fasting"
+    }
+  ]
+}

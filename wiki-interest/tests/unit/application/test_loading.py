@@ -1,4 +1,4 @@
-"""Series loading: fetch planning, deduplication, assembly of bundles and redirects."""
+"""Series loading: fetch planning, deduplication, the measured article and its context."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def _bundle() -> TopicBundle:
         qid="Q333",
         redirects=("Astronomy",),
     )
-    related = ArticleRef(UK, "Телескоп", ArticleRole.RELATED, ResolutionSource.LEAD_LINK, 0.5)
+    related = ArticleRef(UK, "Телескоп", ArticleRole.RELATED, ResolutionSource.LEAD_LINK)
     return TopicBundle("astronomy", UK, BundleStatus.FOUND, (main, related))
 
 
@@ -64,15 +64,16 @@ def _source() -> FakePageviews:
 
 
 class TestAssembly:
-    def test_bundle_sums_weighted_articles_and_their_redirects(self) -> None:
+    def test_main_article_is_summed_with_its_redirects_and_related_ones_stay_apart(self) -> None:
         loaded = SeriesLoader(_source()).load([_topic(_bundle())], PERIOD)
         assert len(loaded) == 1
         item = loaded[0]
-        assert item.bundle_views is not None
-        assert item.bundle_views.values == (135.0, 245.0, 355.0)
         assert item.main_views is not None
         assert item.main_views.values == (110.0, 220.0, 330.0)
         assert item.project_total.values == (1e6, 1e6, 2e6)
+        (context,) = item.context
+        assert context.article.title == "Телескоп"
+        assert context.views.values == (50.0, 50.0, 50.0)
 
     def test_daily_window_covers_the_whole_last_month(self) -> None:
         source = _source()
@@ -97,8 +98,8 @@ class TestAssembly:
     def test_not_found_bundle_yields_no_article_series_but_a_total(self) -> None:
         empty = TopicBundle("astronomy", UK, BundleStatus.NOT_FOUND)
         item = SeriesLoader(_source()).load([_topic(empty)], PERIOD)[0]
-        assert item.bundle_views is None
         assert item.main_views is None
+        assert item.context == ()
         assert item.main_daily is None
         assert item.project_total.values == (1e6, 1e6, 2e6)
 
@@ -106,9 +107,10 @@ class TestAssembly:
         source = _source()
         source.articles.pop((UK.domain, "Телескоп", Granularity.MONTHLY, Agent.USER, Access.ALL))
         item = SeriesLoader(source).load([_topic(_bundle())], PERIOD)[0]
-        assert item.bundle_views is not None
-        # The related article is missing entirely; the main article still counts.
-        assert item.bundle_views.values == (110.0, 220.0, 330.0)
+        assert item.main_views is not None
+        assert item.main_views.values == (110.0, 220.0, 330.0)
+        # The related article is missing entirely: its context series is all gaps.
+        assert item.context[0].views.values == (None, None, None)
 
 
 class TestPlanning:

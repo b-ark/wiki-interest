@@ -11,9 +11,10 @@ from wiki_interest.domain.models import (
     ArticleRole,
     BundleStatus,
     ResolutionSource,
+    SubstituteKind,
     WikiProject,
 )
-from wiki_interest.errors import ClarificationNeededError
+from wiki_interest.errors import ClarificationNeededError, TopicNotFoundError
 
 UK = WikiProject("uk")
 CS = WikiProject("cs")
@@ -90,50 +91,145 @@ class TestEntityChoice:
         assert excinfo.value.topic_id == "astronomy"
         assert {c.qid for c in excinfo.value.candidates} >= {"Q333", "Q999"}
 
-    def test_exact_homonym_without_articles_in_requested_editions_is_ignored(self) -> None:
+    def test_stated_meaning_is_never_overruled_by_article_coverage(self) -> None:
+        wikidata, mediawiki = _world()
+        # The band has no article in the requested editions; the user may still mean it.
+        wikidata.add(FakeEntity("Q1", {"en": "astronomy"}, description="a band"))
+        topic = _topic(meaning="the rock band")
+        with pytest.raises(ClarificationNeededError) as excinfo:
+            TopicResolver(wikidata, mediawiki).resolve(topic, [UK, CS])
+        assert {c.qid for c in excinfo.value.candidates} == {"Q333", "Q1"}
+        assert excinfo.value.coverage == {
+            "Q333": ("uk.wikipedia", "cs.wikipedia"),
+            "Q1": (),
+        }
+
+    def test_stated_meaning_picks_the_matching_homonym_without_asking(self) -> None:
+        wikidata, mediawiki = _world()
+        wikidata.add(
+            FakeEntity(
+                "Q718",
+                {"en": "chess", "uk": "шахи"},
+                sitelinks={UK: "Шахи", CS: "Šachy"},
+                description="strategy board game for two players",
+            )
+        )
+        wikidata.add(
+            FakeEntity(
+                "Q843284",
+                {"en": "Chess", "uk": "Шахи"},
+                sitelinks={UK: "Шахи (мюзикл)"},
+                description="musical by Benny Andersson and Björn Ulvaeus",
+            )
+        )
+        topic = _topic(query="chess", meaning="the board game of chess")
+        resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK, CS])
+        assert (resolved.qid, resolved.method, resolved.runner_up) == ("Q718", "auto", "Q843284")
+        assert resolved.confidence is not None
+        assert resolved.confidence >= 0.7
+
+    def test_close_candidates_are_still_asked_about(self) -> None:
+        wikidata, mediawiki = _world()
+        for qid, what in (("Q1", "planet"), ("Q2", "planet")):
+            wikidata.add(FakeEntity(qid, {"en": "mercury"}, sitelinks={UK: qid}, description=what))
+        topic = _topic(query="mercury", meaning="the planet")
+        with pytest.raises(ClarificationNeededError):
+            TopicResolver(wikidata, mediawiki).resolve(topic, [UK])
+
+    def test_without_meaning_equal_homonyms_are_asked_about(self) -> None:
+        wikidata, mediawiki = _world()
+        for qid in ("Q1", "Q2"):
+            wikidata.add(FakeEntity(qid, {"en": "mercury"}, sitelinks={UK: qid, CS: qid}))
+        with pytest.raises(ClarificationNeededError):
+            TopicResolver(wikidata, mediawiki).resolve(_topic(query="mercury"), [UK, CS])
+
+    def test_resolution_method_is_recorded(self) -> None:
+        wikidata, mediawiki = _world()
+        resolver = TopicResolver(wikidata, mediawiki)
+        assert resolver.resolve(_topic(), [UK]).method == "unique"
+        assert resolver.resolve(_topic(qid="Q4213"), [UK]).method == "pinned"
+
+    def test_without_meaning_the_covered_homonym_is_the_default_and_the_rest_are_listed(
+        self,
+    ) -> None:
         wikidata, mediawiki = _world()
         wikidata.add(FakeEntity("Q1", {"en": "astronomy"}, description="a band"))
         resolved = TopicResolver(wikidata, mediawiki).resolve(_topic(), [UK])
         assert resolved.qid == "Q333"
+        assert resolved.method == "default"
+        assert [c.qid for c in resolved.alternatives] == ["Q1"]
 
-    def test_exact_homonyms_with_articles_in_requested_editions_need_clarification(
-        self,
-    ) -> None:
+    def test_default_needs_coverage_and_ranking_to_agree(self) -> None:
         wikidata, mediawiki = _world()
-        wikidata.add(FakeEntity("Q1", {"en": "astronomy"}, sitelinks={UK: "Астрономія (гурт)"}))
-        with pytest.raises(ClarificationNeededError) as excinfo:
-            TopicResolver(wikidata, mediawiki).resolve(_topic(), [UK])
-        assert {c.qid for c in excinfo.value.candidates} == {"Q333", "Q1"}
+        # Q1 sorts first but covers fewer editions than Q333: the signals disagree.
+        wikidata.add(FakeEntity("Q1", {"en": "astronomy"}, sitelinks={UK: "Астро (гурт)"}))
+        with pytest.raises(ClarificationNeededError):
+            TopicResolver(wikidata, mediawiki).resolve(_topic(), [UK, CS])
 
-    def test_homonym_relevance_is_judged_against_the_requested_editions(self) -> None:
+    def test_default_follows_the_requested_editions(self) -> None:
         wikidata, mediawiki = _world()
-        wikidata.add(FakeEntity("Q1", {"en": "astronomy"}, sitelinks={PL: "Astronomia (zespół)"}))
-        # Only the band has a Polish article, so for a Polish-only request it is the pick.
-        resolved = TopicResolver(wikidata, mediawiki).resolve(_topic(), [PL])
-        assert resolved.qid == "Q1"
-
-    def test_broader_coverage_wins_when_wikidata_also_ranks_it_first(self) -> None:
-        wikidata, mediawiki = _world()
-        # Q1 sorts before Q333 in the fake's ranking and covers both requested editions.
         wikidata.add(
             FakeEntity("Q1", {"en": "astronomy"}, sitelinks={UK: "Астро (гурт)", CS: "Astro"})
         )
         wikidata.entities["Q333"].sitelinks = {UK: "Астрономія"}
         resolved = TopicResolver(wikidata, mediawiki).resolve(_topic(), [UK, CS])
         assert resolved.qid == "Q1"
+        assert [c.qid for c in resolved.alternatives] == ["Q333"]
 
-    def test_broader_coverage_alone_does_not_override_wikidata_ranking(self) -> None:
+    def test_single_match_carries_its_description_and_the_other_meanings(self) -> None:
         wikidata, mediawiki = _world()
-        # Q1 is ranked first but covers fewer editions than Q333: the signals disagree.
-        wikidata.add(FakeEntity("Q1", {"en": "astronomy"}, sitelinks={UK: "Астро (гурт)"}))
-        with pytest.raises(ClarificationNeededError):
-            TopicResolver(wikidata, mediawiki).resolve(_topic(), [UK, CS])
+        wikidata.entities["Q333"].description = "natural science"
+        wikidata.add(FakeEntity("Q7", {"en": "astronomy club"}, description="a club"))
+        resolved = TopicResolver(wikidata, mediawiki).resolve(_topic(), [UK])
+        assert (resolved.qid, resolved.description) == ("Q333", "natural science")
+        assert [c.qid for c in resolved.alternatives] == ["Q7"]
 
-    def test_no_entity_and_no_titles_gives_not_found_bundles(self) -> None:
+    def test_pinned_qid_carries_its_description(self) -> None:
         wikidata, mediawiki = _world()
-        resolved = TopicResolver(wikidata, mediawiki).resolve(_topic(query="zzz"), [UK, CS])
-        assert resolved.qid is None
-        assert [b.status for b in resolved.bundles] == [BundleStatus.NOT_FOUND] * 2
+        wikidata.entities["Q4213"].description = "optical instrument"
+        resolved = TopicResolver(wikidata, mediawiki).resolve(_topic(qid="Q4213"), [UK])
+        assert resolved.description == "optical instrument"
+
+    def test_nothing_found_is_reported_not_analysed(self) -> None:
+        wikidata, mediawiki = _world()
+        with pytest.raises(TopicNotFoundError) as excinfo:
+            TopicResolver(wikidata, mediawiki).resolve(_topic(query="zzz"), [UK, CS])
+        assert (excinfo.value.exit_code, excinfo.value.query) == (3, "zzz")
+
+    def test_user_titles_keep_an_unknown_topic_alive(self) -> None:
+        wikidata, mediawiki = _world()
+        topic = _topic(query="zzz", extra_titles={"uk": ["Зоря"]})
+        resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK])
+        assert resolved.bundle_for(UK).main is not None
+
+
+class TestArticleLink:
+    def test_linked_article_supplies_the_entity(self) -> None:
+        wikidata, mediawiki = _world()
+        topic = _topic(
+            query="zzz",
+            article_url="https://uk.m.wikipedia.org/wiki/%D0%A2%D0%B5%D0%BB%D0%B5%D1%81%D0%BA%D0%BE%D0%BF",
+        )
+        resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK, CS])
+        assert resolved.qid == "Q4213"
+        cs_main = resolved.bundle_for(CS).main
+        assert cs_main is not None
+        assert cs_main.title == "Dalekohled"
+        assert not [c for c in wikidata.calls if c[0] == "search_entities"]
+
+    def test_linked_article_without_item_is_measured_on_its_own(self) -> None:
+        wikidata, mediawiki = _world()
+        topic = _topic(query="zzz", article_url="https://uk.wikipedia.org/wiki/Зоря")
+        resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK])
+        main = resolved.bundle_for(UK).main
+        assert main is not None
+        assert (main.title, main.source) == ("Зоря", ResolutionSource.MANUAL)
+
+    def test_broken_link_is_reported(self) -> None:
+        wikidata, mediawiki = _world()
+        topic = _topic(article_url="https://uk.wikipedia.org/wiki/Nope")
+        with pytest.raises(TopicNotFoundError):
+            TopicResolver(wikidata, mediawiki).resolve(topic, [UK])
 
 
 class TestMainAndBundle:
@@ -147,13 +243,11 @@ class TestMainAndBundle:
         assert uk.main.source is ResolutionSource.SITELINK
         assert uk.main.redirects == ("Astronomy", "Астрономічна наука")
         by_title = {a.title: a for a in uk.articles}
-        # Four related concepts at a nominal 0.5 each (telescope and science via Wikidata,
-        # galaxy and astrology via lead links) are scaled so that together they weigh 1.0.
-        assert by_title["Телескоп"].weight == pytest.approx(0.25)
+        # Telescope and science come from Wikidata, galaxy and astrology from lead links; all
+        # are context: only the main article carries redirects, since only it is measured.
         assert by_title["Телескоп"].source is ResolutionSource.WIKIDATA_RELATION
-        assert by_title["Галактика"].weight == pytest.approx(0.25)
-        related = [a for a in uk.articles if a.role is ArticleRole.RELATED]
-        assert sum(a.weight for a in related) == pytest.approx(1.0)
+        assert by_title["Телескоп"].role is ArticleRole.RELATED
+        assert by_title["Телескоп"].redirects == ()
         assert by_title["Галактика"].source is ResolutionSource.LEAD_LINK
         assert by_title["Наука"].source is ResolutionSource.WIKIDATA_RELATION
         cs_titles = {a.title for a in resolved.bundle_for(CS).articles}
@@ -175,6 +269,15 @@ class TestMainAndBundle:
         assert bundle.main is not None
         assert bundle.main.source is ResolutionSource.SEARCH_FALLBACK
         assert bundle.main.title == "Astronomia"
+
+    def test_wikipedia_style_qualifier_is_dropped_when_the_search_finds_nothing(self) -> None:
+        wikidata, mediawiki = _world()
+        resolved = TopicResolver(wikidata, mediawiki).resolve(
+            _topic(query="astronomy (science)"), [UK]
+        )
+        assert resolved.qid == "Q333"
+        queries = [c[1][0] for c in wikidata.calls if c[0] == "search_entities"]
+        assert queries[:2] == ["astronomy (science)", "astronomy"]
 
     def test_search_fallback_tries_raw_query_when_label_finds_nothing(self) -> None:
         wikidata, mediawiki = _world()
@@ -218,17 +321,14 @@ class TestMainAndBundle:
 
 
 class TestManualEdits:
-    def test_extra_titles_are_added_with_manual_weight_and_normalised(self) -> None:
+    def test_extra_titles_are_added_as_context_and_normalised(self) -> None:
         wikidata, mediawiki = _world()
         topic = _topic(bundle="manual", extra_titles={"uk": ["Зоря", "Astronomy", "Nope"]})
         resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK])
         bundle = resolved.bundle_for(UK)
-        titles = [(a.title, a.role, a.weight) for a in bundle.articles]
+        titles = [(a.title, a.role) for a in bundle.articles]
         # "Astronomy" is a redirect to the main article and is therefore not duplicated.
-        assert titles == [
-            ("Астрономія", ArticleRole.MAIN, 1.0),
-            ("Зоря", ArticleRole.MANUAL, 0.5),
-        ]
+        assert titles == [("Астрономія", ArticleRole.MAIN), ("Зоря", ArticleRole.MANUAL)]
         assert resolved.missing_titles == ((UK, "Nope"),)
 
     def test_main_mode_ignores_extra_titles(self) -> None:
@@ -245,7 +345,6 @@ class TestManualEdits:
             ("Астрономія", ArticleRole.MAIN),
             ("Зоря", ArticleRole.MANUAL),
         ]
-        assert bundle.articles[1].weight == 0.5
 
     def test_first_manual_title_becomes_main_when_no_entity_matches(self) -> None:
         wikidata, mediawiki = _world()
@@ -254,7 +353,7 @@ class TestManualEdits:
         assert bundle.status is BundleStatus.FOUND
         assert bundle.main is not None
         assert bundle.main.title == "Зоря"
-        assert bundle.main.weight == 1.0
+        assert bundle.main.role is ArticleRole.MAIN
         assert bundle.main.source is ResolutionSource.MANUAL
 
     def test_exclusions_remove_related_articles_by_any_spelling(self) -> None:
@@ -287,3 +386,101 @@ def test_topic_without_id_is_rejected() -> None:
     wikidata, mediawiki = _world()
     with pytest.raises(ValueError, match="id"):
         TopicResolver(wikidata, mediawiki).resolve(TopicSpec(query="x"), [UK])
+
+
+class TestSubstitutes:
+    def test_broader_substitute_is_the_only_article_with_its_own_redirects(self) -> None:
+        wikidata, mediawiki = _world()
+        mediawiki.add_page(PL, FakePage("Nauka", qid="Q336", redirects=["Nauki"]))
+        topic = _topic(substitutes={"pl": {"title": "nauka", "kind": "broader"}})
+        mediawiki.pages[PL]["nauka"] = mediawiki.pages[PL]["Nauka"]  # a spelling the API accepts
+        bundle = TopicResolver(wikidata, mediawiki).resolve(topic, [PL, UK]).bundle_for(PL)
+        assert bundle.status is BundleStatus.SUBSTITUTE
+        assert bundle.substitute_kind is SubstituteKind.BROADER
+        (article,) = bundle.articles
+        assert (article.title, article.role, article.source) == (
+            "Nauka",
+            ArticleRole.MAIN,
+            ResolutionSource.SUBSTITUTE,
+        )
+        assert article.redirects == ("Nauki",)
+
+    def test_substitute_lead_links_do_not_feed_the_related_concepts(self) -> None:
+        wikidata, mediawiki = _world()
+        mediawiki.add_page(PL, FakePage("Nauka", qid="Q336", lead_links=["Galaktyka"]))
+        topic = _topic(substitutes={"pl": {"title": "Nauka", "kind": "broader"}})
+        TopicResolver(wikidata, mediawiki).resolve(topic, [PL, UK])
+        assert ("lead_links", (PL, "Nauka")) not in mediawiki.calls
+
+    def test_redirect_substitute_is_measured_under_its_own_title(self) -> None:
+        wikidata, mediawiki = _world()
+        mediawiki.add_page(PL, FakePage("Nauka", qid="Q336", redirects=["Astronomia"]))
+        topic = _topic(substitutes={"pl": {"title": "Astronomia", "kind": "redirect"}})
+        bundle = TopicResolver(wikidata, mediawiki).resolve(topic, [PL]).bundle_for(PL)
+        assert bundle.substitute_kind is SubstituteKind.REDIRECT
+        (article,) = bundle.articles
+        assert (article.title, article.qid, article.redirects) == ("Astronomia", None, ())
+
+    def test_skip_leaves_the_edition_empty_without_searching(self) -> None:
+        wikidata, mediawiki = _world()
+        mediawiki.add_page(PL, FakePage("Astronomy (pl)", qid=None))
+        mediawiki.add_search(PL, "astronomy", ["Astronomy (pl)"])
+        topic = _topic(substitutes={"pl": "skip"})
+        bundle = TopicResolver(wikidata, mediawiki).resolve(topic, [PL]).bundle_for(PL)
+        assert bundle.status is BundleStatus.NOT_FOUND
+        assert not any(name == "search" for name, _ in mediawiki.calls)
+
+    def test_missing_substitute_is_reported_not_guessed(self) -> None:
+        wikidata, mediawiki = _world()
+        topic = _topic(substitutes={"pl": {"title": "Nope", "kind": "mention"}})
+        resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [PL])
+        assert resolved.bundle_for(PL).status is BundleStatus.NOT_FOUND
+        assert resolved.missing_titles == ((PL, "Nope"),)
+
+    def test_an_existing_article_wins_over_a_stale_substitute(self) -> None:
+        wikidata, mediawiki = _world()
+        topic = _topic(substitutes={"uk": {"title": "Наука", "kind": "broader"}})
+        bundle = TopicResolver(wikidata, mediawiki).resolve(topic, [UK]).bundle_for(UK)
+        assert bundle.status is BundleStatus.FOUND
+        assert bundle.main is not None
+        assert bundle.main.title == "Астрономія"
+
+
+class TestEnglishFallbackAndLocalTerms:
+    def test_english_wording_is_used_only_when_the_query_finds_nothing(self) -> None:
+        wikidata, mediawiki = _world()
+        topic = _topic(query="astronomia", query_language="pl", query_en="astronomy")
+        resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK])
+        assert (resolved.qid, resolved.matched_in_english) == ("Q333", True)
+        searches = [args for name, args in wikidata.calls if name == "search_entities"]
+        assert [(q, lang) for q, lang, _ in searches] == [("astronomia", "pl"), ("astronomy", "en")]
+
+    def test_label_prefers_the_query_language_after_an_english_match(self) -> None:
+        wikidata, mediawiki = _world()
+        topic = _topic(query="астрономия", query_language="uk", query_en="astronomy")
+        wikidata.entities["Q333"].labels["uk"] = "Астрономія"
+        resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK])
+        assert resolved.label == "Астрономія"
+
+    def test_english_wording_is_not_used_when_the_query_matches(self) -> None:
+        wikidata, mediawiki = _world()
+        topic = _topic(query="астрономія", query_language="uk", query_en="astrology")
+        resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK])
+        assert (resolved.qid, resolved.matched_in_english) == ("Q333", False)
+
+    def test_vague_english_wording_still_asks(self) -> None:
+        wikidata, mediawiki = _world()
+        topic = _topic(query="gwiazdy", query_language="pl", query_en="astro")
+        with pytest.raises(ClarificationNeededError):
+            TopicResolver(wikidata, mediawiki).resolve(topic, [UK])
+
+    def test_local_term_is_searched_first(self) -> None:
+        wikidata, mediawiki = _world()
+        mediawiki.add_page(PL, FakePage("Astronomia", qid=None))
+        mediawiki.add_search(PL, "astronomia", ["Astronomia"])
+        topic = _topic(local_terms={"pl": "astronomia"})
+        bundle = TopicResolver(wikidata, mediawiki).resolve(topic, [PL]).bundle_for(PL)
+        assert bundle.main is not None
+        assert bundle.main.title == "Astronomia"
+        first_search = next(args for name, args in mediawiki.calls if name == "search")
+        assert first_search[1] == "astronomia"

@@ -57,17 +57,6 @@ class TestArticleRef:
         with pytest.raises(ValueError, match="title"):
             _article(title="  ")
 
-    @pytest.mark.parametrize("weight", [0.0, -0.1, 1.5])
-    def test_rejects_weight_outside_unit_interval(self, weight: float) -> None:
-        with pytest.raises(ValueError, match="weight"):
-            ArticleRef(
-                project=WikiProject("uk"),
-                title="x",
-                role=ArticleRole.RELATED,
-                source=ResolutionSource.LEAD_LINK,
-                weight=weight,
-            )
-
 
 class TestTopicBundle:
     def test_main_is_the_single_main_article(self) -> None:

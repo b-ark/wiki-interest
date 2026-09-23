@@ -1,4 +1,4 @@
-"""Related-concept ranking: weights, consensus, exclusions, cap and determinism."""
+"""Related-concept ranking: relevance, consensus, exclusions, cap and determinism."""
 
 from __future__ import annotations
 
@@ -18,29 +18,29 @@ def qids(concepts: tuple[RelatedConcept, ...]) -> list[str]:
     return [c.qid for c in concepts]
 
 
-class TestWeights:
-    def test_wikidata_relation_gets_wikidata_weight(self) -> None:
+class TestRelevance:
+    def test_wikidata_relation_gets_wikidata_relevance(self) -> None:
         (concept,) = rank_related_concepts(MAIN, {}, {"P279": ["Q1"]})
         assert concept == RelatedConcept(
-            "Q1", S.wikidata_weight, ResolutionSource.WIKIDATA_RELATION, 1
+            "Q1", S.wikidata_relevance, ResolutionSource.WIKIDATA_RELATION, 1
         )
 
-    def test_lead_link_in_half_of_projects_gets_consensus_weight(self) -> None:
+    def test_lead_link_in_half_of_projects_gets_consensus_relevance(self) -> None:
         leads = {UK: ["Q1"], CS: ["Q1"], PL: ["Q2"]}
         by_qid = {c.qid: c for c in rank_related_concepts(MAIN, leads, {})}
-        assert by_qid["Q1"].weight == S.consensus_lead_weight
+        assert by_qid["Q1"].relevance == S.consensus_lead_relevance
         assert by_qid["Q1"].source is ResolutionSource.LEAD_LINK
         assert by_qid["Q1"].support == 2
-        assert by_qid["Q2"].weight == S.single_lead_weight
+        assert by_qid["Q2"].relevance == S.single_lead_relevance
         assert by_qid["Q2"].support == 1
 
     def test_consensus_threshold_rounds_up(self) -> None:
         leads = {UK: ["Q1"], CS: ["Q1"], PL: ["Q1"], WikiProject("de"): [], WikiProject("fr"): []}
         (concept,) = rank_related_concepts(MAIN, leads, {})
-        assert concept.weight == S.consensus_lead_weight
+        assert concept.relevance == S.consensus_lead_relevance
         leads[PL] = []
         (concept,) = rank_related_concepts(MAIN, leads, {})
-        assert concept.weight == S.single_lead_weight
+        assert concept.relevance == S.single_lead_relevance
 
     def test_wikidata_wins_over_lead_and_counts_both_as_support(self) -> None:
         (concept,) = rank_related_concepts(MAIN, {UK: ["Q1"]}, {"P361": ["Q1"]})
@@ -52,9 +52,9 @@ class TestWeights:
         assert concept.support == 1
 
     def test_custom_settings(self) -> None:
-        custom = BundleSettings(max_related=1, wikidata_weight=0.9)
+        custom = BundleSettings(max_related=1, wikidata_relevance=0.9)
         (concept,) = rank_related_concepts(MAIN, {UK: ["Q2"]}, {"P279": ["Q1"]}, settings=custom)
-        assert (concept.qid, concept.weight) == ("Q1", 0.9)
+        assert (concept.qid, concept.relevance) == ("Q1", 0.9)
 
 
 class TestExclusions:
@@ -77,7 +77,7 @@ class TestExclusions:
 
 
 class TestOrdering:
-    def test_weight_then_support_then_qid(self) -> None:
+    def test_relevance_then_support_then_qid(self) -> None:
         leads = {UK: ["Q9", "Q5"], CS: ["Q5", "Q7"], PL: ["Q7", "Q1"]}
         result = rank_related_concepts(MAIN, leads, {"P279": ["Q8"]})
         assert qids(result) == ["Q5", "Q7", "Q8", "Q1", "Q9"]
@@ -114,25 +114,13 @@ def test_single_lead_link_reaches_consensus_only_with_two_projects_or_fewer(
     projects = [UK, CS, PL, WikiProject("de")][:n_projects]
     leads = {p: (["Q1"] if p is UK else []) for p in projects}
     (concept,) = rank_related_concepts(MAIN, leads, {})
-    expected = S.consensus_lead_weight if n_projects <= 2 else S.single_lead_weight
-    assert concept.weight == expected
+    expected = S.consensus_lead_relevance if n_projects <= 2 else S.single_lead_relevance
+    assert concept.relevance == expected
 
 
-class TestRelatedWeightCap:
-    def test_weights_are_scaled_so_related_articles_cannot_outweigh_the_main_one(self) -> None:
-        related = {"P527": [f"Q{i}" for i in range(10, 20)]}
-        concepts = rank_related_concepts("Q1", {}, related)
+class TestNoWeights:
+    def test_many_related_concepts_keep_their_nominal_relevance(self) -> None:
+        # Related articles are context, never summed into the topic: nothing is rescaled.
+        concepts = rank_related_concepts("Q1", {}, {"P527": [f"Q{i}" for i in range(10, 20)]})
         assert len(concepts) == 10
-        assert sum(c.weight for c in concepts) == pytest.approx(1.0)
-        assert all(c.weight == pytest.approx(0.1) for c in concepts)
-
-    def test_small_bundles_keep_their_nominal_weights(self) -> None:
-        concepts = rank_related_concepts("Q1", {}, {"P527": ["Q10"]})
-        assert concepts[0].weight == S.wikidata_weight
-
-    def test_scaling_preserves_relative_order(self) -> None:
-        leads = {UK: ["Q10", "Q11", "Q12"], CS: ["Q10"], PL: ["Q10"]}
-        concepts = rank_related_concepts("Q1", leads, {"P527": ["Q20", "Q21"]})
-        weights = [c.weight for c in concepts]
-        assert weights == sorted(weights, reverse=True)
-        assert sum(weights) == pytest.approx(S.max_total_related_weight)
+        assert all(c.relevance == S.wikidata_relevance for c in concepts)

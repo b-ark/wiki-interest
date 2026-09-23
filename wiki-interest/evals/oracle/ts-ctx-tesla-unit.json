@@ -1,0 +1,23 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "tesla",
+          "query_language": "en",
+          "id": "tesla-unit",
+          "qid": "Q163343"
+        }
+      ],
+      "projects": [
+        "en",
+        "de"
+      ],
+      "report": {
+        "language": "en"
+      },
+      "session": "o-ts-ctx-tesla-unit"
+    }
+  ]
+}

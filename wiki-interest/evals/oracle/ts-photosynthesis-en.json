@@ -1,0 +1,23 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "photosynthesis",
+          "query_language": "en",
+          "id": "en",
+          "qid": "Q11982"
+        }
+      ],
+      "projects": [
+        "en",
+        "de"
+      ],
+      "report": {
+        "language": "en"
+      },
+      "session": "o-ts-photosynthesis-en"
+    }
+  ]
+}

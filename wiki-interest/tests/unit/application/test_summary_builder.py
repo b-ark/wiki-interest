@@ -55,13 +55,64 @@ def _build(
 
 
 class TestCompare:
-    def test_headline_names_the_leaders_and_bullets_cover_every_pair(self, tmp_path: Path) -> None:
+    def test_headline_names_the_leaders_and_bullets_are_the_findings(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
         assert summary.status == "ok"
-        assert "uk.wikipedia" in summary.verdict.headline
-        assert "per million" in summary.verdict.headline
-        assert len(summary.verdict.bullets) == 3
-        assert any("no article" in b for b in summary.verdict.bullets)
+        headline = summary.verdict.headline
+        assert headline == (
+            "The attention share of «astronomy»: growing in uk.wikipedia; no clear trend in "
+            "cs.wikipedia."
+        )
+        happening = summary.happening
+        assert happening[0].startswith("Attention share (article views per 1 million edition")
+        assert "cs.wikipedia 40.0" in happening[0]
+        assert happening[1].startswith("Attention share, last 12 months vs the 12 before:")
+        # The edition without an article is part of the answer, not only of the findings.
+        assert any("No article in pl.wikipedia" in line for line in happening)
+        assert summary.verdict.bullets == [f.text for f in summary.findings]
+        # The edition without an article comes first, so it is never read as zero interest.
+        first = summary.findings[0]
+        assert (first.kind, first.project) == ("no_article", "pl.wikipedia")
+
+    def test_assessments_split_a_change_into_article_and_edition(self, tmp_path: Path) -> None:
+        summary = _build(tmp_path, question_type="assess", projects=["uk"])
+        (uk,) = summary.assessments
+        assert (uk.momentum, uk.outcome, uk.relation) == ("growing", "single_growing", "gaining")
+        assert uk.edition_line is not None
+        assert "article views +21%, edition traffic" in uk.edition_line
+        assert uk.article_change == pytest.approx(0.21, abs=0.01)
+        assert uk.relation_basis == "yoy"
+        assert [e.text for e in uk.evidence][:1] == ["24 months of data"]
+        assert uk.robustness_line is not None
+        row = next(r for r in summary.comparison if r.project == "uk.wikipedia")
+        assert row.views_growth == pytest.approx(uk.article_change, abs=1e-6)
+        assert row.edition_growth == pytest.approx(uk.edition_change, abs=1e-6)
+
+    def test_decision_groups_outcomes_and_names_the_next_step(self, tmp_path: Path) -> None:
+        decision = _build(tmp_path).decision
+        assert decision is not None
+        assert (decision.conclusion, decision.candidate) == ("strong", "uk.wikipedia")
+        assert decision.summary is not None
+        assert decision.summary.startswith("uk.wikipedia combines the highest attention share")
+        assert decision.lines[0].startswith("uk.wikipedia: higher attention share, and it is")
+        assert decision.next_step.startswith("Next step: confirm the signal for uk.wikipedia")
+        assert "Google Trends" in decision.next_step
+
+    def test_share_is_stated_per_million_with_an_index(self, tmp_path: Path) -> None:
+        summary = _build(tmp_path)
+        cs = next(r for r in summary.comparison if r.project == "cs.wikipedia")
+        assert cs.per_million_avg is not None
+        assert cs.index == 100.0
+        uk = next(r for r in summary.comparison if r.project == "uk.wikipedia")
+        assert uk.index is not None
+        assert 0 < uk.index < 100
+
+    def test_related_articles_are_reported_as_context(self, tmp_path: Path) -> None:
+        summary = _build(tmp_path)
+        uk = [c for c in summary.context if c.project == "uk.wikipedia"]
+        assert [c.title for c in uk] == ["Телескоп"]
+        assert uk[0].views_avg is not None
+        assert any("one main article" in lim for lim in summary.general_limitations)
 
     def test_headline_does_not_call_a_decline_growth(self, tmp_path: Path) -> None:
         world = astronomy_world()
@@ -82,8 +133,12 @@ class TestCompare:
                 {"query": "telescope", "id": "telescope", "bundle": "main"},
             ],
         )
-        assert "fastest growth" not in summary.verdict.headline
-        assert "not growing in any edition" in summary.verdict.headline
+        headline = summary.verdict.headline
+        assert headline.startswith("The attention share of «astronomy», «telescope» is falling")
+        assert "everywhere, fastest in" in headline
+        assert summary.decision is not None
+        assert summary.decision.summary is not None
+        assert "not growing in any edition" in summary.decision.summary
 
     def test_not_found_edition_is_explained_not_zeroed(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
@@ -100,21 +155,14 @@ class TestCompare:
         assert any("місяців" in m for m in messages)
         assert all(c.reason_key for c in uk.checks)
 
-    def test_series_and_metrics_cover_bundle_and_main(self, tmp_path: Path) -> None:
+    def test_series_and_metrics_cover_each_measured_edition_once(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
-        kinds = {(s.project, s.kind) for s in summary.series}
-        assert ("uk.wikipedia", "bundle") in kinds
-        assert ("uk.wikipedia", "main") in kinds
-        assert ("pl.wikipedia", "bundle") not in kinds
-        assert {(m.project, m.kind) for m in summary.metrics} >= {
-            ("uk.wikipedia", "bundle"),
-            ("uk.wikipedia", "main"),
-        }
-        bundle_series = next(
-            s for s in summary.series if s.project == "uk.wikipedia" and s.kind == "bundle"
-        )
-        assert bundle_series.points[0].period == "2024-09"
-        assert bundle_series.points[0].per_million is not None
+        assert [s.project for s in summary.series] == ["uk.wikipedia", "cs.wikipedia"]
+        assert [m.project for m in summary.metrics] == ["uk.wikipedia", "cs.wikipedia"]
+        first = summary.series[0].points[0]
+        assert first.period == "2024-09"
+        assert first.per_million is not None
+        assert first.edition_views is not None
 
     def test_bundles_state_their_article_counts(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
@@ -126,21 +174,24 @@ class TestCompare:
 
     def test_charts_for_compare(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
-        assert [(c.id, c.kind) for c in summary.charts] == [
-            ("interest-over-time", "lines"),
-            ("growth", "bars"),
+        assert [(c.id, c.kind, c.size) for c in summary.charts] == [
+            ("share", "lines", "wide"),
+            ("edition-growth", "grouped_bars", "half"),
         ]
-        lines = summary.charts[0]
-        assert [s.label for s in lines.series] == ["uk.wikipedia", "cs.wikipedia"]
-        assert lines.series[0].x[0] == "2024-09"
-        assert summary.charts[1].series[0].y[1] == pytest.approx(0.0, abs=5.0)
+        assert all(c.footnote is None for c in summary.charts)
+        share = summary.charts[0]
+        assert share.subtitle is not None
+        assert [s.label for s in share.series] == ["uk.wikipedia", "cs.wikipedia"]
+        assert share.series[0].x[0] == "2024-09"
+        growth = summary.charts[1]
+        assert growth.series[0].x == ["uk", "cs"]  # short category labels
+        assert growth.reference_y == 0.0
 
     def test_artifacts_point_into_the_run_dir(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
         assert summary.artifacts.run_dir == str(tmp_path / "run-1")
         assert summary.artifacts.charts == [
-            str(tmp_path / "run-1" / "charts" / "interest-over-time.png"),
-            str(tmp_path / "run-1" / "charts" / "growth.png"),
+            str(tmp_path / "run-1" / "charts" / f"{c.id}.png") for c in summary.charts
         ]
         assert summary.provenance.request_count == 3
 
@@ -160,26 +211,32 @@ class TestCompare:
 
     def test_absolute_mode_changes_wording_and_limitations(self, tmp_path: Path) -> None:
         summary = _build(tmp_path, normalization="absolute")
-        assert "views/month" in summary.verdict.headline
+        assert summary.verdict.headline.startswith("The number of article views on «astronomy»")
+        assert summary.happening[0].startswith("Article views per month, average over the period")
         assert any("without normalising" in lim for lim in summary.limitations)
         assert any("per-million" in step for step in summary.next_steps)
+        assert summary.charts[0].id == "views"
 
 
 class TestAssessAndRank:
     def test_assess_headline_states_direction_growth_and_trust(self, tmp_path: Path) -> None:
         summary = _build(tmp_path, question_type="assess", projects=["uk"])
         headline = summary.verdict.headline
-        assert "astronomy" in headline
-        assert "rising" in headline
-        assert "trust: high" in headline or "trust: medium" in headline
-        assert [c.kind for c in summary.charts] == ["trend", "bars"]
+        assert headline.startswith("The attention share of «astronomy» in uk.wikipedia is growing")
+        assert summary.happening[1] == (
+            "Attention share, last 12 months vs the 12 before: uk.wikipedia +21%."
+        )
+        assert [c.id for c in summary.charts] == ["share-astronomy-uk", "edition-astronomy-uk"]
         assert summary.charts[0].trend_y is not None
+        assert summary.charts[1].reference_y == 100.0
+        assert summary.decision is not None
+        assert summary.decision.lines == []  # one audience: the answer says it all
 
     def test_rank_rows_have_rationales_and_research_suggestions(self, tmp_path: Path) -> None:
         summary = _build(tmp_path, question_type="rank")
         assert [r.rank for r in summary.ranking] == [1, 2, 3]
         assert summary.ranking[0].project == "uk.wikipedia"
-        assert "growth" in summary.ranking[0].rationale
+        assert "attention share +21%" in summary.ranking[0].rationale
         assert summary.ranking[-1].rationale == "insufficient data for ranking"
         assert any(step.startswith("Research next") for step in summary.next_steps)
         assert summary.charts[-1].id == "ranking-score"
@@ -195,7 +252,7 @@ def test_rank_headline_admits_that_every_edition_declines(tmp_path: Path) -> Non
             project, title, {m: base * (0.97**i) for i, m in enumerate(world.months)}
         )
     summary = _build(tmp_path, question_type="rank", projects=["uk", "cs"], world=world)
-    assert summary.verdict.headline.startswith("Interest is declining in every edition")
+    assert summary.verdict.headline.startswith("The attention share is falling in every edition")
 
 
 def test_clarification_summary_carries_candidates_and_question(tmp_path: Path) -> None:

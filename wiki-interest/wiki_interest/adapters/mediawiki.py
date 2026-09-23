@@ -16,6 +16,8 @@ Action API conventions that shape this module (verified 2026-09-22, see
 
 from __future__ import annotations
 
+import html
+import re
 from collections.abc import Iterator, Mapping, Sequence
 from html.parser import HTMLParser
 from itertools import batched
@@ -24,7 +26,7 @@ from typing import Any
 from wiki_interest.adapters.http import HttpJsonClient, as_array, as_object
 from wiki_interest.domain.models import WikiProject
 from wiki_interest.errors import UpstreamError
-from wiki_interest.ports.mediawiki import PageInfo
+from wiki_interest.ports.mediawiki import Mention, PageInfo
 
 __all__ = [
     "ActionApiError",
@@ -42,6 +44,9 @@ _LEAD_SECTION = 0
 _MAX_REDIRECT_HOPS = 5
 """Guards the redirect chain walk; MediaWiki itself only follows one hop, so this is generous."""
 _MISSING_TITLE_CODE = "missingtitle"
+_TAG_RE = re.compile(r"<[^>]+>")
+_INVISIBLE = str.maketrans("", "", "\ufeff\u200b\u200e\u200f")
+"""Zero-width characters that editors paste into prose and search snippets carry along."""
 _BASE_PARAMS: dict[str, str | int] = {"format": "json", "formatversion": 2}
 
 
@@ -180,6 +185,32 @@ class MediaWikiApi:
         hits = as_array(result.get("search"), "query.search")
         return tuple(str(as_object(hit, "query.search[]")["title"]) for hit in hits)
 
+    def mentions(self, project: WikiProject, phrase: str, *, limit: int = 5) -> Sequence[Mention]:
+        """Articles containing ``phrase`` verbatim, with a plain-text snippet around it.
+
+        CirrusSearch treats a quoted query as a phrase; snippets arrive as HTML with the
+        match wrapped in ``<span class="searchmatch">``, so tags and entities are stripped.
+        """
+        quoted = '"' + phrase.replace('"', " ").strip() + '"'
+        result = self._query(
+            project,
+            {
+                "action": "query",
+                "list": "search",
+                "srsearch": quoted,
+                "srnamespace": _MAIN_NAMESPACE,
+                "srlimit": limit,
+                "srprop": "snippet",
+            },
+        )
+        hits = (
+            as_object(hit, "query.search[]") for hit in as_array(result.get("search"), "search")
+        )
+        return tuple(
+            Mention(title=str(hit["title"]), snippet=_plain_text(str(hit.get("snippet", ""))))
+            for hit in hits
+        )
+
     def _query(self, project: WikiProject, params: Mapping[str, str | int]) -> dict[str, Any]:
         """Issue an ``action=query`` request and return its ``query`` object."""
         return as_object(self._request(project, params).get("query"), "query")
@@ -207,6 +238,7 @@ def _map_titles(requested: Sequence[str], query: Mapping[str, Any]) -> dict[str,
     """Map each requested title to its final page through ``normalized`` and ``redirects``."""
     normalized = _from_to_map(query.get("normalized", []), "query.normalized")
     redirects = _from_to_map(query.get("redirects", []), "query.redirects")
+    fragments = _fragments(query.get("redirects", []))
     pages_by_title: dict[str, dict[str, Any]] = {}
     for raw_page in as_array(query.get("pages", []), "query.pages"):
         listed = as_object(raw_page, "query.pages[]")
@@ -222,12 +254,41 @@ def _map_titles(requested: Sequence[str], query: Mapping[str, Any]) -> dict[str,
             continue
         props = page.get("pageprops") or {}
         qid = props.get("wikibase_item")
+        redirected = final != canonical
         result[title] = PageInfo(
             title=str(page["title"]),
             qid=str(qid) if qid else None,
-            redirected_from=title if final != canonical else None,
+            redirected_from=title if redirected else None,
+            redirect_title=canonical if redirected else None,
+            fragment=_last_fragment(canonical, redirects, fragments) if redirected else None,
         )
     return result
+
+
+def _fragments(raw: Any) -> dict[str, str]:
+    """``{redirect title: target section}`` for redirects that point into a section."""
+    entries = (as_object(item, "query.redirects") for item in as_array(raw, "query.redirects"))
+    return {str(e["from"]): str(e["tofragment"]) for e in entries if e.get("tofragment")}
+
+
+def _last_fragment(
+    title: str, redirects: Mapping[str, str], fragments: Mapping[str, str]
+) -> str | None:
+    """Section named by the last hop of a redirect chain; earlier hops' sections are moot."""
+    current, fragment = title, None
+    for _ in range(_MAX_REDIRECT_HOPS):
+        target = redirects.get(current)
+        if target is None:
+            break
+        fragment = fragments.get(current)
+        current = target
+    return fragment
+
+
+def _plain_text(snippet: str) -> str:
+    """Search snippet HTML to one line of text."""
+    text = html.unescape(_TAG_RE.sub("", snippet)).translate(_INVISIBLE)
+    return " ".join(text.split())
 
 
 def _from_to_map(raw: Any, context: str) -> dict[str, str]:

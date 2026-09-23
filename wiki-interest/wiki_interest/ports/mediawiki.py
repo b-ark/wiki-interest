@@ -8,7 +8,7 @@ from typing import Protocol
 
 from wiki_interest.domain.models import WikiProject
 
-__all__ = ["MediaWikiGateway", "PageInfo"]
+__all__ = ["MediaWikiGateway", "Mention", "PageInfo"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,11 +19,30 @@ class PageInfo:
         title: Canonical title of the target page.
         qid: Wikidata item bound to the page, if any.
         redirected_from: The requested title when it was a redirect, else ``None``.
+        redirect_title: Canonical spelling of that redirect page (``redirected_from`` is the
+            spelling as requested); the Pageviews API counts redirect visits under it.
+        fragment: Section of the target the redirect points to (``"Post przerywany"`` in
+            ``Głodówka#Post przerywany``), if any.
     """
 
     title: str
     qid: str | None
     redirected_from: str | None = None
+    redirect_title: str | None = None
+    fragment: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Mention:
+    """An article whose text contains a phrase, with the matching passage.
+
+    Attributes:
+        title: Article title.
+        snippet: Plain-text passage around the match as the search engine returned it.
+    """
+
+    title: str
+    snippet: str
 
 
 class MediaWikiGateway(Protocol):
@@ -58,4 +77,13 @@ class MediaWikiGateway(Protocol):
 
     def search(self, project: WikiProject, query: str, *, limit: int = 5) -> Sequence[str]:
         """Full-text search fallback when no sitelink exists; titles best match first."""
+        ...
+
+    def mentions(self, project: WikiProject, phrase: str, *, limit: int = 5) -> Sequence[Mention]:
+        """Articles whose text contains ``phrase`` exactly (word order kept), best first.
+
+        Unlike :meth:`search`, which matches the words anywhere ("post" alone finds a
+        politician), this finds articles that name the topic, for users choosing a substitute
+        when an edition has no article of its own.
+        """
         ...

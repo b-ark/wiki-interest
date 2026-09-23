@@ -24,6 +24,7 @@ from wiki_interest.adapters.sqlite_cache import SqliteCache
 from wiki_interest.adapters.wikidata import WikidataApi
 from wiki_interest.adapters.wikimedia_rest import WikimediaRestPageviews
 from wiki_interest.application.analysis import AnalysisSettings
+from wiki_interest.application.coverage import CoverageAdvisor
 from wiki_interest.application.loading import LoadSettings, SeriesLoader
 from wiki_interest.application.pipeline import Pipeline, Renderers, RunServices
 from wiki_interest.application.resolution import TopicResolver
@@ -88,6 +89,10 @@ class Container:
         """Topic resolver over the wired gateways."""
         return TopicResolver(self.wikidata, self.mediawiki)
 
+    def coverage(self) -> CoverageAdvisor:
+        """Advisor that finds editions without an article and what could stand in."""
+        return CoverageAdvisor(self.wikidata, self.mediawiki, self.pageviews)
+
     def loader(self, request: AnalysisRequest) -> SeriesLoader:
         """Series loader configured from the request's traffic filters."""
         load_settings = LoadSettings(
@@ -111,6 +116,8 @@ class Container:
             charts=MatplotlibChartRenderer(
                 empty_note=translator.t("chart.no_data"),
                 missing_label=translator.t("value.na"),
+                decimal_sep=translator.number_style.decimal_sep,
+                thousands_sep=translator.number_style.thousands_sep,
             ),
             agent_summary=AgentSummaryRenderer(translator),
             report_markdown=MarkdownReportRenderer(translator),
@@ -127,7 +134,7 @@ class Container:
             sources=(
                 self.settings.pageviews_base_url,
                 self.settings.wikidata_api_url,
-                "https://<language>.wikipedia.org/w/api.php",
+                "https://*.wikipedia.org/w/api.php",
             ),
             request_count=stats.requests_made,
             cache_hits=stats.cache_hits,
@@ -138,11 +145,13 @@ class Container:
         translator, renderers = self.renderers_for(request.report.language)
         return RunServices(
             resolver=self.resolver(),
+            coverage=self.coverage(),
             loader=self.loader(request),
             analysis_settings=self.analysis_settings(request),
             translator=translator,
             renderers=renderers,
             provenance=self.provenance(),
+            stop_after_resolve=self.settings.stop_after == "resolve",
         )
 
     def pipeline(self) -> Pipeline:

@@ -1,0 +1,24 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "Tesla",
+          "query_language": "ru",
+          "query_en": "Tesla, Inc.",
+          "id": "tesla-cars",
+          "qid": "Q478214"
+        }
+      ],
+      "projects": [
+        "ru",
+        "de"
+      ],
+      "report": {
+        "language": "ru"
+      },
+      "session": "o-ts-ctx-tesla-cars"
+    }
+  ]
+}

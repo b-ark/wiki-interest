@@ -1,0 +1,22 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "Blorbix Quantum Mesh",
+          "query_language": "en",
+          "id": "blorbix"
+        }
+      ],
+      "projects": [
+        "pl",
+        "cs"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-blorbix"
+    }
+  ]
+}

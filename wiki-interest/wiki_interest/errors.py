@@ -13,7 +13,7 @@ Errors are raised deep inside adapters or use-cases and caught exactly once, in 
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -24,6 +24,7 @@ __all__ = [
     "DataUnavailableError",
     "RenderError",
     "RequestValidationError",
+    "TopicNotFoundError",
     "UpstreamError",
     "WikiInterestError",
 ]
@@ -54,12 +55,14 @@ class ClarificationNeededError(WikiInterestError):
     """The pipeline cannot continue without input from the user.
 
     Raised when a topic query matches several plausible Wikidata entities and none is a clear
-    winner. Guessing here would silently analyse the wrong subject, so the agent must show the
-    candidates and ask.
+    winner. Guessing here would silently analyse the wrong subject, so the agent picks the
+    candidate the conversation clearly means, or asks the user.
 
     Attributes:
         topic_id: Identifier of the ambiguous topic in the request.
         candidates: Entities the query matched, best first.
+        coverage: Requested editions (``"uk.wikipedia"``) with an article, per candidate id;
+            shown next to each candidate, never used to choose one.
     """
 
     exit_code = 3
@@ -70,11 +73,32 @@ class ClarificationNeededError(WikiInterestError):
         *,
         topic_id: str,
         candidates: Sequence[EntityCandidate],
+        coverage: Mapping[str, Sequence[str]] | None = None,
         hint: str | None = None,
     ) -> None:
         super().__init__(message, hint=hint)
         self.topic_id = topic_id
         self.candidates = tuple(candidates)
+        self.coverage = {qid: tuple(projects) for qid, projects in (coverage or {}).items()}
+
+
+class TopicNotFoundError(WikiInterestError):
+    """Nothing on Wikidata or Wikipedia matches the topic, not even its English wording.
+
+    The honest answer is to say so and ask the user for a link to an article about what they
+    mean (``topics[].article_url``); analysing a guess would be worse than no answer.
+
+    Attributes:
+        topic_id: Identifier of the topic in the request.
+        query: The user's wording.
+    """
+
+    exit_code = 3
+
+    def __init__(self, message: str, *, topic_id: str, query: str, hint: str | None = None) -> None:
+        super().__init__(message, hint=hint)
+        self.topic_id = topic_id
+        self.query = query
 
 
 class UpstreamError(WikiInterestError):

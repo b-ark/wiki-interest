@@ -17,7 +17,7 @@ from wiki_interest.adapters.mediawiki import (
 )
 from wiki_interest.domain.models import WikiProject
 from wiki_interest.errors import UpstreamError
-from wiki_interest.ports.mediawiki import PageInfo
+from wiki_interest.ports.mediawiki import Mention, PageInfo
 
 UK = WikiProject("uk")
 API = "https://uk.wikipedia.org/w/api.php"
@@ -81,7 +81,12 @@ class TestPageInfo:
         assert params["formatversion"] == "2"
         assert result == {
             "астрономія": PageInfo(title="Астрономія", qid="Q333"),
-            "astronomy": PageInfo(title="Астрономія", qid="Q333", redirected_from="astronomy"),
+            "astronomy": PageInfo(
+                title="Астрономія",
+                qid="Q333",
+                redirected_from="astronomy",
+                redirect_title="Astronomy",
+            ),
             "Зоряна астрономія": PageInfo(title="Зоряна астрономія", qid="Q2295061"),
             "Nonexistent page": None,
             "Bad|title": None,
@@ -282,3 +287,89 @@ class TestSearch:
         respx_mock.get(API).mock(return_value=httpx.Response(200, json={"query": []}))
         with pytest.raises(UpstreamError):
             mediawiki.search(UK, "x")
+
+
+class TestRedirectTargets:
+    def test_redirect_into_a_section_reports_title_and_fragment(
+        self, respx_mock: respx.MockRouter, mediawiki: MediaWikiApi
+    ) -> None:
+        respx_mock.get(API).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "query": {
+                        "normalized": [{"from": "post przerywany", "to": "Post przerywany"}],
+                        "redirects": [
+                            {
+                                "from": "Post przerywany",
+                                "to": "Głodówka",
+                                "tofragment": "Post przerywany",
+                            }
+                        ],
+                        "pages": [_page("Głodówka", "Q9284146")],
+                    }
+                },
+            )
+        )
+        info = mediawiki.page_info(UK, ["post przerywany"])["post przerywany"]
+        assert info == PageInfo(
+            title="Głodówka",
+            qid="Q9284146",
+            redirected_from="post przerywany",
+            redirect_title="Post przerywany",
+            fragment="Post przerywany",
+        )
+
+    def test_fragment_comes_from_the_last_hop_of_a_chain(
+        self, respx_mock: respx.MockRouter, mediawiki: MediaWikiApi
+    ) -> None:
+        respx_mock.get(API).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "query": {
+                        "redirects": [
+                            {"from": "A", "to": "B", "tofragment": "old"},
+                            {"from": "B", "to": "C"},
+                        ],
+                        "pages": [_page("C")],
+                    }
+                },
+            )
+        )
+        info = mediawiki.page_info(UK, ["A"])["A"]
+        assert info is not None
+        assert info.redirect_title == "A"
+        assert info.fragment is None
+
+
+class TestMentions:
+    def test_searches_the_exact_phrase_and_cleans_snippets(
+        self, respx_mock: respx.MockRouter, mediawiki: MediaWikiApi
+    ) -> None:
+        snippet = (
+            'stosować tzw. <span class="searchmatch">post</span> '
+            '<span class="searchmatch">przerywany</span>\ufeff &amp; dietę'
+        )
+        route = respx_mock.get(API).mock(
+            return_value=httpx.Response(
+                200,
+                json={"query": {"search": [_page("Insulinooporność", snippet=snippet)]}},
+            )
+        )
+        found = mediawiki.mentions(UK, 'post "przerywany"', limit=4)
+        params = route.calls.last.request.url.params
+        assert params["srsearch"] == '"post  przerywany"'
+        assert params["srprop"] == "snippet"
+        assert params["srlimit"] == "4"
+        assert found == (
+            Mention(title="Insulinooporność", snippet="stosować tzw. post przerywany & dietę"),
+        )
+
+    def test_hit_without_snippet_has_empty_passage(
+        self, respx_mock: respx.MockRouter, mediawiki: MediaWikiApi
+    ) -> None:
+        respx_mock.get(API).mock(
+            return_value=httpx.Response(200, json={"query": {"search": [_page("X")]}})
+        )
+        assert mediawiki.mentions(UK, "x") == (Mention(title="X", snippet=""),)

@@ -2,7 +2,7 @@
   "schema_version": "1",
   "question_type": "assess",
   "topics": [
-    { "query": "астрономія", "query_language": "uk", "id": "astronomy" }
+    { "query": "астрономія", "query_language": "uk", "query_en": "astronomy", "id": "astronomy" }
   ],
   "projects": ["uk.wikipedia"],
   "report": {

@@ -207,12 +207,12 @@ class RunDiff:
 def diff_runs(before: AnalysisSummary, after: AnalysisSummary) -> RunDiff:
     """Compare two summaries pair by pair.
 
-    Metrics are compared on the bundle series (``kind == "bundle"``). Pairs present in only
+    Metrics are compared on the measured series (the main article). Pairs present in only
     one run are listed separately rather than diffed against nothing.
     """
     request_changes = _request_changes(before, after)
-    before_metrics = _bundle_metrics(before)
-    after_metrics = _bundle_metrics(after)
+    before_metrics = _metrics(before)
+    after_metrics = _metrics(after)
     shared = [key for key in before_metrics if key in after_metrics]
     pairs = tuple(_pair_diff(key, before, after) for key in shared)
     return RunDiff(
@@ -239,14 +239,14 @@ def _request_changes(
     return {key: (old.get(key), new.get(key)) for key in old if old.get(key) != new.get(key)}
 
 
-def _bundle_metrics(summary: AnalysisSummary) -> dict[tuple[str, str], MetricsOut]:
-    return {(m.topic_id, m.project): m for m in summary.metrics if m.kind == "bundle"}
+def _metrics(summary: AnalysisSummary) -> dict[tuple[str, str], MetricsOut]:
+    return {(m.topic_id, m.project): m for m in summary.metrics}
 
 
 def _pair_diff(key: tuple[str, str], before: AnalysisSummary, after: AnalysisSummary) -> PairDiff:
     topic_id, project = key
-    old = _bundle_metrics(before)[key]
-    new = _bundle_metrics(after)[key]
+    old = _metrics(before)[key]
+    new = _metrics(after)[key]
     metrics = tuple(
         MetricDelta(name, getattr(old, name), getattr(new, name)) for name in _COMPARED_METRICS
     )

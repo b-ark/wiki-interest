@@ -15,7 +15,7 @@ from wiki_interest.domain.models import (
     ReliabilityLevel,
     ReliabilityThresholds,
     ResolutionSource,
-    TrendDirection,
+    SubstituteKind,
     TrendMetrics,
 )
 from wiki_interest.domain.reliability import CHECK_NAMES, REASON_KEYS, assess_reliability
@@ -39,7 +39,7 @@ class TestHappyPath:
     def test_healthy_metrics_are_high_with_every_rule_passing(self) -> None:
         result = assess(healthy_metrics())
         assert result.level is ReliabilityLevel.HIGH
-        assert {c.name for c in result.checks} == CHECK_NAMES - {"bundle"}
+        assert {c.name for c in result.checks} == CHECK_NAMES
         assert all(c.status is CheckStatus.PASS for c in result.checks)
 
     def test_check_order_is_stable(self) -> None:
@@ -202,38 +202,6 @@ class TestVolume:
         assert (c.status, c.reason_key, c.params["views_avg"]) == (status, key, views_avg)
 
 
-class TestBundle:
-    def test_absent_without_main_metrics(self) -> None:
-        assert all(c.name != "bundle" for c in assess(healthy_metrics()).checks)
-
-    @pytest.mark.parametrize(
-        ("main", "bundle"),
-        [
-            (TrendDirection.RISING, TrendDirection.RISING),
-            (TrendDirection.UNKNOWN, TrendDirection.FALLING),
-            (TrendDirection.FLAT, TrendDirection.UNKNOWN),
-        ],
-    )
-    def test_consistent_or_unknown_is_info(
-        self, main: TrendDirection, bundle: TrendDirection
-    ) -> None:
-        result = assess(
-            healthy_metrics(trend_direction=bundle),
-            main_metrics=healthy_metrics(trend_direction=main),
-        )
-        c = check(result, "bundle")
-        assert (c.status, c.reason_key) == (CheckStatus.INFO, "bundle.consistent")
-
-    def test_divergence_warns_with_both_directions(self) -> None:
-        result = assess(
-            healthy_metrics(trend_direction=TrendDirection.RISING),
-            main_metrics=healthy_metrics(trend_direction=TrendDirection.FLAT),
-        )
-        c = check(result, "bundle")
-        assert (c.status, c.reason_key) == (CheckStatus.WARN, "bundle.diverges")
-        assert c.params == {"main_direction": "flat", "bundle_direction": "rising"}
-
-
 class TestAggregation:
     def test_one_warn_is_still_high(self) -> None:
         assert assess(healthy_metrics(views_avg=10)).level is ReliabilityLevel.HIGH
@@ -264,10 +232,14 @@ class TestRegistry:
             assess(healthy_metrics(), main_source=ResolutionSource.SEARCH_FALLBACK),
             assess(healthy_metrics(), main_source=ResolutionSource.MANUAL),
             assess(None, bundle_status=BundleStatus.NOT_FOUND, main_source=None),
-            assess(healthy_metrics(), main_metrics=healthy_metrics()),
-            assess(
-                healthy_metrics(),
-                main_metrics=healthy_metrics(trend_direction=TrendDirection.FALLING),
+            *(
+                assess(
+                    healthy_metrics(),
+                    bundle_status=BundleStatus.SUBSTITUTE,
+                    main_source=ResolutionSource.SUBSTITUTE,
+                    substitute_kind=kind,
+                )
+                for kind in SubstituteKind
             ),
         ]
         emitted = {c.reason_key for r in scenarios for c in r.checks}
@@ -277,3 +249,26 @@ class TestRegistry:
     def test_reason_keys_are_namespaced_by_check_name(self) -> None:
         for key in REASON_KEYS:
             assert key.split(".")[0] in CHECK_NAMES
+
+
+class TestSubstitutes:
+    def _assess(self, kind: SubstituteKind) -> Reliability:
+        return assess(
+            healthy_metrics(),
+            bundle_status=BundleStatus.SUBSTITUTE,
+            main_source=ResolutionSource.SUBSTITUTE,
+            substitute_kind=kind,
+        )
+
+    def test_redirect_warns_because_it_only_undercounts(self) -> None:
+        result = self._assess(SubstituteKind.REDIRECT)
+        assert check(result, "resolution").status is CheckStatus.WARN
+        assert result.level is ReliabilityLevel.HIGH  # one warning alone does not lower it
+
+    @pytest.mark.parametrize("kind", [SubstituteKind.BROADER, SubstituteKind.MENTION])
+    def test_another_subject_makes_the_verdict_low(self, kind: SubstituteKind) -> None:
+        result = self._assess(kind)
+        resolution = check(result, "resolution")
+        assert resolution.status is CheckStatus.FAIL
+        assert resolution.reason_key == f"resolution.substitute_{kind.value}"
+        assert result.level is ReliabilityLevel.LOW

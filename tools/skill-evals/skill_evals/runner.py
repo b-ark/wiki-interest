@@ -16,7 +16,7 @@ import shutil
 import threading
 import time
 import traceback
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -35,8 +35,15 @@ from skill_evals.records import (
     append_jsonl,
     read_jsonl,
 )
-from skill_evals.sandbox import Sandbox
-from skill_evals.scenarios import Scenario, load_scenarios
+from skill_evals.sandbox import Sandbox, skill_name_from_frontmatter
+from skill_evals.scenarios import (
+    AGENT_SESSION_ENV,
+    CACHE_PATH_ENV,
+    STAGE_ENV,
+    Scenario,
+    load_scenarios,
+)
+from skill_evals.shared_env import prepare_shared_env, shared_env_variables
 
 __all__ = [
     "DEFAULT_ARTIFACT_GLOBS",
@@ -109,6 +116,8 @@ class RunConfig:
         reps: Repetitions per scenario.
         parallelism: Concurrent cases; 2 is safe for the CLI on a subscription.
         warm_cache: Optional ``.cache`` directory seeded into every sandbox.
+        shared_env: Build the skill's Python environment once and let every sandbox use it
+            (see :mod:`skill_evals.shared_env`); needed for high parallelism.
         judge: LLM judge for rubric items; ``None`` disables L3 grading.
         resume: Skip (scenario, rep) pairs already present in ``results.jsonl``.
         keep_sandboxes: Keep sandbox directories as evidence (default) or delete them.
@@ -130,6 +139,7 @@ class RunConfig:
     reps: int = 3
     parallelism: int = 2
     warm_cache: Path | None = None
+    shared_env: bool = False
     judge: Judge | None = None
     resume: bool = True
     keep_sandboxes: bool = True
@@ -180,6 +190,11 @@ def run(config: RunConfig) -> RunResult:
         if (s.id, rep) not in done
     ]
     _write_run_manifest(config, scenario_file.skill_name, len(selected))
+    base_env: dict[str, str] = {}
+    if config.shared_env and cases:
+        config.log.log("building the shared Python environment")
+        env_dir = prepare_shared_env(config.skill_path, config.run_dir / "_env")
+        base_env = shared_env_variables(env_dir)
     config.log.log(f"run {config.variant}: {len(cases)} case(s) to run, {len(done)} already done")
     gate = RateLimitGate(config.sleep)
     lock = threading.Lock()
@@ -187,7 +202,7 @@ def run(config: RunConfig) -> RunResult:
     errors: list[ErrorRecord] = []
 
     def work(case: _Case) -> None:
-        outcome = _run_case(case, config, gate)
+        outcome = _run_case(case, config, gate, base_env)
         with lock:
             if isinstance(outcome, CaseResult):
                 append_jsonl(config.run_dir / "results.jsonl", outcome)
@@ -235,13 +250,15 @@ def _write_run_manifest(config: RunConfig, skill_name: str, n_scenarios: int) ->
     )
 
 
-def _run_case(case: _Case, config: RunConfig, gate: RateLimitGate) -> CaseResult | ErrorRecord:
+def _run_case(
+    case: _Case, config: RunConfig, gate: RateLimitGate, base_env: Mapping[str, str]
+) -> CaseResult | ErrorRecord:
     """Run one case with rate-limit retries; never raises."""
     case_dir = config.run_dir / "cases" / case.scenario.id / f"rep-{case.rep}"
     for attempt in range(config.max_rate_limit_retries + 1):
         gate.wait()
         try:
-            return _attempt(case, config, case_dir)
+            return _attempt(case, config, case_dir, base_env)
         except RateLimitedError as exc:
             pause = exc.retry_after_s or config.rate_limit_pause_s
             config.log.log(f"[yellow]{case.slug}: rate limited, pausing {pause:.0f}s[/]")
@@ -272,7 +289,9 @@ def _error(
     )
 
 
-def _attempt(case: _Case, config: RunConfig, case_dir: Path) -> CaseResult:
+def _attempt(
+    case: _Case, config: RunConfig, case_dir: Path, base_env: Mapping[str, str]
+) -> CaseResult:
     """One full attempt: sandbox, provider, artifacts, grading."""
     if case_dir.exists():
         shutil.rmtree(case_dir)
@@ -280,7 +299,18 @@ def _attempt(case: _Case, config: RunConfig, case_dir: Path) -> CaseResult:
     sandbox_dir = config.run_dir / "sandboxes" / case.slug
     if sandbox_dir.exists():
         shutil.rmtree(sandbox_dir)
-    sandbox = Sandbox.create(config.skill_path, sandbox_dir, warm_cache_from=config.warm_cache)
+    env = {**AGENT_SESSION_ENV, **base_env, **STAGE_ENV.get(case.scenario.stage, {})}
+    if base_env:
+        skill_dir = (
+            sandbox_dir / ".claude" / "skills" / skill_name_from_frontmatter(config.skill_path)
+        )
+        env[CACHE_PATH_ENV] = str((skill_dir / ".cache" / "http.sqlite").resolve())
+    sandbox = Sandbox.create(
+        config.skill_path,
+        sandbox_dir,
+        warm_cache_from=config.warm_cache,
+        env=env,
+    )
     config.log.log(f"{case.slug}: running")
     trajectory = config.provider.run(case.scenario.turns, sandbox.root, case_dir / "events.jsonl")
     (case_dir / "trajectory.json").write_text(

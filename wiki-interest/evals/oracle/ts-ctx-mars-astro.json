@@ -1,0 +1,24 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "Марс",
+          "query_language": "uk",
+          "query_en": "Mars",
+          "id": "mars-astro",
+          "qid": "Q111"
+        }
+      ],
+      "projects": [
+        "uk",
+        "pl"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-ts-ctx-mars-astro"
+    }
+  ]
+}

@@ -28,7 +28,7 @@ from wiki_interest.domain.trend_tests import (
     theil_sen_slope,
 )
 
-__all__ = ["MetricsSettings", "compute_automated_share", "compute_metrics"]
+__all__ = ["MetricsSettings", "comparable_growth", "compute_automated_share", "compute_metrics"]
 
 _STEPS_PER_YEAR = 12
 
@@ -141,6 +141,26 @@ def compute_metrics(
         volatility_cv=_volatility_cv(analysis_values, settings),
         automated_share=compute_automated_share(monthly_views, automated_views),
     )
+
+
+def comparable_growth(
+    values: tuple[float | None, ...], settings: MetricsSettings = _DEFAULT_SETTINGS
+) -> tuple[float | None, str | None]:
+    """Growth by the same rule the headline uses: year over year, else halves.
+
+    Used to compare an article with its whole edition over exactly the same months.
+
+    Returns:
+        ``(growth, basis)`` where ``basis`` is ``"yoy"`` or ``"halves"``; ``(None, None)`` when
+        neither can be computed.
+    """
+    yoy = _growth_yoy(values, settings)
+    if yoy is not None:
+        return yoy, "yoy"
+    halves = _growth_halves(values, settings)
+    if halves is not None:
+        return halves, "halves"
+    return None, None
 
 
 def _mean_or_none(series: Series | None) -> float | None:

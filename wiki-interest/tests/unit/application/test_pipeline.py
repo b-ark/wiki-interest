@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from datetime import UTC, datetime
 from pathlib import Path
 
 from pypdf import PdfReader
 
-from fakes import astronomy_world, fake_container
+from fakes import FakeEntity, FakePage, astronomy_world, fake_container
 from wiki_interest.application.pipeline import Pipeline
 from wiki_interest.application.runs import load_summary
 from wiki_interest.application.summary_builder import RunContext
 from wiki_interest.contracts.request import AnalysisRequest
+from wiki_interest.domain.models import WikiProject
 
 
 def _request(**overrides: object) -> AnalysisRequest:
@@ -53,7 +55,8 @@ class TestSuccessfulRun:
         assert (run_dir / "report.md").exists()
         assert (run_dir / "report.pdf").exists()
         pngs = sorted((run_dir / "charts").glob("*.png"))
-        assert [p.name for p in pngs] == ["growth.png", "interest-over-time.png"]
+        assert {p.stem for p in pngs} == {c.id for c in outcome.summary.charts}
+        assert {"share", "edition-growth"} <= {p.stem for p in pngs}
         assert len(PdfReader(run_dir / "report.pdf").pages) == 1
         payload = outcome.to_dict()
         assert payload["status"] == "ok"
@@ -95,9 +98,9 @@ class TestSuccessfulRun:
         assess = _pipeline(tmp_path).run(
             _request(question_type="assess", projects=["uk"]), _context(tmp_path, "assess")
         )
-        assert [c.kind for c in assess.summary.charts] == ["trend", "bars"]
+        assert [c.kind for c in assess.summary.charts] == ["trend", "lines"]
         rank = _pipeline(tmp_path).run(_request(question_type="rank"), _context(tmp_path, "rank"))
-        assert [c.kind for c in rank.summary.charts] == ["lines", "bars", "bars"]
+        assert [c.kind for c in rank.summary.charts] == ["lines", "grouped_bars", "bars"]
         assert [r.rank for r in rank.summary.ranking] == [1, 2]
         assert rank.summary.ranking[0].project == "uk.wikipedia"
 
@@ -139,3 +142,134 @@ class TestRender:
         rendered = pipeline.render(load_summary(run_dir), run_dir)
         assert (run_dir / "report.pdf").exists()
         assert rendered.artifacts == outcome.summary.artifacts
+
+
+def _world_with_polish_gap(tmp_path: Path) -> Pipeline:
+    """The fixture world plus a Polish "Nauka" (science), the item astronomy is a subclass of."""
+    world = astronomy_world()
+    pl = WikiProject("pl")
+    world.wikidata.entities["Q333"].claims["P279"] = ["Q336"]
+    world.wikidata.add(FakeEntity("Q336", {"en": "science"}, sitelinks={pl: "Nauka"}))
+    world.mediawiki.add_page(pl, FakePage("Nauka", qid="Q336"))
+    world.pageviews.set_article(
+        pl, "Nauka", {m: 5000.0 - 20.0 * i for i, m in enumerate(world.months)}
+    )
+    world.pageviews.set_aggregate(pl, dict.fromkeys(world.months, 80000000.0))
+    return fake_container(world, tmp_path).pipeline()
+
+
+class TestMissingArticle:
+    def test_stops_before_loading_series_and_lists_the_options(self, tmp_path: Path) -> None:
+        pipeline = _world_with_polish_gap(tmp_path)
+        outcome = pipeline.run(_request(projects=["uk", "pl"]), _context(tmp_path))
+        assert outcome.exit_code == 3
+        clarification = outcome.summary.clarification
+        assert clarification is not None
+        assert clarification.kind == "missing_article"
+        (gap,) = clarification.gaps
+        assert gap.project == "pl.wikipedia"
+        assert gap.qid == "Q333"
+        assert [(o.kind, o.title) for o in gap.options] == [("broader", "Nauka"), ("skip", None)]
+        assert outcome.summary.artifacts.report_pdf is None
+        assert outcome.summary.series == []
+        payload = outcome.to_dict()
+        details = payload["clarification"]
+        assert isinstance(details, dict)
+        assert details["gaps"][0]["options"][0]["choose"] == {
+            "pl.wikipedia": {"title": "Nauka", "kind": "broader"}
+        }
+        assert json.dumps(payload)
+        run_dir = Path(outcome.summary.artifacts.run_dir)
+        text = (run_dir / "summary.md").read_text(encoding="utf-8")
+        assert "Nauka" in text
+        assert not (run_dir / "report.pdf").exists()
+
+    def test_the_chosen_substitute_is_measured_and_named_but_never_leads(
+        self, tmp_path: Path
+    ) -> None:
+        pipeline = _world_with_polish_gap(tmp_path)
+        request = _request(
+            projects=["cs", "pl"],
+            topics=[
+                {
+                    "query": "astronomy",
+                    "query_language": "en",
+                    "id": "astronomy",
+                    "substitutes": {"pl": {"title": "Nauka", "kind": "broader"}},
+                }
+            ],
+            report={"language": "en"},
+        )
+        outcome = pipeline.run(request, _context(tmp_path))
+        assert outcome.exit_code == 0
+        summary = outcome.summary
+        pl_reliability = next(r for r in summary.reliability if r.project == "pl.wikipedia")
+        assert pl_reliability.level == "low"
+        # "Nauka" has far more views per million than Czech astronomy, yet the headline is
+        # about the topic, so it names cs.
+        assert "cs.wikipedia" in summary.verdict.headline
+        assert "pl.wikipedia" not in summary.verdict.headline
+        text = Path(summary.artifacts.summary_md).read_text(encoding="utf-8")
+        assert "pl.wikipedia (Nauka)" in text
+        assert 'the broader article "Nauka"' in text
+
+    def test_skip_runs_without_the_edition(self, tmp_path: Path) -> None:
+        pipeline = _world_with_polish_gap(tmp_path)
+        request = _request(
+            projects=["uk", "pl"],
+            topics=[
+                {
+                    "query": "astronomy",
+                    "query_language": "en",
+                    "id": "astronomy",
+                    "substitutes": {"pl": "skip"},
+                }
+            ],
+        )
+        outcome = pipeline.run(request, _context(tmp_path))
+        assert outcome.exit_code == 0
+        pl_row = next(r for r in outcome.summary.comparison if r.project == "pl.wikipedia")
+        assert pl_row.views_avg is None
+
+
+class TestTopicQuestions:
+    def test_unknown_topic_stops_with_a_request_for_a_link(self, tmp_path: Path) -> None:
+        request = _request(topics=[{"query": "zzz", "query_language": "en", "id": "z"}])
+        outcome = _pipeline(tmp_path).run(request, _context(tmp_path))
+        assert outcome.exit_code == 3
+        assert outcome.summary.clarification is not None
+        assert outcome.summary.clarification.kind == "topic_not_found"
+        payload = outcome.to_dict()
+        assert payload["clarification"] == {
+            "kind": "topic_not_found",
+            "topic_id": "z",
+            "query": "zzz",
+            "question": outcome.summary.clarification.question,
+        }
+
+    def test_successful_run_names_the_analysed_entity(self, tmp_path: Path) -> None:
+        outcome = _pipeline(tmp_path).run(_request(), _context(tmp_path))
+        topics = outcome.to_dict()["topics"]
+        assert isinstance(topics, list)
+        assert topics[0]["qid"] == "Q333"
+        assert topics[0]["description"] == "natural science of celestial objects"
+        text = Path(outcome.summary.artifacts.summary_md).read_text(encoding="utf-8")
+        assert "(Q333)" in text
+
+
+class TestTopicStageOnly:
+    def test_stop_after_resolve_writes_the_topic_and_measures_nothing(self, tmp_path: Path) -> None:
+        world = astronomy_world()
+        container = fake_container(world, tmp_path)
+        settings = container.settings.model_copy(update={"stop_after": "resolve"})
+        pipeline = dataclasses.replace(container, settings=settings).pipeline()
+        outcome = pipeline.run(_request(), _context(tmp_path))
+        assert outcome.exit_code == 0
+        assert outcome.summary.status == "topic_resolved"
+        assert outcome.summary.resolution[0].qid == "Q333"
+        assert outcome.summary.series == []
+        assert not [c for c in world.pageviews.calls if c[0] == "aggregate"]
+        run_dir = Path(outcome.summary.artifacts.run_dir)
+        text = (run_dir / "summary.md").read_text(encoding="utf-8")
+        assert "(Q333)" in text
+        assert not (run_dir / "report.pdf").exists()

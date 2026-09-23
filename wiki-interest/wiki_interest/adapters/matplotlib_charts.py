@@ -9,6 +9,7 @@ a re-run with the same data yields byte-identical files and golden tests stay gr
 from __future__ import annotations
 
 import math
+import textwrap
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -48,16 +49,36 @@ ZERO_LINE_WIDTH = 0.8
 LARGE_VALUE = 100.0
 MEDIUM_VALUE = 10.0
 HALF_BAR = 0.5
+MAX_MARKED_POINTS = 60
+"""Longer series (daily data) are drawn without point markers, which would merge into a band."""
+GROUP_WIDTH = 0.8
+"""Share of a category slot taken by a group of bars."""
+REFERENCE_LINE_WIDTH = 0.9
+LEGEND_BAND = 1.45
+"""Value-axis stretch that leaves an empty band for the legend of a bar chart."""
+VALUE_HEADROOM = 1.12
+"""Room above the tallest bar for its value label."""
+TITLE_PAD_PT = 8.0
+SUBTITLE_LINE_HEIGHT = 1.3
+"""Height of a subtitle line in font sizes, the room the title moves up by per line."""
+SUBTITLE_WIDTH_SHARE = 0.85
+"""Share of the figure width the subtitle may take; the rest is the y-axis label."""
+CHAR_MM_PER_PT = 0.2
+MAX_INSIDE_LEGEND = 2
+"""A wide line chart with more series than this gets its legend outside the plot."""
+"""Average width of a DejaVu Sans character per point of font size, in millimetres."""
 
 
 class MatplotlibChartRenderer:
-    """Renders ``lines``, ``bars`` and ``trend`` charts in the shared report theme.
+    """Renders ``lines``, ``bars``, ``grouped_bars`` and ``trend`` charts in the report theme.
 
     Args:
         theme_path: Theme JSON to use; ``None`` selects ``assets/report_theme.json``.
         empty_note: Text drawn on the axes when every value of the spec is missing. Passed in
             (already localised) because the renderer itself knows nothing about languages.
         missing_label: Value label for a single missing bar.
+        decimal_sep: Decimal separator of the report language for value labels.
+        thousands_sep: Thousands separator of the report language for value labels.
     """
 
     def __init__(
@@ -66,10 +87,14 @@ class MatplotlibChartRenderer:
         *,
         empty_note: str = "No data",
         missing_label: str = "n/a",
+        decimal_sep: str = ".",
+        thousands_sep: str = ",",
     ) -> None:
         self._theme = ReportTheme.load(theme_path)
         self._empty_note = empty_note
         self._missing_label = missing_label
+        self._decimal_sep = decimal_sep
+        self._thousands_sep = thousands_sep
 
     def render(self, spec: ChartSpec, output_dir: Path) -> Sequence[Path]:
         """Draw ``spec`` and write ``<id>.png`` and ``<id>.svg`` into ``output_dir``.
@@ -105,26 +130,62 @@ class MatplotlibChartRenderer:
 
     def _draw(self, spec: ChartSpec) -> Figure:
         chart = self._theme.chart
-        figure = Figure(
-            figsize=(chart.width_mm / MM_PER_INCH, chart.height_mm / MM_PER_INCH), dpi=chart.dpi
+        width, height = (
+            (chart.half_width_mm, chart.half_height_mm)
+            if spec.size == "half"
+            else (chart.width_mm, chart.height_mm)
         )
+        figure = Figure(figsize=(width / MM_PER_INCH, height / MM_PER_INCH), dpi=chart.dpi)
         axes = figure.add_subplot()
         self._style_axes(axes, spec)
         if _is_empty(spec):
             self._draw_empty(axes, spec.series[0].x)
         elif spec.kind == "bars":
-            self._draw_bars(axes, spec.series[0])
+            self._draw_bars(axes, spec.series[0], spec.value_suffix)
+        elif spec.kind == "grouped_bars":
+            self._draw_grouped_bars(axes, spec.series, spec.value_suffix)
         elif spec.kind == "trend":
             self._draw_trend(axes, spec)
         else:
-            self._draw_lines(axes, spec.series)
+            outside = spec.size == "wide" and len(spec.series) > MAX_INSIDE_LEGEND
+            self._draw_lines(axes, spec.series, legend_outside=outside)
+        if spec.reference_y is not None:
+            axes.axhline(
+                spec.reference_y,
+                color=self._theme.muted_color,
+                linewidth=REFERENCE_LINE_WIDTH,
+                linestyle=":",
+            )
+        if spec.log_y:
+            axes.set_yscale("log")
         self._add_footnote(figure, spec.footnote)
         return figure
 
     def _style_axes(self, axes: Axes, spec: ChartSpec) -> None:
         theme = self._theme
-        axes.set_title(spec.title, fontsize=theme.chart.title_size_pt, loc="left", pad=10)
-        axes.set_ylabel(spec.y_label)
+        title_size = theme.chart.title_size_pt if spec.size == "wide" else theme.chart.font_size_pt
+        pad = TITLE_PAD_PT
+        if spec.subtitle:
+            # The subtitle sits between the title and the plot; the title moves up to make room.
+            width = theme.chart.width_mm if spec.size == "wide" else theme.chart.half_width_mm
+            char_mm = theme.chart.small_size_pt * CHAR_MM_PER_PT
+            lines = textwrap.wrap(spec.subtitle, int(width * SUBTITLE_WIDTH_SHARE / char_mm))
+            axes.annotate(
+                "\n".join(lines),
+                xy=(0, 1),
+                xycoords="axes fraction",
+                xytext=(0, TITLE_PAD_PT / 2),
+                textcoords="offset points",
+                fontsize=theme.chart.small_size_pt,
+                color=theme.muted_color,
+                ha="left",
+                va="bottom",
+            )
+            pad += len(lines) * theme.chart.small_size_pt * SUBTITLE_LINE_HEIGHT
+        axes.set_title(spec.title, fontsize=title_size, loc="left", pad=pad)
+        # A half-height chart has no room for a long axis label at the body size.
+        label_size = theme.chart.font_size_pt if spec.size == "wide" else theme.chart.small_size_pt
+        axes.set_ylabel(spec.y_label, fontsize=label_size)
         axes.grid(True, axis="y", color=theme.grid_color, linewidth=0.6)
         axes.set_axisbelow(True)
         for side in ("top", "right"):
@@ -142,7 +203,9 @@ class MatplotlibChartRenderer:
             color=self._theme.muted_color,
         )
 
-    def _draw_lines(self, axes: Axes, series: Sequence[ChartSeries]) -> None:
+    def _draw_lines(
+        self, axes: Axes, series: Sequence[ChartSeries], *, legend_outside: bool = False
+    ) -> None:
         theme = self._theme
         for index, one in enumerate(series):
             axes.plot(
@@ -150,35 +213,101 @@ class MatplotlibChartRenderer:
                 _as_array(one.y),
                 color=theme.palette[index % len(theme.palette)],
                 linewidth=theme.chart.line_width,
-                marker="o",
+                marker="o" if len(one.x) <= MAX_MARKED_POINTS else "",
                 markersize=theme.chart.marker_size,
                 label=one.label,
             )
         self._label_x(axes, _longest_x(series))
-        axes.legend(frameon=False, fontsize=theme.chart.small_size_pt, loc="best")
+        if legend_outside:
+            # Many lines leave no empty corner; the legend goes right of the plot instead.
+            axes.legend(
+                frameon=False,
+                fontsize=theme.chart.small_size_pt,
+                loc="upper left",
+                bbox_to_anchor=(1.0, 1.0),
+            )
+        else:
+            axes.legend(frameon=False, fontsize=theme.chart.small_size_pt, loc="best")
 
-    def _draw_bars(self, axes: Axes, series: ChartSeries) -> None:
+    def _draw_bars(self, axes: Axes, series: ChartSeries, suffix: str) -> None:
         theme = self._theme
         heights = [0.0 if v is None else v for v in series.y]
         colors = [theme.palette[i % len(theme.palette)] for i in range(len(series.y))]
+        if len(series.y) > LABEL_ROTATION_THRESHOLD:
+            # Many bars (twelve months) read better in one colour, with no value labels.
+            colors = [theme.palette[0]] * len(series.y)
         axes.bar(range(len(series.y)), heights, color=colors)
         axes.axhline(0, color=theme.text_color, linewidth=ZERO_LINE_WIDTH)
-        for index, value in enumerate(series.y):
-            self._annotate_bar(axes, index, value)
+        if len(series.y) <= LABEL_ROTATION_THRESHOLD:
+            for index, value in enumerate(series.y):
+                self._annotate_bar(axes, float(index), value, suffix)
+            observed = [v for v in series.y if v is not None]
+            if observed and min(observed) >= 0 < max(observed):
+                axes.set_ylim(top=max(observed) * VALUE_HEADROOM)
         self._label_x(axes, series.x)
 
-    def _annotate_bar(self, axes: Axes, index: int, value: float | None) -> None:
-        text = self._missing_label if value is None else _compact_number(value)
+    def _draw_grouped_bars(self, axes: Axes, series: Sequence[ChartSeries], suffix: str) -> None:
+        theme = self._theme
+        count = len(series)
+        width = GROUP_WIDTH / count
+        for number, one in enumerate(series):
+            offset = (number - (count - 1) / 2) * width
+            positions = [index + offset for index in range(len(one.y))]
+            heights = [0.0 if v is None else v for v in one.y]
+            axes.bar(
+                positions,
+                heights,
+                width=width,
+                color=theme.palette[number % len(theme.palette)],
+                label=one.label,
+            )
+            for position, value in zip(positions, one.y, strict=True):
+                self._annotate_bar(axes, position, value, suffix)
+        axes.axhline(0, color=theme.text_color, linewidth=ZERO_LINE_WIDTH)
+        self._label_x(axes, _longest_x(series))
+        self._legend_clear_of_bars(axes, [v for one in series for v in one.y if v is not None])
+
+    def _legend_clear_of_bars(self, axes: Axes, values: Sequence[float]) -> None:
+        """Put the legend in an empty band so it never covers a bar or its label.
+
+        When every bar points the same way, the value axis is stretched on that side and the
+        legend sits in the band this frees; mixed signs fall back to matplotlib's choice.
+        """
+        size = self._theme.chart.small_size_pt
+        if values and all(v <= 0 for v in values):
+            axes.set_ylim(bottom=min(values) * LEGEND_BAND, top=0)
+            axes.legend(fontsize=size, loc="lower center", ncol=2, frameon=False)
+        elif values and all(v >= 0 for v in values):
+            axes.set_ylim(bottom=0, top=max(values) * LEGEND_BAND)
+            axes.legend(fontsize=size, loc="upper center", ncol=2, frameon=False)
+        else:
+            axes.legend(fontsize=size, loc="best", framealpha=0.85)
+
+    def _annotate_bar(
+        self, axes: Axes, position: float, value: float | None, suffix: str = ""
+    ) -> None:
+        text = self._missing_label if value is None else self._value_label(value, suffix)
         below = value is not None and value < 0
         axes.annotate(
             text,
-            (index, 0.0 if value is None else value),
+            (position, 0.0 if value is None else value),
             xytext=(0, -VALUE_LABEL_OFFSET_PT if below else VALUE_LABEL_OFFSET_PT),
             textcoords="offset points",
             ha="center",
             va="top" if below else "bottom",
             fontsize=self._theme.chart.small_size_pt,
         )
+
+    def _value_label(self, value: float, suffix: str) -> str:
+        """``-36 %``-style label: whole percents, else precision by magnitude, local separators."""
+        text = f"{value:,.0f}" if suffix == "%" else _compact_number(value)
+        placeholder = "\0"
+        text = (
+            text.replace(",", placeholder)
+            .replace(".", self._decimal_sep)
+            .replace(placeholder, self._thousands_sep)
+        )
+        return text + suffix
 
     def _draw_trend(self, axes: Axes, spec: ChartSpec) -> None:
         theme = self._theme
@@ -197,8 +326,8 @@ class MatplotlibChartRenderer:
             range(len(series.x)),
             _as_array(series.y),
             color=theme.palette[0],
-            linewidth=theme.chart.line_width,
-            marker="o",
+            linewidth=theme.chart.line_width if len(series.x) <= MAX_MARKED_POINTS else 0.8,
+            marker="o" if len(series.x) <= MAX_MARKED_POINTS else "",
             markersize=theme.chart.marker_size,
             label=series.label,
         )

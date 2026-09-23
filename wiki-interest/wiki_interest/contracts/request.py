@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from datetime import date
 from typing import Annotated, Any, Literal, Self
+from urllib.parse import unquote
 
 from pydantic import (
     BaseModel,
@@ -30,6 +31,8 @@ __all__ = [
     "QuestionType",
     "RankingWeightsSpec",
     "ReportOptions",
+    "SubstituteChoice",
+    "SubstituteSpec",
     "TopicSpec",
 ]
 
@@ -49,6 +52,9 @@ EARLIEST_MONTH = date(2015, 7, 1)
 """First month with data in the Wikimedia Pageviews API."""
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_ARTICLE_URL_RE = re.compile(
+    r"^https?://(?P<lang>[a-z][a-z0-9-]*)\.(?:m\.)?wikipedia\.org/wiki/(?P<title>[^?#]+)"
+)
 _YEAR_MONTH_RE = re.compile(r"^(\d{4})-(\d{2})$")
 _MIN_COMPARE_COMBINATIONS = 2
 
@@ -61,27 +67,82 @@ class _StrictModel(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", str_strip_whitespace=True)
 
 
+class SubstituteSpec(_StrictModel):
+    """A page the user chose to stand in for an article that does not exist in an edition.
+
+    The run that found the gap lists the options, each with a ready ``choose`` value, so the
+    agent copies one verbatim instead of composing it.
+
+    Attributes:
+        title: Page title in that edition. For ``redirect`` it is the redirect itself, whose
+            views count only visits under that name; otherwise the article it names.
+        kind: What the page is relative to the topic; see
+            :class:`~wiki_interest.domain.models.SubstituteKind`.
+    """
+
+    title: str = Field(min_length=1, max_length=255)
+    kind: Literal["redirect", "broader", "mention"]
+
+
+SubstituteChoice = SubstituteSpec | Literal["skip"]
+"""What to do in an edition without an article: measure a substitute page, or leave the
+edition out and report "no article" (``"skip"``)."""
+
+
 class TopicSpec(_StrictModel):
     """One topic to analyse.
 
     Attributes:
         query: The topic as the user phrased it, in any language.
         query_language: Language code of ``query``; used for the Wikidata search.
+        query_en: The topic in English, used only when the search in ``query_language`` finds
+            nothing. Wikidata labels are matched per language and an item often has no label
+            exactly in the languages where it has no article, while English labels are nearly
+            universal: "post przerywany" finds nothing in Polish, "intermittent fasting" finds
+            the item.
         id: Stable identifier used in outputs and file names; derived from ``query`` when
             omitted (``"topic-1"``, ``"topic-2"`` … for non-Latin queries).
         qid: Wikidata item to use instead of searching; set this after a clarification.
         bundle: How to expand the topic into articles.
         extra_titles: Additional article titles per project (``{"uk.wikipedia": ["Телескоп"]}``).
         exclude_titles: Titles per project to drop from the automatic bundle.
+        local_terms: How the topic is usually called in an edition's language
+            (``{"pl.wikipedia": "post przerywany"}``). Optional; used only when the edition
+            has no article linked from Wikidata, to find a redirect or articles that mention
+            the topic. Wikidata often lacks a label exactly where the article is missing.
+        substitutes: The user's decision per edition that has no article, taken from the
+            options a previous run listed: a substitute page or ``"skip"``.
+        meaning: What the user means, in a few English words (``"the chemical element Hg"``),
+            decided by the agent from the conversation. The pipeline does not interpret it; it
+            is recorded so the reports and the agent can check the resolved entity against it.
+        article_url: Link to a Wikipedia article about the topic, given by the user when the
+            topic could not be found by name. Its Wikidata item replaces the search.
     """
 
     query: str = Field(min_length=1, max_length=200)
     query_language: str = Field(default="en", pattern=r"^[a-z]{2,3}(-[a-z0-9]+)?$")
+    query_en: str | None = Field(default=None, min_length=1, max_length=200)
     id: Slug | None = None
     qid: str | None = Field(default=None, pattern=r"^Q[1-9]\d*$")
     bundle: BundleMode = "auto"
     extra_titles: dict[str, list[str]] = Field(default_factory=dict)
     exclude_titles: dict[str, list[str]] = Field(default_factory=dict)
+    local_terms: dict[str, Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        default_factory=dict
+    )
+    substitutes: dict[str, SubstituteChoice] = Field(default_factory=dict)
+    meaning: str | None = Field(default=None, min_length=1, max_length=200)
+    article_url: str | None = Field(default=None, pattern=_ARTICLE_URL_RE.pattern)
+
+    @property
+    def article_ref(self) -> tuple[WikiProject, str] | None:
+        """``(edition, title)`` named by ``article_url``, with the title URL-decoded."""
+        if self.article_url is None:
+            return None
+        match = _ARTICLE_URL_RE.match(self.article_url)
+        assert match is not None  # guaranteed by the field pattern
+        title = unquote(match.group("title")).replace("_", " ")
+        return WikiProject(match.group("lang")), title
 
     @field_validator("extra_titles", "exclude_titles", mode="before")
     @classmethod
@@ -93,6 +154,13 @@ class TopicSpec(_StrictModel):
             project = WikiProject.parse(str(key)).domain
             normalised.setdefault(project, []).extend(titles)
         return normalised
+
+    @field_validator("local_terms", "substitutes", mode="before")
+    @classmethod
+    def _normalise_single_value_keys(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        return {WikiProject.parse(str(key)).domain: item for key, item in value.items()}
 
     @model_validator(mode="after")
     def _manual_bundle_needs_titles(self) -> Self:
@@ -193,6 +261,10 @@ class ReportOptions(_StrictModel):
     title: str | None = Field(default=None, max_length=120)
     audience_note: str | None = Field(default=None, max_length=500)
     formats: list[Literal["pdf", "md"]] = Field(default=["pdf", "md"])
+    seasonality: Literal["auto", "show"] = "auto"
+    """``show`` when the user asked about timing (months, seasons, when to launch): the
+    seasonal pattern is then always reported and charted. ``auto`` shows it only when it is
+    material, and charts it only with enough history to trust it."""
 
 
 class AnalysisRequest(_StrictModel):
@@ -243,10 +315,18 @@ class AnalysisRequest(_StrictModel):
             raise ValueError(msg)
         known = set(self.projects)
         for topic in self.topics:
-            for mapping in (topic.extra_titles, topic.exclude_titles):
+            mappings: tuple[dict[str, Any], ...] = (
+                topic.extra_titles,
+                topic.exclude_titles,
+                topic.local_terms,
+                topic.substitutes,
+            )
+            for mapping in mappings:
                 unknown = sorted(set(mapping) - known)
                 if unknown:
-                    msg = f"Topic {topic.id!r} lists titles for projects not in request: {unknown}"
+                    msg = (
+                        f"Topic {topic.id!r} names projects that are not in the request: {unknown}"
+                    )
                     raise ValueError(msg)
         combinations = len(self.topics) * len(self.projects)
         if self.question_type == "compare" and combinations < _MIN_COMPARE_COMBINATIONS:

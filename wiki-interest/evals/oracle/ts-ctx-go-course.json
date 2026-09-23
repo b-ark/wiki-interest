@@ -1,0 +1,24 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "Go",
+          "query_language": "ru",
+          "query_en": "Go programming language",
+          "id": "go-course",
+          "qid": "Q37227"
+        }
+      ],
+      "projects": [
+        "ru",
+        "en"
+      ],
+      "report": {
+        "language": "ru"
+      },
+      "session": "o-ts-ctx-go-course"
+    }
+  ]
+}

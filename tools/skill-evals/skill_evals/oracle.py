@@ -18,9 +18,10 @@ skill, so the agent under test never sees them.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -28,7 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from skill_evals.graders.deterministic import GradeContext, grade
 from skill_evals.providers.base import ToolCall, Trajectory, TurnRecord
-from skill_evals.scenarios import Assertion, Scenario
+from skill_evals.scenarios import STAGE_ENV, Assertion, Scenario
 
 __all__ = [
     "NULL_ANSWER",
@@ -78,8 +79,9 @@ class PipelineOutput:
     payload: dict[str, object]
 
 
-PipelineRunner = Callable[[Path, Path], PipelineOutput]
-"""``(request_file, runs_dir) -> output``; injected so tests need no real skill."""
+PipelineRunner = Callable[[Path, Path, Mapping[str, str]], PipelineOutput]
+"""``(request_file, runs_dir, extra_env) -> output``; injected so tests need no real skill.
+``extra_env`` carries the scenario's stage (see ``Scenario.stage``)."""
 
 
 def uv_pipeline_runner(skill_dir: Path, *, timeout_s: int = 600) -> PipelineRunner:
@@ -89,7 +91,8 @@ def uv_pipeline_runner(skill_dir: Path, *, timeout_s: int = 600) -> PipelineRunn
         msg = "uv is not on PATH; the oracle runs the skill's pipeline with it"
         raise RuntimeError(msg)
 
-    def run(request_file: Path, runs_dir: Path) -> PipelineOutput:
+    def run(request_file: Path, runs_dir: Path, extra_env: Mapping[str, str]) -> PipelineOutput:
+        env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"} | dict(extra_env)
         completed = subprocess.run(
             [
                 uv,
@@ -106,6 +109,7 @@ def uv_pipeline_runner(skill_dir: Path, *, timeout_s: int = 600) -> PipelineRunn
             encoding="utf-8",
             timeout=timeout_s,
             check=False,
+            env=env,
         )
         try:
             payload = json.loads(completed.stdout)
@@ -254,7 +258,7 @@ def _check_scenario(
     for index, (prompt, request) in enumerate(zip(scenario.turns, spec.requests, strict=True)):
         request_file = requests_dir / f"request-{index + 1}.json"
         request_file.write_text(json.dumps(request, ensure_ascii=False), encoding="utf-8")
-        output = runner(request_file, artifacts / "runs")
+        output = runner(request_file, artifacts / "runs", STAGE_ENV.get(scenario.stage, {}))
         exit_codes.append(output.exit_code)
         answer = _ideal_answer(output)
         if answer is None:

@@ -311,8 +311,11 @@ def _is_relayed(message: str, answer: str) -> bool:
 def _clarification_asked(a: ClarificationAsked, ctx: GradeContext) -> GradeOutcome:
     answer = ctx.trajectory.final_answer
     asked = "?" in answer or "？" in answer
+    requested = any(re.search(pattern, answer) for pattern in a.request_patterns)
     pdfs = ctx.files("**/report.pdf")
-    evidence = f"question mark {'present' if asked else 'absent'}; {len(pdfs)} report.pdf"
+    how = "question mark" if asked else "request" if requested else "no question or request"
+    asked = asked or requested
+    evidence = f"{how}; {len(pdfs)} report.pdf"
     return _outcome(a, asked and not pdfs, evidence)
 
 

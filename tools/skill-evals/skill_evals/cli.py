@@ -100,6 +100,13 @@ def run_command(
     warm_cache: Annotated[
         Path | None, typer.Option(help="Seed each sandbox's .cache from here")
     ] = None,
+    shared_env: Annotated[
+        bool,
+        typer.Option(
+            "--shared-env/--own-env",
+            help="One prebuilt Python environment for all sandboxes (first-run setup not measured)",
+        ),
+    ] = True,
     judge: Annotated[bool, typer.Option("--judge/--no-judge", help="Run the LLM judge")] = True,
     judge_model: Annotated[str, typer.Option()] = "sonnet",
     resume: Annotated[bool, typer.Option("--resume/--no-resume")] = True,
@@ -122,6 +129,7 @@ def run_command(
         reps=reps,
         parallelism=parallelism,
         warm_cache=warm_cache,
+        shared_env=shared_env,
         judge=judge_obj,
         resume=resume,
         keep_sandboxes=keep_sandboxes,

@@ -34,6 +34,8 @@ class ChartTheme(_Frozen):
     dpi: int = Field(gt=0)
     width_mm: float = Field(gt=0)
     height_mm: float = Field(gt=0)
+    half_width_mm: float = Field(gt=0)
+    half_height_mm: float = Field(gt=0)
     font_size_pt: float = Field(gt=0)
     title_size_pt: float = Field(gt=0)
     small_size_pt: float = Field(gt=0)
@@ -59,6 +61,7 @@ class PdfTheme(_Frozen):
     tile_fill: str
     rule_color: str
     chart_max_height_mm: float = Field(gt=0)
+    chart_gap_mm: float = Field(ge=0)
     min_font_scale: float = Field(gt=0, le=1)
     font_scale_step: float = Field(gt=0, lt=1)
 

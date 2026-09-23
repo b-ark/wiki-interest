@@ -1,0 +1,2019 @@
+{
+  "skill_name": "wiki-interest",
+  "scenarios": [
+    {
+      "id": "compare-fasting-pl-cs",
+      "name": "Assignment 1: intermittent fasting, Polish vs Czech, two years",
+      "tags": [
+        "assignment",
+        "compare",
+        "uk"
+      ],
+      "turns": [
+        "Порівняй зростання інтересу до інтервального голодування в польськомовній та чеськомовній Wikipedia за останні два роки.",
+        "Польську пропусти, порівняй те, що є."
+      ],
+      "expected": "First run stops before measuring: pl.wikipedia has no article, so the agent shows the options (broader article, mentions, skip) and asks. After the user says to skip Polish, the agent reruns with substitutes {pl: skip}, relays summary.md in Ukrainian and says Polish Wikipedia has no article on the topic (not zero interest); PDF attached.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "missing_article"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].substitutes",
+          "regex": "skip"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.question_type",
+          "equals": "compare"
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "немає статті",
+            "нема статті",
+            "відсутн",
+            "не знайдено"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The answer compares the growth of interest between the Polish and Czech editions and says which one looks stronger, or explains why one of them cannot be measured."
+        },
+        {
+          "id": "missing-article-honest",
+          "criterion": "If an edition has no article on the topic, the answer says so and does not present it as zero or low interest."
+        },
+        {
+          "id": "limitations-stated",
+          "criterion": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "assess-astronomy-uk",
+      "name": "Assignment 2: is interest in astronomy growing in Ukrainian Wikipedia, can we trust it",
+      "tags": [
+        "assignment",
+        "assess",
+        "uk"
+      ],
+      "turns": [
+        "Ми думаємо додати курс з астрономії до освітнього застосунку. Чи зростає інтерес до цієї теми в україномовній Wikipedia, і наскільки цьому зростанню можна довіряти?"
+      ],
+      "expected": "Assess run for uk; states direction and year-over-year change, how robust the conclusion is with reasons, and seasonality.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.question_type",
+          "regex": "assess|compare"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The answer states whether interest in astronomy in Ukrainian Wikipedia is growing, flat or falling, with a number for the change."
+        },
+        {
+          "id": "trust-explained",
+          "criterion": "The answer says how robust the result is (for example that recent months confirm the trend, give a mixed signal, or that the data are too weak to judge) and gives at least one concrete reason taken from the analysis."
+        },
+        {
+          "id": "limitations-stated",
+          "criterion": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "rank-english-learning",
+      "name": "Assignment 3: English learning across chosen editions, which audiences to research next",
+      "tags": [
+        "assignment",
+        "rank",
+        "uk"
+      ],
+      "turns": [
+        "Ми створюємо застосунок для вивчення мов. Порівняй інтерес до вивчення англійської в українському, польському, чеському, румунському та угорському розділах Wikipedia та підготуй короткий звіт: які аудиторії варто дослідити наступними й чому?"
+      ],
+      "expected": "Rank (or compare) over five editions; names the next audiences to research with reasons; admits that interest declines everywhere if it does.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.projects.4",
+          "regex": "wikipedia"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "recommends-audiences",
+          "criterion": "The answer names which language audiences to research next and gives a data-based reason for each (growth, volume, trust)."
+        },
+        {
+          "id": "honest-about-decline",
+          "criterion": "If interest is falling in the recommended editions, the answer says so rather than calling them growing markets."
+        },
+        {
+          "id": "limitations-stated",
+          "criterion": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "followup-longer-period",
+      "name": "Follow-up: extend the period to five years",
+      "tags": [
+        "followup",
+        "assess",
+        "uk"
+      ],
+      "turns": [
+        "Чи зростає інтерес до астрономії в українській Вікіпедії?",
+        "А якщо подивитися за останні 5 років?"
+      ],
+      "expected": "Second run in the same session with a ~60-month period; explains how the picture changed.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 50
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf",
+          "min_count": 2
+        },
+        {
+          "type": "summary_field",
+          "path": "period.start",
+          "regex": "^202[01]-"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "explains-change",
+          "criterion": "The final answer describes the five-year picture and how it differs from (or confirms) the shorter period."
+        },
+        {
+          "id": "trust-explained",
+          "criterion": "The answer says how robust the result is (for example that recent months confirm the trend, give a mixed signal, or that the data are too weak to judge) and gives at least one concrete reason taken from the analysis."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "followup-main-article-only",
+      "name": "Follow-up (English): analyse the main article only",
+      "tags": [
+        "followup",
+        "compare",
+        "en"
+      ],
+      "turns": [
+        "How is interest in machine learning trending on German and French Wikipedia?",
+        "Please redo it using only the main article, without the related articles."
+      ],
+      "expected": "Second run with bundle=main; answer explains the difference.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 50
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics.0.bundle",
+          "equals": "main"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The final answer reports the trend in both German and French Wikipedia based on the main article only."
+        },
+        {
+          "id": "limitations-stated",
+          "criterion": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ru-chess-compare",
+      "name": "Russian user: chess in Russian vs Ukrainian Wikipedia, three years, PDF",
+      "tags": [
+        "compare",
+        "ru"
+      ],
+      "turns": [
+        "Сравни интерес к шахматам в русской и украинской Википедии за последние 3 года, мне нужен PDF-отчёт."
+      ],
+      "expected": "Compare ru/uk over ~36 months, report in Russian, PDF path given.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.report.language",
+          "equals": "ru"
+        },
+        {
+          "type": "answer_contains",
+          "patterns": [
+            "\\.pdf"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The answer compares interest in chess between the Russian and Ukrainian editions with numbers."
+        },
+        {
+          "id": "trust-explained",
+          "criterion": "The answer says how robust the result is (for example that recent months confirm the trend, give a mixed signal, or that the data are too weak to judge) and gives at least one concrete reason taken from the analysis."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Russian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "en-stoicism-assess",
+      "name": "English user: is Stoicism growing on German Wikipedia, one-page PDF",
+      "tags": [
+        "assess",
+        "en"
+      ],
+      "turns": [
+        "Is interest in Stoicism growing on German Wikipedia? I need a one-page PDF I can share with my cofounder."
+      ],
+      "expected": "Assess de, report in English, PDF path given.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.report.language",
+          "equals": "en"
+        },
+        {
+          "type": "answer_contains",
+          "patterns": [
+            "\\.pdf"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The answer says whether interest in Stoicism on German Wikipedia is growing, with a number."
+        },
+        {
+          "id": "trust-explained",
+          "criterion": "The answer says how robust the result is (for example that recent months confirm the trend, give a mixed signal, or that the data are too weak to judge) and gives at least one concrete reason taken from the analysis."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ambiguous-mercury",
+      "name": "Ambiguous topic: Mercury must trigger a clarifying question",
+      "tags": [
+        "clarification",
+        "uk"
+      ],
+      "turns": [
+        "Порівняй інтерес до Mercury в англійській і німецькій Вікіпедії."
+      ],
+      "expected": "No context settles the meaning, so the agent lists the meanings (planet, element, god...) and asks which one, either straight away or after a run that stopped with the candidates; no report is produced.",
+      "assertions": [
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "answer_contains",
+          "mode": "all",
+          "patterns": [
+            "(?i)планет|planet",
+            "(?i)елемент|ртуть|element"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "asks-not-guesses",
+          "criterion": "The answer does not analyse any particular meaning of Mercury; it lists the possible meanings and asks the user which one they mean."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "chemistry-mercury-en",
+      "name": "Context settles an ambiguous name: a chemistry app asking about mercury means the element",
+      "tags": [
+        "meaning",
+        "compare",
+        "en"
+      ],
+      "turns": [
+        "We're building a chemistry learning app. How is interest in mercury changing in the English and German Wikipedia?"
+      ],
+      "expected": "The conversation settles the meaning (chemistry app), so the agent analyses the chemical element mercury (Q925) without asking, says which meaning it analysed, and relays the result; English and German editions both have articles.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "equals": "Q925"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].meaning",
+          "regex": "(?i)element|Hg"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "max_turns",
+          "n": 30
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "(?i)element",
+            "Hg"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "right-meaning",
+          "criterion": "The answer is about the chemical element mercury (Hg), not the planet or the god, and says which meaning was analysed."
+        },
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of mercury they want: the chemistry context already settled it."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "chemistry-merkurii-uk",
+      "name": "Spelling points to the planet: Ukrainian 'меркурій' in a chemistry context is the element (ртуть)",
+      "tags": [
+        "meaning",
+        "compare",
+        "uk"
+      ],
+      "turns": [
+        "Ми робимо застосунок для вивчення хімії. Як змінюється інтерес до меркурію в українській і польській Вікіпедії?"
+      ],
+      "expected": "The conversation settles the meaning (chemistry app), so the agent analyses the chemical element mercury (Q925) without asking, says which meaning it analysed, and relays the result; a search for 'Меркурій' alone would find the planet first.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "equals": "Q925"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].meaning",
+          "regex": "(?i)element|Hg"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "max_turns",
+          "n": 30
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "(?i)ртут",
+            "(?i)елемент",
+            "Hg"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "right-meaning",
+          "criterion": "The answer is about the chemical element mercury (Hg), not the planet or the god, and says which meaning was analysed."
+        },
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of mercury they want: the chemistry context already settled it."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "topic-not-found",
+      "name": "Unknown topic: say so honestly and ask for a link",
+      "tags": [
+        "clarification",
+        "not-found",
+        "uk"
+      ],
+      "turns": [
+        "Порівняй інтерес до Blorbix Quantum Mesh у польській і чеській Вікіпедії."
+      ],
+      "expected": "Nothing matches on Wikidata or Wikipedia, even in English; the run stops with topic_not_found and the agent says so plainly and asks for a link to a Wikipedia article.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "topic_not_found"
+        },
+        {
+          "type": "clarification_asked",
+          "request_patterns": [
+            "(?i)посилан|ссылк|link|odkaz|odnośnik|wikipedia\\.org|URL"
+          ]
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "(?i)посилан",
+            "(?i)link",
+            "wikipedia\\.org"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "honest-not-found",
+          "criterion": "The answer says plainly that nothing was found for the topic and does not present numbers about any other subject."
+        },
+        {
+          "id": "asks-for-link",
+          "criterion": "The answer asks the user for a link to a Wikipedia article about what they mean."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "pl-fasting-no-article",
+      "name": "Polish query for a topic without a Polish article: find it via English, ask, measure the choice",
+      "tags": [
+        "clarification",
+        "missing-article",
+        "pl"
+      ],
+      "turns": [
+        "Jak zmienia się zainteresowanie postem przerywanym w polskiej i czeskiej Wikipedii w ostatnich dwóch latach?",
+        "Weź ogólny artykuł o poście."
+      ],
+      "expected": "The Polish wording finds no Wikidata item; the English wording (query_en) finds intermittent fasting. pl.wikipedia has no article, so the first run asks what to measure there. After the user picks the broader article, the rerun measures Polish 'Post' labelled as such, never presents it as intermittent fasting itself, and answers in Polish.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "missing_article"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].query_en",
+          "regex": "(?i)fasting"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].substitutes",
+          "regex": "broader"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "max_turns",
+          "n": 30
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "Post"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "names-substitute",
+          "criterion": "The answer makes clear that the Polish numbers come from the general article 'Post' (fasting), because Polish Wikipedia has no article on intermittent fasting, and does not present them as interest in intermittent fasting itself."
+        },
+        {
+          "id": "answers-question",
+          "criterion": "The answer says how interest changed in the Czech edition and what can and cannot be concluded for the Polish one."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "pl-yoga-compare",
+      "name": "Polish user: yoga in Polish vs Czech Wikipedia",
+      "tags": [
+        "compare",
+        "pl"
+      ],
+      "turns": [
+        "Porównaj zainteresowanie jogą w polskiej i czeskiej Wikipedii. Który rynek wygląda lepiej?"
+      ],
+      "expected": "Compare pl/cs, report in Polish.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.report.language",
+          "equals": "pl"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The answer says which of the two markets looks better and why, using the numbers."
+        },
+        {
+          "id": "limitations-stated",
+          "criterion": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "period-before-2015",
+      "name": "Period before the data starts: bitcoin since 2010",
+      "tags": [
+        "edge",
+        "assess",
+        "uk"
+      ],
+      "turns": [
+        "Покажи динаміку інтересу до біткоїна в українській Вікіпедії з 2010 року."
+      ],
+      "expected": "The agent notices data starts in 2015-07 (from the validation error or the docs), reruns from 2015-07 and tells the user.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "period.start",
+          "regex": "^2015-(0[7-9]|1[0-2])"
+        },
+        {
+          "type": "answer_contains",
+          "patterns": [
+            "2015"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "explains-data-start",
+          "criterion": "The answer tells the user that pageview data is only available from mid-2015, so the analysis starts there instead of 2010."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "followup-absolute",
+      "name": "Follow-up: switch to absolute views",
+      "tags": [
+        "followup",
+        "compare",
+        "uk"
+      ],
+      "turns": [
+        "Порівняй інтерес до футболу в польській і чеській Вікіпедії.",
+        "Покажи абсолютні перегляди, без нормалізації на розмір розділу."
+      ],
+      "expected": "Second run with normalization=absolute.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 50
+        },
+        {
+          "type": "summary_field",
+          "path": "request.normalization",
+          "equals": "absolute"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "explains-absolute",
+          "criterion": "The final answer reports raw monthly views for both editions and notes that they are not normalised by edition size."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "followup-add-editions",
+      "name": "Follow-up: add editions for comparison",
+      "tags": [
+        "followup",
+        "assess",
+        "compare",
+        "uk"
+      ],
+      "turns": [
+        "Чи зростає інтерес до медитації в чеській Вікіпедії?",
+        "Додай ще словацьку і польську для порівняння."
+      ],
+      "expected": "Second run with cs, sk, pl.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 50
+        },
+        {
+          "type": "summary_field",
+          "path": "request.projects.2",
+          "regex": "wikipedia"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The final answer compares interest in meditation across the Czech, Slovak and Polish editions."
+        },
+        {
+          "id": "trust-explained",
+          "criterion": "The answer says how robust the result is (for example that recent months confirm the trend, give a mixed signal, or that the data are too weak to judge) and gives at least one concrete reason taken from the analysis."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-python-course",
+      "name": "Full run: the Python programming language (Q28865)",
+      "tags": [
+        "meaning",
+        "en",
+        "report-v5"
+      ],
+      "turns": [
+        "I'm launching a Python programming course. How is interest in Python changing in the English, German and Polish Wikipedia?"
+      ],
+      "expected": "The topic resolves to the Python programming language (Q28865) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in English and points to report.pdf.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q28865)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        },
+        {
+          "id": "relays-findings",
+          "criterion": "The answer relays the structured answer of summary.md, not only its first sentence: the size of interest per million views, its change, whether the topic grows faster or slower than its whole edition, and the next step with its examples of independent sources, with the numbers as written. It does not invent findings or numbers and does not restate the share as '1 in N'."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-tesla-unit",
+      "name": "Full run: the tesla, SI unit of magnetic flux density (Q163343)",
+      "tags": [
+        "meaning",
+        "en",
+        "report-v5"
+      ],
+      "turns": [
+        "I teach a physics lab on magnetism. How is interest in the tesla changing in the English and German Wikipedia?"
+      ],
+      "expected": "The topic resolves to the tesla, SI unit of magnetic flux density (Q163343) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in English and points to report.pdf.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q163343)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        },
+        {
+          "id": "relays-findings",
+          "criterion": "The answer relays the structured answer of summary.md, not only its first sentence: the size of interest per million views, its change, whether the topic grows faster or slower than its whole edition, and the next step with its examples of independent sources, with the numbers as written. It does not invent findings or numbers and does not restate the share as '1 in N'."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-jaguar-wildlife-uk",
+      "name": "Full run: the jaguar, the big cat (Q35694)",
+      "tags": [
+        "meaning",
+        "uk",
+        "report-v5"
+      ],
+      "turns": [
+        "Ми ведемо блог про диких тварин. Як змінюється інтерес до ягуара в українській і польській Вікіпедії?"
+      ],
+      "expected": "The topic resolves to the jaguar, the big cat (Q35694) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in Ukrainian and points to report.pdf.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q35694)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "relays-findings",
+          "criterion": "The answer relays the structured answer of summary.md, not only its first sentence: the size of interest per million views, its change, whether the topic grows faster or slower than its whole edition, and the next step with its examples of independent sources, with the numbers as written. It does not invent findings or numbers and does not restate the share as '1 in N'."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-tesla-cars",
+      "name": "Full run: Tesla, Inc. (Q478214)",
+      "tags": [
+        "meaning",
+        "ru",
+        "report-v5"
+      ],
+      "turns": [
+        "У нас магазин электромобилей. Как меняется интерес к Tesla в русской и немецкой Википедии?"
+      ],
+      "expected": "The topic resolves to Tesla, Inc. (Q478214) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in Russian and points to report.pdf.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q478214)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Russian, the language the user wrote in."
+        },
+        {
+          "id": "relays-findings",
+          "criterion": "The answer relays the structured answer of summary.md, not only its first sentence: the size of interest per million views, its change, whether the topic grows faster or slower than its whole edition, and the next step with its examples of independent sources, with the numbers as written. It does not invent findings or numbers and does not restate the share as '1 in N'."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-go-course",
+      "name": "Full run: the Go programming language (Q37227)",
+      "tags": [
+        "meaning",
+        "ru",
+        "report-v5"
+      ],
+      "turns": [
+        "Делаем курс по бэкенд-разработке. Как меняется интерес к языку Go в русской и английской Википедии?"
+      ],
+      "expected": "The topic resolves to the Go programming language (Q37227) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in Russian and points to report.pdf.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q37227)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Russian, the language the user wrote in."
+        },
+        {
+          "id": "relays-findings",
+          "criterion": "The answer relays the structured answer of summary.md, not only its first sentence: the size of interest per million views, its change, whether the topic grows faster or slower than its whole edition, and the next step with its examples of independent sources, with the numbers as written. It does not invent findings or numbers and does not restate the share as '1 in N'."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-rust-course",
+      "name": "Full run: the Rust programming language (Q575650)",
+      "tags": [
+        "meaning",
+        "pl",
+        "report-v5"
+      ],
+      "turns": [
+        "Prowadzę kurs programowania. Jak rośnie zainteresowanie językiem Rust w polskiej i angielskiej Wikipedii?"
+      ],
+      "expected": "The topic resolves to the Rust programming language (Q575650) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in Polish and points to report.pdf.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q575650)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        },
+        {
+          "id": "relays-findings",
+          "criterion": "The answer relays the structured answer of summary.md, not only its first sentence: the size of interest per million views, its change, whether the topic grows faster or slower than its whole edition, and the next step with its examples of independent sources, with the numbers as written. It does not invent findings or numbers and does not restate the share as '1 in N'."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-mars-astro",
+      "name": "Full run: Mars, the planet (Q111)",
+      "tags": [
+        "meaning",
+        "uk",
+        "report-v5"
+      ],
+      "turns": [
+        "Робимо застосунок для любителів астрономії. Порівняй інтерес до Марса в українській і польській Вікіпедії."
+      ],
+      "expected": "The topic resolves to Mars, the planet (Q111) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in Ukrainian and points to report.pdf.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q111)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "relays-findings",
+          "criterion": "The answer relays the structured answer of summary.md, not only its first sentence: the size of interest per million views, its change, whether the topic grows faster or slower than its whole edition, and the next step with its examples of independent sources, with the numbers as written. It does not invent findings or numbers and does not restate the share as '1 in N'."
+        }
+      ]
+    },
+    {
+      "id": "ts-crypto-ru",
+      "name": "Full run: cryptocurrency (Q13479982)",
+      "tags": [
+        "plain",
+        "ru",
+        "report-v5"
+      ],
+      "turns": [
+        "Как меняется интерес к криптовалютам в русской и украинской Википедии?"
+      ],
+      "expected": "The topic resolves to cryptocurrency (Q13479982) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in Russian and points to report.pdf.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q13479982)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Russian, the language the user wrote in."
+        },
+        {
+          "id": "relays-findings",
+          "criterion": "The answer relays the structured answer of summary.md, not only its first sentence: the size of interest per million views, its change, whether the topic grows faster or slower than its whole edition, and the next step with its examples of independent sources, with the numbers as written. It does not invent findings or numbers and does not restate the share as '1 in N'."
+        }
+      ]
+    },
+    {
+      "id": "ts-photosynthesis-en",
+      "name": "Full run: photosynthesis (Q11982)",
+      "tags": [
+        "plain",
+        "en",
+        "report-v5"
+      ],
+      "turns": [
+        "Is interest in photosynthesis growing in the English and German Wikipedia?"
+      ],
+      "expected": "The topic resolves to photosynthesis (Q11982) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in English and points to report.pdf.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q11982)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        },
+        {
+          "id": "relays-findings",
+          "criterion": "The answer relays the structured answer of summary.md, not only its first sentence: the size of interest per million views, its change, whether the topic grows faster or slower than its whole edition, and the next step with its examples of independent sources, with the numbers as written. It does not invent findings or numbers and does not restate the share as '1 in N'."
+        }
+      ]
+    },
+    {
+      "id": "ts-veganism-cs",
+      "name": "Full run: veganism (Q181138)",
+      "tags": [
+        "plain",
+        "cs",
+        "report-v5"
+      ],
+      "turns": [
+        "Roste zájem o veganství v ruské a české Wikipedii?"
+      ],
+      "expected": "The topic resolves to veganism (Q181138) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in Czech and points to report.pdf.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q181138)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Czech, the language the user wrote in."
+        },
+        {
+          "id": "relays-findings",
+          "criterion": "The answer relays the structured answer of summary.md, not only its first sentence: the size of interest per million views, its change, whether the topic grows faster or slower than its whole edition, and the next step with its examples of independent sources, with the numbers as written. It does not invent findings or numbers and does not restate the share as '1 in N'."
+        }
+      ]
+    },
+    {
+      "id": "ts-meditation-pl",
+      "name": "Full run: meditation (Q108458)",
+      "tags": [
+        "plain",
+        "pl",
+        "report-v5"
+      ],
+      "turns": [
+        "Jak zmienia się zainteresowanie medytacją w polskiej i ukraińskiej Wikipedii?"
+      ],
+      "expected": "The topic resolves to meditation (Q108458) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in Polish and points to report.pdf.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q108458)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        },
+        {
+          "id": "relays-findings",
+          "criterion": "The answer relays the structured answer of summary.md, not only its first sentence: the size of interest per million views, its change, whether the topic grows faster or slower than its whole edition, and the next step with its examples of independent sources, with the numbers as written. It does not invent findings or numbers and does not restate the share as '1 in N'."
+        }
+      ]
+    },
+    {
+      "id": "ts-quantum-en",
+      "name": "Full run: quantum computing (Q17995793)",
+      "tags": [
+        "plain",
+        "en",
+        "report-v5"
+      ],
+      "turns": [
+        "Is interest in quantum computing growing in the English and German Wikipedia?"
+      ],
+      "expected": "The topic resolves to quantum computing (Q17995793) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in English and points to report.pdf.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q17995793)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        },
+        {
+          "id": "relays-findings",
+          "criterion": "The answer relays the structured answer of summary.md, not only its first sentence: the size of interest per million views, its change, whether the topic grows faster or slower than its whole edition, and the next step with its examples of independent sources, with the numbers as written. It does not invent findings or numbers and does not restate the share as '1 in N'."
+        }
+      ]
+    },
+    {
+      "id": "ts-amb-jaguar",
+      "name": "Full run: ambiguous name without context (the car brand, the animal)",
+      "tags": [
+        "ambiguous",
+        "en",
+        "report-v5"
+      ],
+      "turns": [
+        "How is interest in Jaguar changing in the English and Spanish Wikipedia?"
+      ],
+      "expected": "The name has several common meanings (the car brand, the animal) and nothing settles it: the agent lists them and asks; nothing is analysed.",
+      "assertions": [
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "asks-not-guesses",
+          "criterion": "The answer does not pick one meaning; it lists the likely meanings (the car brand, the animal) and asks which one the user means."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-miss-kombucha",
+      "name": "Full run: kombucha has no article in uk.wikipedia",
+      "tags": [
+        "missing-article",
+        "ru",
+        "report-v5"
+      ],
+      "turns": [
+        "Как меняется интерес к комбуче в украинской и польской Википедии?"
+      ],
+      "expected": "The topic resolves, but uk.wikipedia has no article; the run stops with the options (broader article, mentions, skip) and the agent asks which to use.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "missing_article"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "shows-options",
+          "criterion": "The answer says that uk.wikipedia has no article on the topic, shows the options offered for it and asks the user to choose; it does not choose itself and does not call the missing article zero interest."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Russian, the language the user wrote in."
+        }
+      ]
+    }
+  ]
+}

@@ -42,20 +42,26 @@ Unknown keys are rejected on purpose: a misspelled field would otherwise be sile
 |---|---|---|---|
 | `query` | string | required | The topic as the user phrased it, in any language ("інтервальне голодування", "intermittent fasting"). |
 | `query_language` | language code | `en` | Language of `query`. Set it correctly: it drives the Wikidata search. |
+| `query_en` | string | none | The topic in English. Tried only when the search in `query_language` finds nothing: Wikidata often has no label in exactly the languages that lack an article ("post przerywany" finds nothing, "intermittent fasting" finds the item). Always fill it when `query_language` is not `en`. |
 | `id` | slug | derived | Stable identifier used in outputs and file names. Derived from a Latin query; for non-Latin queries it becomes `topic-1`, `topic-2`... so set an explicit id like `"fasting"`. |
-| `qid` | `"Q…"` | none | Pin a Wikidata item and skip the search. Use it after a clarification (exit code 3) once the user picked a candidate. |
-| `bundle` | `main` / `auto` / `manual` | `auto` | `auto`: main article plus related articles found through Wikidata and lead-section links (the same concepts in every edition). `main`: main article only. `manual`: exactly the titles in `extra_titles`. |
-| `extra_titles` | `{"uk.wikipedia": ["Телескоп"]}` | `{}` | Additional articles per project, added to the bundle with role `manual`. |
-| `exclude_titles` | same shape | `{}` | Articles to drop from the automatic bundle (use when the user says "that one is not what I mean"). |
+| `qid` | `"Q…"` | none | Pin a Wikidata item and skip the search. Use it after `ambiguous_topic` (exit code 3), or when the "Topic:" line shows the wrong entity and the right one is among the other meanings. |
+| `meaning` | string | none | What the user means, in a few English words ("the chemical element Hg"), decided from the conversation. Not interpreted by the code; recorded so the analysed entity can be checked against it. |
+| `article_url` | `https://pl.wikipedia.org/wiki/…` | none | A Wikipedia article about the topic, given by the user after `topic_not_found`. Its Wikidata item replaces the search; an article without an item is analysed on its own in its edition. |
+| `bundle` | `main` / `auto` / `manual` | `auto` | Which related articles are shown next to the topic as context. Only the main article (with its redirects) is ever measured; context articles get their own views and are never added in. `auto`: related articles found through Wikidata and lead-section links. `main`: none. `manual`: exactly the titles in `extra_titles`. |
+| `extra_titles` | `{"uk.wikipedia": ["Телескоп"]}` | `{}` | Additional context articles per project (role `manual`). With no Wikidata match at all, the first one becomes the measured article. |
+| `exclude_titles` | same shape | `{}` | Related articles to drop from the context (use when the user says "that one is not what I mean"). |
+| `local_terms` | `{"pl.wikipedia": "post przerywany"}` | `{}` | How the topic is called in an edition's language. Optional; used only for editions without an article, to find a redirect or articles that mention the topic. Add it when the output says the local name is unknown. |
+| `substitutes` | `{"pl.wikipedia": {"title": "Post", "kind": "broader"}}` or `{"pl.wikipedia": "skip"}` | `{}` | The user's decision for an edition without an article, copied from the `choose` value of the option they picked (exit code 3, `missing_article`). `kind` is `redirect`, `broader` or `mention`; `"skip"` leaves the edition out. |
 
 ## report
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `language` | `en` / `uk` / `ru` / `pl` / `cs` | `en` | Language of the report, summary and chart labels. Match the language the user writes in. |
+| `language` | language code (`ru`, `de`, `es`...) | `en` | The language the user writes in: you write the report text in it. `en`, `uk`, `ru`, `pl`, `cs` have built-in interface labels; for any other language `facts.json` lists the labels (`ui_strings`) for you to translate in `narrative.json`. |
 | `title` | string | derived | Report title. |
 | `audience_note` | string | none | One line of context that goes into the report ("educational app considering an astronomy course"). |
 | `formats` | list of `pdf` / `md` | both | Which report files to write. `summary.md` and `summary.json` are always written. |
+| `seasonality` | `auto` / `show` | `auto` | `show` when the user asks about timing (which months, seasons, when to launch): the seasonal pattern is then always reported and charted, with a caveat if the history is short. `auto` mentions it only when it is material and charts it only with five or more years of history. |
 
 ## Examples
 
@@ -67,7 +73,7 @@ Compare two editions (`assets/examples/compare-fasting-pl-cs.json`):
   "topics": [{ "query": "intermittent fasting", "query_language": "en", "id": "intermittent-fasting" }],
   "projects": ["pl.wikipedia", "cs.wikipedia"],
   "period": { "start": "2024-09", "end": "2026-08" },
-  "report": { "language": "uk" },
+  "report": { "language": "en" },
   "session": "fasting-pl-cs"
 }
 ```
@@ -104,7 +110,7 @@ Cached data makes re-runs fast; `scripts/run.py --diff <run_dir-a> <run_dir-b>` 
 |---|---|---|
 | 0 | success | relay `summary.md`, attach the PDF |
 | 2 | request invalid | fix the field named in the message and rerun |
-| 3 | clarification needed | show the candidates from the output to the user and ask; then rerun with `qid` |
+| 3 | a decision is needed | `clarification.kind` says which: `ambiguous_topic` -> pick the candidate the conversation clearly means (say so) or ask, rerun with `qid`; `missing_article` -> show the numbered options from `summary.md`, ask, copy the chosen option's `choose` value into `topics[].substitutes`, rerun; `topic_not_found` -> say so, ask for a Wikipedia link, rerun with `article_url`. Nothing was measured yet in any case. |
 | 4 | Wikimedia services unreachable after retries, or no data for the period | tell the user, offer to retry or change the period |
 | 5 | internal error | report the message; run `scripts/doctor.py` |
 

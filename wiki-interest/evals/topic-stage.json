@@ -1,0 +1,2400 @@
+{
+  "skill_name": "wiki-interest",
+  "scenarios": [
+    {
+      "id": "ts-mercury-bare",
+      "name": "Topic stage: 'Mercury' with no context must be asked about",
+      "tags": [
+        "topic-stage",
+        "ambiguous"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Порівняй інтерес до Mercury в англійській і німецькій Вікіпедії."
+      ],
+      "expected": "The agent lists the meanings (planet, element, god...) and asks which one; nothing is analysed.",
+      "assertions": [
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "answer_contains",
+          "mode": "all",
+          "patterns": [
+            "(?i)планет|planet",
+            "(?i)елемент|ртуть|element"
+          ]
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "asks-not-guesses",
+          "criterion": "The answer does not pick a meaning of Mercury; it lists the possible meanings and asks which one the user means."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-chemistry-mercury-en",
+      "name": "Topic stage: chemistry context makes 'mercury' the element",
+      "tags": [
+        "topic-stage",
+        "meaning"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "We're building a chemistry learning app. How is interest in mercury changing in the English and German Wikipedia?"
+      ],
+      "expected": "The agent records the meaning, picks Q925 among the candidates itself and says it took the chemical element.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "equals": "Q925"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].meaning",
+          "regex": "(?i)element|Hg"
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "(?i)element",
+            "Hg"
+          ]
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "right-meaning",
+          "criterion": "The answer identifies the topic as the chemical element mercury (Hg), not the planet or the god."
+        },
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-chemistry-merkurii-uk",
+      "name": "Topic stage: Ukrainian 'меркурій' in a chemistry context is the element (ртуть)",
+      "tags": [
+        "topic-stage",
+        "meaning"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Ми робимо застосунок для вивчення хімії. Як змінюється інтерес до меркурію в українській і польській Вікіпедії?"
+      ],
+      "expected": "The search by spelling finds the planet first; the agent must end up with Q925 (ртуть) and say so.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "equals": "Q925"
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "(?i)ртут",
+            "(?i)елемент",
+            "Hg"
+          ]
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "right-meaning",
+          "criterion": "The answer identifies the topic as the chemical element mercury (ртуть), not the planet Меркурій or the god."
+        },
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-topic-not-found",
+      "name": "Topic stage: unknown topic is reported and a link is requested",
+      "tags": [
+        "topic-stage",
+        "not-found"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Порівняй інтерес до Blorbix Quantum Mesh у польській і чеській Вікіпедії."
+      ],
+      "expected": "The run stops with topic_not_found; the agent says so and asks for a Wikipedia link.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "topic_not_found"
+        },
+        {
+          "type": "clarification_asked",
+          "request_patterns": [
+            "(?i)посилан|ссылк|link|odkaz|odnośnik|wikipedia\\.org|URL"
+          ]
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "(?i)посилан",
+            "(?i)link",
+            "wikipedia\\.org"
+          ]
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "honest-not-found",
+          "criterion": "The answer says plainly that nothing was found for the topic and does not present numbers about any other subject."
+        },
+        {
+          "id": "asks-for-link",
+          "criterion": "The answer asks the user for a link to a Wikipedia article about what they mean."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-fasting-pl-cs",
+      "name": "Topic stage: Polish edition has no article; options shown, user skips it",
+      "tags": [
+        "topic-stage",
+        "missing-article"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Порівняй зростання інтересу до інтервального голодування в польськомовній та чеськомовній Wikipedia за останні два роки.",
+        "Польську пропусти, порівняй те, що є."
+      ],
+      "expected": "Turn 1 shows the missing-article options for pl.wikipedia and asks; turn 2 records substitutes {pl: skip}.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "missing_article"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].substitutes",
+          "regex": "skip"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "confirms-choice",
+          "criterion": "The final answer confirms that Polish Wikipedia is left out because it has no article on the topic, and does not describe that as zero interest."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-pl-fasting-no-article",
+      "name": "Topic stage: Polish wording found via English; user picks the broader article",
+      "tags": [
+        "topic-stage",
+        "missing-article"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Jak zmienia się zainteresowanie postem przerywanym w polskiej i czeskiej Wikipedii w ostatnich dwóch latach?",
+        "Weź ogólny artykuł o poście."
+      ],
+      "expected": "query_en finds intermittent fasting; turn 1 asks about pl.wikipedia; turn 2 records the broader article 'Post'.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].query_en",
+          "regex": "(?i)fasting"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "missing_article"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.topics[0].substitutes",
+          "regex": "broader"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "names-substitute",
+          "criterion": "The final answer says the Polish edition will be measured through the general article 'Post' because there is no article on intermittent fasting."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-astronomy-uk",
+      "name": "Topic stage: astronomy (Q333)",
+      "tags": [
+        "topic-stage",
+        "resolved"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Ми думаємо додати курс з астрономії до освітнього застосунку. Чи зростає інтерес до цієї теми в україномовній Wikipedia, і наскільки цьому зростанню можна довіряти?"
+      ],
+      "expected": "The agent runs the pipeline without asking about the meaning; the topic resolves to astronomy (Q333).",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q333)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-english-rank",
+      "name": "Topic stage: the English language (Q1860)",
+      "tags": [
+        "topic-stage",
+        "resolved"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Ми створюємо застосунок для вивчення мов. Порівняй інтерес до вивчення англійської в українському, польському, чеському, румунському та угорському розділах Wikipedia та підготуй короткий звіт: які аудиторії варто дослідити наступними й чому?"
+      ],
+      "expected": "The agent runs the pipeline without asking about the meaning; the topic resolves to the English language (Q1860).",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q1860)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-chess-ru",
+      "name": "Topic stage: chess (Q718)",
+      "tags": [
+        "topic-stage",
+        "resolved"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Сравни интерес к шахматам в русской и украинской Википедии за последние 3 года, мне нужен PDF-отчёт."
+      ],
+      "expected": "The agent runs the pipeline without asking about the meaning; the topic resolves to chess (Q718).",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q718)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Russian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-stoicism-en",
+      "name": "Topic stage: stoicism (Q48235)",
+      "tags": [
+        "topic-stage",
+        "resolved"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Is interest in Stoicism growing on German Wikipedia? I need a one-page PDF I can share with my cofounder."
+      ],
+      "expected": "The agent runs the pipeline without asking about the meaning; the topic resolves to stoicism (Q48235).",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q48235)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-yoga-pl",
+      "name": "Topic stage: yoga (Q9350, or yoga as exercise Q1327979)",
+      "tags": [
+        "topic-stage",
+        "resolved"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Porównaj zainteresowanie jogą w polskiej i czeskiej Wikipedii. Który rynek wygląda lepiej?"
+      ],
+      "expected": "The agent runs the pipeline without asking about the meaning; the topic resolves to yoga (Q9350, or yoga as exercise Q1327979).",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q9350|Q1327979)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-amb-jaguar",
+      "name": "Topic stage: ambiguous name without context (the car brand, the animal)",
+      "tags": [
+        "topic-stage",
+        "ambiguous",
+        "en"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "How is interest in Jaguar changing in the English and Spanish Wikipedia?"
+      ],
+      "expected": "The name has several common meanings (the car brand, the animal) and nothing settles it: the agent lists them and asks; nothing is analysed.",
+      "assertions": [
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "asks-not-guesses",
+          "criterion": "The answer does not pick one meaning; it lists the likely meanings (the car brand, the animal) and asks which one the user means."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-amb-tesla",
+      "name": "Topic stage: ambiguous name without context (the company, the unit, the band)",
+      "tags": [
+        "topic-stage",
+        "ambiguous",
+        "ru"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Сравни интерес к Tesla в русской и немецкой Википедии."
+      ],
+      "expected": "The name has several common meanings (the company, the unit, the band) and nothing settles it: the agent lists them and asks; nothing is analysed.",
+      "assertions": [
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "asks-not-guesses",
+          "criterion": "The answer does not pick one meaning; it lists the likely meanings (the company, the unit, the band) and asks which one the user means."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Russian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-amb-saturn",
+      "name": "Topic stage: ambiguous name without context (the planet, the god, the console)",
+      "tags": [
+        "topic-stage",
+        "ambiguous",
+        "cs"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Jak se vyvíjí zájem o Saturn v anglické a české Wikipedii?"
+      ],
+      "expected": "The name has several common meanings (the planet, the god, the console) and nothing settles it: the agent lists them and asks; nothing is analysed.",
+      "assertions": [
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "asks-not-guesses",
+          "criterion": "The answer does not pick one meaning; it lists the likely meanings (the planet, the god, the console) and asks which one the user means."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Czech, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-amb-delta",
+      "name": "Topic stage: ambiguous name without context (the landform, the airline, the letter, the variant)",
+      "tags": [
+        "topic-stage",
+        "ambiguous",
+        "en"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Compare interest in Delta across English and German Wikipedia."
+      ],
+      "expected": "The name has several common meanings (the landform, the airline, the letter, the variant) and nothing settles it: the agent lists them and asks; nothing is analysed.",
+      "assertions": [
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "asks-not-guesses",
+          "criterion": "The answer does not pick one meaning; it lists the likely meanings (the landform, the airline, the letter, the variant) and asks which one the user means."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-amb-corona",
+      "name": "Topic stage: ambiguous name without context (the virus, the beer, the crown)",
+      "tags": [
+        "topic-stage",
+        "ambiguous",
+        "pl"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Jak zmienia się zainteresowanie tematem Corona w polskiej i niemieckiej Wikipedii?"
+      ],
+      "expected": "The name has several common meanings (the virus, the beer, the crown) and nothing settles it: the agent lists them and asks; nothing is analysed.",
+      "assertions": [
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "asks-not-guesses",
+          "criterion": "The answer does not pick one meaning; it lists the likely meanings (the virus, the beer, the crown) and asks which one the user means."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-python-course",
+      "name": "Topic stage: the Python programming language (Q28865)",
+      "tags": [
+        "topic-stage",
+        "meaning",
+        "en"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "I'm launching a Python programming course. How is interest in Python changing in the English, German and Polish Wikipedia?"
+      ],
+      "expected": "The topic resolves to the Python programming language (Q28865) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q28865)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-jaguar-wildlife-en",
+      "name": "Topic stage: the jaguar, the big cat (Q35694)",
+      "tags": [
+        "topic-stage",
+        "meaning",
+        "en"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "We're producing a wildlife documentary. Compare interest in the jaguar across the English and Spanish Wikipedia."
+      ],
+      "expected": "The topic resolves to the jaguar, the big cat (Q35694) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q35694)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-jaguar-wildlife-uk",
+      "name": "Topic stage: the jaguar, the big cat (Q35694)",
+      "tags": [
+        "topic-stage",
+        "meaning",
+        "uk"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Ми ведемо блог про диких тварин. Як змінюється інтерес до ягуара в українській і польській Вікіпедії?"
+      ],
+      "expected": "The topic resolves to the jaguar, the big cat (Q35694) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q35694)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-tesla-cars",
+      "name": "Topic stage: Tesla, Inc. (Q478214)",
+      "tags": [
+        "topic-stage",
+        "meaning",
+        "ru"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "У нас магазин электромобилей. Как меняется интерес к Tesla в русской и немецкой Википедии?"
+      ],
+      "expected": "The topic resolves to Tesla, Inc. (Q478214) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q478214)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Russian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-tesla-unit",
+      "name": "Topic stage: the tesla, SI unit of magnetic flux density (Q163343)",
+      "tags": [
+        "topic-stage",
+        "meaning",
+        "en"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "I teach a physics lab on magnetism. How is interest in the tesla changing in the English and German Wikipedia?"
+      ],
+      "expected": "The topic resolves to the tesla, SI unit of magnetic flux density (Q163343) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q163343)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-rust-course",
+      "name": "Topic stage: the Rust programming language (Q575650)",
+      "tags": [
+        "topic-stage",
+        "meaning",
+        "pl"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Prowadzę kurs programowania. Jak rośnie zainteresowanie językiem Rust w polskiej i angielskiej Wikipedii?"
+      ],
+      "expected": "The topic resolves to the Rust programming language (Q575650) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q575650)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-saturn-astro",
+      "name": "Topic stage: Saturn, the planet (Q193)",
+      "tags": [
+        "topic-stage",
+        "meaning",
+        "en"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "For our stargazing app: how is interest in Saturn developing in the English and Czech Wikipedia?"
+      ],
+      "expected": "The topic resolves to Saturn, the planet (Q193) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q193)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-mars-astro",
+      "name": "Topic stage: Mars, the planet (Q111)",
+      "tags": [
+        "topic-stage",
+        "meaning",
+        "uk"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Робимо застосунок для любителів астрономії. Порівняй інтерес до Марса в українській і польській Вікіпедії."
+      ],
+      "expected": "The topic resolves to Mars, the planet (Q111) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q111)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-apple-orchard",
+      "name": "Topic stage: the apple, the fruit or the tree (Q89)",
+      "tags": [
+        "topic-stage",
+        "meaning",
+        "en"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "We sell fruit trees to home gardeners. How is interest in apples changing in the English and Polish Wikipedia?"
+      ],
+      "expected": "The topic resolves to the apple, the fruit or the tree (Q89) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q89|Q158657|Q18674606)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-swift-mobile",
+      "name": "Topic stage: the Swift programming language (Q17118377)",
+      "tags": [
+        "topic-stage",
+        "meaning",
+        "en"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "For a mobile development bootcamp: compare interest in Swift in the English and German Wikipedia."
+      ],
+      "expected": "The topic resolves to the Swift programming language (Q17118377) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q17118377)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ctx-go-course",
+      "name": "Topic stage: the Go programming language (Q37227)",
+      "tags": [
+        "topic-stage",
+        "meaning",
+        "ru"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Делаем курс по бэкенд-разработке. Как меняется интерес к языку Go в русской и английской Википедии?"
+      ],
+      "expected": "The topic resolves to the Go programming language (Q37227) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q37227)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Russian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-miss-pickleball",
+      "name": "Topic stage: pickleball has no article in pl.wikipedia",
+      "tags": [
+        "topic-stage",
+        "missing-article",
+        "uk"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Порівняй інтерес до піклболу в польській і чеській Вікіпедії."
+      ],
+      "expected": "The topic resolves, but pl.wikipedia has no article; the run stops with the options (broader article, mentions, skip) and the agent asks which to use.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "missing_article"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "shows-options",
+          "criterion": "The answer says that pl.wikipedia has no article on the topic, shows the options offered for it and asks the user to choose; it does not choose itself and does not call the missing article zero interest."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-miss-kombucha",
+      "name": "Topic stage: kombucha has no article in uk.wikipedia",
+      "tags": [
+        "topic-stage",
+        "missing-article",
+        "ru"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Как меняется интерес к комбуче в украинской и польской Википедии?"
+      ],
+      "expected": "The topic resolves, but uk.wikipedia has no article; the run stops with the options (broader article, mentions, skip) and the agent asks which to use.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "missing_article"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "shows-options",
+          "criterion": "The answer says that uk.wikipedia has no article on the topic, shows the options offered for it and asks the user to choose; it does not choose itself and does not call the missing article zero interest."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Russian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-miss-vertical-farming",
+      "name": "Topic stage: vertical farming has no article in pl.wikipedia",
+      "tags": [
+        "topic-stage",
+        "missing-article",
+        "cs"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Porovnej zájem o vertikální zemědělství v polské a české Wikipedii."
+      ],
+      "expected": "The topic resolves, but pl.wikipedia has no article; the run stops with the options (broader article, mentions, skip) and the agent asks which to use.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "missing_article"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "shows-options",
+          "criterion": "The answer says that pl.wikipedia has no article on the topic, shows the options offered for it and asks the user to choose; it does not choose itself and does not call the missing article zero interest."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Czech, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-miss-digital-detox",
+      "name": "Topic stage: digital detox has no article in pl.wikipedia",
+      "tags": [
+        "topic-stage",
+        "missing-article",
+        "en"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "How is interest in digital detox developing in the Ukrainian and Polish Wikipedia?"
+      ],
+      "expected": "The topic resolves, but pl.wikipedia has no article; the run stops with the options (broader article, mentions, skip) and the agent asks which to use.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "missing_article"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "shows-options",
+          "criterion": "The answer says that pl.wikipedia has no article on the topic, shows the options offered for it and asks the user to choose; it does not choose itself and does not call the missing article zero interest."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-miss-forest-bathing",
+      "name": "Topic stage: forest bathing has no article in ru.wikipedia",
+      "tags": [
+        "topic-stage",
+        "missing-article",
+        "pl"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Porównaj zainteresowanie kąpielami leśnymi w polskiej i rosyjskiej Wikipedii."
+      ],
+      "expected": "The topic resolves, but ru.wikipedia has no article; the run stops with the options (broader article, mentions, skip) and the agent asks which to use.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "missing_article"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "shows-options",
+          "criterion": "The answer says that ru.wikipedia has no article on the topic, shows the options offered for it and asks the user to choose; it does not choose itself and does not call the missing article zero interest."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-miss-van-life",
+      "name": "Topic stage: van life has no article in pl.wikipedia and cs.wikipedia",
+      "tags": [
+        "topic-stage",
+        "missing-article",
+        "en"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Compare interest in van life in the Polish and Czech Wikipedia."
+      ],
+      "expected": "The topic resolves, but pl.wikipedia and cs.wikipedia has no article; the run stops with the options (broader article, mentions, skip) and the agent asks which to use.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "missing_article"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "shows-options",
+          "criterion": "The answer says that pl.wikipedia and cs.wikipedia has no article on the topic, shows the options offered for it and asks the user to choose; it does not choose itself and does not call the missing article zero interest."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-nf-pl",
+      "name": "Topic stage: unknown topic, ask for a link",
+      "tags": [
+        "topic-stage",
+        "not-found",
+        "pl"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Jak rośnie zainteresowanie frameworkiem Zyntrax Holoweave w polskiej i czeskiej Wikipedii?"
+      ],
+      "expected": "Nothing matches; the agent says so plainly and asks for a link to a Wikipedia article.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "topic_not_found"
+        },
+        {
+          "type": "clarification_asked",
+          "request_patterns": [
+            "(?i)посилан|ссылк|link|odkaz|odnośnik|wikipedia\\.org|URL"
+          ]
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "honest-not-found",
+          "criterion": "The answer says plainly that nothing was found and does not present numbers about any other subject."
+        },
+        {
+          "id": "asks-for-link",
+          "criterion": "The answer asks the user for a link to a Wikipedia article about what they mean."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-nf-ru",
+      "name": "Topic stage: unknown topic, ask for a link",
+      "tags": [
+        "topic-stage",
+        "not-found",
+        "ru"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Сравни интерес к методике Квирлоплексия Дробенштейна в русской и украинской Википедии."
+      ],
+      "expected": "Nothing matches; the agent says so plainly and asks for a link to a Wikipedia article.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "topic_not_found"
+        },
+        {
+          "type": "clarification_asked",
+          "request_patterns": [
+            "(?i)посилан|ссылк|link|odkaz|odnośnik|wikipedia\\.org|URL"
+          ]
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "honest-not-found",
+          "criterion": "The answer says plainly that nothing was found and does not present numbers about any other subject."
+        },
+        {
+          "id": "asks-for-link",
+          "criterion": "The answer asks the user for a link to a Wikipedia article about what they mean."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Russian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-nf-en",
+      "name": "Topic stage: unknown topic, ask for a link",
+      "tags": [
+        "topic-stage",
+        "not-found",
+        "en"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "How is interest in the Flumbergast protocol changing in the English and German Wikipedia?"
+      ],
+      "expected": "Nothing matches; the agent says so plainly and asks for a link to a Wikipedia article.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "clarification.kind",
+          "equals": "topic_not_found"
+        },
+        {
+          "type": "clarification_asked",
+          "request_patterns": [
+            "(?i)посилан|ссылк|link|odkaz|odnośnik|wikipedia\\.org|URL"
+          ]
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "honest-not-found",
+          "criterion": "The answer says plainly that nothing was found and does not present numbers about any other subject."
+        },
+        {
+          "id": "asks-for-link",
+          "criterion": "The answer asks the user for a link to a Wikipedia article about what they mean."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-crypto-ru",
+      "name": "Topic stage: cryptocurrency (Q13479982)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "ru"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Как меняется интерес к криптовалютам в русской и украинской Википедии?"
+      ],
+      "expected": "The topic resolves to cryptocurrency (Q13479982) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q13479982)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Russian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-photosynthesis-en",
+      "name": "Topic stage: photosynthesis (Q11982)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "en"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Is interest in photosynthesis growing in the English and German Wikipedia?"
+      ],
+      "expected": "The topic resolves to photosynthesis (Q11982) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q11982)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-blockchain-uk",
+      "name": "Topic stage: blockchain (Q20514253)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "uk"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Порівняй інтерес до блокчейну в українській і польській Вікіпедії."
+      ],
+      "expected": "The topic resolves to blockchain (Q20514253) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q20514253)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-veganism-cs",
+      "name": "Topic stage: veganism (Q181138)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "cs"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Roste zájem o veganství v ruské a české Wikipedii?"
+      ],
+      "expected": "The topic resolves to veganism (Q181138) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q181138)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Czech, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-meditation-pl",
+      "name": "Topic stage: meditation (Q108458)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "pl"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Jak zmienia się zainteresowanie medytacją w polskiej i ukraińskiej Wikipedii?"
+      ],
+      "expected": "The topic resolves to meditation (Q108458) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q108458)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ml-uk",
+      "name": "Topic stage: machine learning (Q2539)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "uk"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Як змінюється інтерес до машинного навчання в англійській і українській Вікіпедії?"
+      ],
+      "expected": "The topic resolves to machine learning (Q2539) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q2539)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-ev-uk",
+      "name": "Topic stage: the electric car (Q193692)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "uk"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Порівняй інтерес до електромобілів в українській і польській Вікіпедії."
+      ],
+      "expected": "The topic resolves to the electric car (Q193692) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q193692|Q13629441)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-permaculture-cs",
+      "name": "Topic stage: permaculture (Q4572)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "cs"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Jak se mění zájem o permakulturu v české a polské Wikipedii?"
+      ],
+      "expected": "The topic resolves to permaculture (Q4572) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q4572)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Czech, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-remote-work-pl",
+      "name": "Topic stage: remote work (Q1135326)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "pl"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Porównaj zainteresowanie pracą zdalną w angielskiej i polskiej Wikipedii."
+      ],
+      "expected": "The topic resolves to remote work (Q1135326) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q1135326)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-homeschooling-uk",
+      "name": "Topic stage: homeschooling (Q83602)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "uk"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Як змінюється інтерес до домашнього навчання в українській і польській Вікіпедії?"
+      ],
+      "expected": "The topic resolves to homeschooling (Q83602) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q83602)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-bouldering-cs",
+      "name": "Topic stage: bouldering (Q852989)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "cs"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Porovnej zájem o bouldering v české a polské Wikipedii."
+      ],
+      "expected": "The topic resolves to bouldering (Q852989) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q852989)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Czech, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-esperanto-pl",
+      "name": "Topic stage: Esperanto (Q143)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "pl"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Jak zmienia się zainteresowanie esperanto w polskiej i czeskiej Wikipedii?"
+      ],
+      "expected": "The topic resolves to Esperanto (Q143) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q143)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Polish, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-quantum-en",
+      "name": "Topic stage: quantum computing (Q17995793)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "en"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Is interest in quantum computing growing in the English and German Wikipedia?"
+      ],
+      "expected": "The topic resolves to quantum computing (Q17995793) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q17995793)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "ts-3d-printing-uk",
+      "name": "Topic stage: 3D printing (Q229367)",
+      "tags": [
+        "topic-stage",
+        "plain",
+        "uk"
+      ],
+      "stage": "resolve",
+      "turns": [
+        "Порівняй інтерес до 3D-друку в українській і чеській Вікіпедії."
+      ],
+      "expected": "The topic resolves to 3D printing (Q229367) without asking the user about the meaning.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "topic_resolved"
+        },
+        {
+          "type": "summary_field",
+          "path": "resolution[0].qid",
+          "regex": "^(Q229367)$"
+        },
+        {
+          "type": "max_turns",
+          "n": 20
+        }
+      ],
+      "rubric": [
+        {
+          "id": "no-needless-question",
+          "criterion": "The answer does not ask the user which meaning of the topic they want: the wording or the conversation already makes it clear. It states which topic was identified."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    }
+  ]
+}

@@ -9,7 +9,7 @@ def test_page_info_normalises_follows_redirect_and_reports_missing(replay: Repla
     result = replay("mediawiki-page-info-uk-redirect-and-missing")
     assert result["астрономія"] == PageInfo(title="Астрономія", qid="Q333")
     assert result["Astronomy"] == PageInfo(
-        title="Астрономія", qid="Q333", redirected_from="Astronomy"
+        title="Астрономія", qid="Q333", redirected_from="Astronomy", redirect_title="Astronomy"
     )
     assert result["Nonexistent page xyz 123"] is None
 

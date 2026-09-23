@@ -1,7 +1,5 @@
 """PDF report: exactly one A4 page in every language, readable text, graceful overflow."""
 
-# ruff: noqa: RUF001  -- expected strings contain Cyrillic titles.
-
 from pathlib import Path
 
 import pytest
@@ -53,13 +51,29 @@ def test_english_text_contains_headline_key_number_and_sections(
     text = reader.pages[0].extract_text()
     assert "Intermittent fasting: uk vs cs" in text
     assert "Interest in intermittent fasting is growing faster in Czech" in text
-    assert "10,349" in text, "views/month tile value"
-    assert "+32%" in text, "growth tile value"
-    assert "Verdict" in text
-    assert "How much to trust this" in text
+    assert "cs: 117.8 per million" in text, "size of interest card"
+    assert "10,349" in text, "views per month under the size card"
+    assert "cs: +32% ↑" in text, "change card"
+    assert "1 in" not in text, "the share is stated per million only"
+    assert "Answer" in text
+    assert "Is the topic growing faster or slower than its Wikipedia?" in text
+    assert "What this means for the decision" in text
+    assert "Next step: confirm the signal for cs.wikipedia" in " ".join(text.split())
+    assert "How robust is this conclusion?" in text
+    assert "Do recent months confirm the trend?" in text
     assert "Assumptions and limitations" in text
+    assert "About the method" in text
+    assert "Wikimedia Pageviews API, Wikidata, MediaWiki API" in text, "sources by name"
     assert "Skill version: 0.1.0" in text
     assert "2026-09-22 12:00 UTC" in text, "generated-at footer (label may wrap)"
+
+
+def test_robustness_lines_and_the_data_line(tmp_path: Path, chart_paths: list[Path]) -> None:
+    text = _render(example_summary(), chart_paths, tmp_path / "r.pdf").pages[0].extract_text()
+    joined = " ".join(text.split())
+    assert "cs.wikipedia: mixed signal." in joined
+    assert "Data: 24 months of data; bursts do not drive the result." in joined
+    assert "statistically significant (p" not in joined
 
 
 def test_ukrainian_text_contains_cyrillic_and_czech_diacritics(
@@ -68,8 +82,8 @@ def test_ukrainian_text_contains_cyrillic_and_czech_diacritics(
     reader = _render(example_summary(language="uk"), chart_paths, tmp_path / "report.pdf")
     text = reader.pages[0].extract_text()
     assert "Інтерес до інтервального голодування" in text
-    assert "Přerušovaný půst" in text
-    assert "Наскільки можна довіряти" in text
+    assert "Відповідь" in text
+    assert "Наскільки стійкий цей висновок?" in text
     assert "Verdict" not in text
 
 
@@ -97,18 +111,18 @@ def test_overflowing_reliability_reasons_are_reduced_before_truncation(
     tmp_path: Path, chart_paths: list[Path]
 ) -> None:
     summary = example_summary(question_type="rank")
-    reliability = [
+    assessments = [
         item.model_copy(
             update={
-                "checks": [
-                    c.model_copy(update={"message": f"{c.message}. {LONG_LIMITATION}"})
-                    for c in item.checks
+                "evidence": [
+                    e.model_copy(update={"text": f"{e.text}. {LONG_LIMITATION}"})
+                    for e in item.evidence
                 ]
             }
         )
-        for item in summary.reliability
+        for item in summary.assessments
     ]
-    summary = summary.model_copy(update={"reliability": reliability})
+    summary = summary.model_copy(update={"assessments": assessments})
     reader = _render(summary, chart_paths, tmp_path / "report.pdf")
     assert len(reader.pages) == 1
 
@@ -117,14 +131,17 @@ def test_renders_without_charts_or_tables(tmp_path: Path) -> None:
     summary = example_summary().model_copy(update={"comparison": [], "ranking": []})
     reader = _render(summary, [], tmp_path / "report.pdf")
     assert len(reader.pages) == 1
-    assert "Verdict" in reader.pages[0].extract_text()
+    assert "Answer" in reader.pages[0].extract_text()
 
 
-def test_rank_summary_uses_ranking_tiles(tmp_path: Path, chart_paths: list[Path]) -> None:
-    summary = example_summary(question_type="rank").model_copy(update={"comparison": []})
+def test_rank_cards_follow_the_ranking(tmp_path: Path, chart_paths: list[Path]) -> None:
+    summary = example_summary(question_type="rank")
     text = _render(summary, chart_paths, tmp_path / "report.pdf").pages[0].extract_text()
-    assert "1. cs: 0.81" in text
-    assert "growth market" in text
+    assert (
+        text.index("cs: 117.8 per million")
+        < text.index("uk: 98.6 per million")
+        < text.index("pl: ")
+    )
 
 
 def test_output_is_byte_identical_across_runs(tmp_path: Path, chart_paths: list[Path]) -> None:
@@ -163,13 +180,26 @@ def test_missing_font_dir_raises_render_error(
         FpdfReportRenderer(Translator("en"))
 
 
-def test_many_verdict_bullets_shrink_font_then_truncate(
-    tmp_path: Path, chart_paths: list[Path]
-) -> None:
+def test_further_findings_are_capped_on_the_page(tmp_path: Path, chart_paths: list[Path]) -> None:
     summary = example_summary().model_copy(
         update={
             "verdict": example_summary().verdict.model_copy(
-                update={"bullets": [f"{i}. {LONG_LIMITATION}" for i in range(30)]}
+                update={"bullets": [f"Finding {i}." for i in range(30)]}
+            )
+        }
+    )
+    reader = _render(summary, chart_paths, tmp_path / "report.pdf")
+    assert len(reader.pages) == 1
+    text = reader.pages[0].extract_text()
+    assert "Finding 0." in text
+    assert "Finding 2." not in text, "report.md lists the rest"
+
+
+def test_a_long_answer_shrinks_font_then_truncates(tmp_path: Path, chart_paths: list[Path]) -> None:
+    summary = example_summary().model_copy(
+        update={
+            "verdict": example_summary().verdict.model_copy(
+                update={"headline": " ".join(LONG_LIMITATION for _ in range(25))}
             )
         }
     )
@@ -182,14 +212,18 @@ def test_many_verdict_bullets_shrink_font_then_truncate(
 
 def test_multi_topic_tiles_carry_shortened_labels(tmp_path: Path, chart_paths: list[Path]) -> None:
     summary = example_summary()
-    rows = [
-        summary.comparison[0],
-        summary.comparison[1].model_copy(update={"topic_id": "fasting", "label": "Půst"}),
+    items = [
+        summary.assessments[0].model_copy(update={"label": "intermittent fasting · uk.wikipedia"}),
+        summary.assessments[1].model_copy(
+            update={"topic_id": "fasting", "label": "fasting · cs.wikipedia"}
+        ),
     ]
-    text = _render(summary.model_copy(update={"comparison": rows}), chart_paths, tmp_path / "r.pdf")
+    text = _render(
+        summary.model_copy(update={"assessments": items}), chart_paths, tmp_path / "r.pdf"
+    )
     extracted = text.pages[0].extract_text()
-    assert "uk Інтервальне г…: 10,349" in extracted
-    assert "cs Půst: 5,654" in extracted
+    assert "uk intermittent…: 98.6 per million" in extracted
+    assert "cs fasting: 117.8 per million" in extracted
 
 
 def test_render_error_when_no_layout_fits(

@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,6 +25,7 @@ DEFAULT_EXCLUDES: frozenset[str] = frozenset(
         ".venv",
         ".cache",
         "runs",
+        "wiki-interest-runs",
         "__pycache__",
         ".pytest_cache",
         ".mypy_cache",
@@ -36,7 +37,8 @@ DEFAULT_EXCLUDES: frozenset[str] = frozenset(
 )
 """Directory names never copied into a sandbox.
 
-``.venv`` is machine-specific and not relocatable; ``.cache`` and ``runs`` are runtime output
+``.venv`` is machine-specific and not relocatable; ``.cache``, ``runs`` and
+``wiki-interest-runs`` (reports of runs started inside the skill directory) are runtime output
 (a warm cache is seeded explicitly); ``evals`` is the scenario set itself, which the agent under
 test must not be able to read.
 """
@@ -104,6 +106,7 @@ class Sandbox:
         *,
         warm_cache_from: Path | None = None,
         excludes: Iterable[str] = DEFAULT_EXCLUDES,
+        env: Mapping[str, str] | None = None,
     ) -> Sandbox:
         """Copy the skill into a fresh sandbox under ``base_dir``.
 
@@ -115,6 +118,9 @@ class Sandbox:
                 finds its HTTP cache warm. Use it to separate network effects from model
                 effects between two runs.
             excludes: Directory names not copied from the skill.
+            env: Environment variables for the agent's session, written to the sandbox's
+                ``.claude/settings.json`` (``env``); Claude Code passes them to every command
+                the agent runs, and the agent's prompt never mentions them.
 
         Returns:
             The created sandbox.
@@ -135,6 +141,11 @@ class Sandbox:
         shutil.copytree(skill_path, skill_dir, ignore=shutil.ignore_patterns(*excluded))
         workspace = base_dir / "workspace"
         workspace.mkdir()
+        if env:
+            settings = {"env": dict(env)}
+            (base_dir / ".claude" / "settings.json").write_text(
+                json.dumps(settings, indent=2) + "\n", encoding="utf-8", newline="\n"
+            )
         if warm_cache_from is not None:
             shutil.copytree(warm_cache_from, skill_dir / ".cache")
         skill_hash = hash_directory(skill_path, excluded)

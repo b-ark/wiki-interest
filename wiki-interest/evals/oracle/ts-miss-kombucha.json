@@ -1,0 +1,23 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "комбуча",
+          "query_language": "ru",
+          "query_en": "kombucha",
+          "id": "kombucha"
+        }
+      ],
+      "projects": [
+        "uk",
+        "pl"
+      ],
+      "report": {
+        "language": "ru"
+      },
+      "session": "o-ts-miss-kombucha"
+    }
+  ]
+}

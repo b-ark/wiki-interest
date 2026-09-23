@@ -1,4 +1,4 @@
-"""The full run: resolve, load, analyse, summarise, render, write.
+"""The full run: resolve, check coverage, load, analyse, summarise, render, write.
 
 One call produces a self-contained run directory the agent can point the user to. The
 pipeline owns the order of operations and the file layout; every step is a collaborator it
@@ -7,33 +7,53 @@ receives from the composition root, so the whole thing runs against in-memory fa
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from wiki_interest.application.analysis import AnalysisSettings, analyse
+from wiki_interest.application.coverage import CoverageAdvisor
+from wiki_interest.application.facts import apply_narrative, build_facts, template_narrative
 from wiki_interest.application.loading import SeriesLoader
+from wiki_interest.application.narrative_check import check_narrative
 from wiki_interest.application.resolution import ResolvedTopic, TopicResolver
 from wiki_interest.application.summary_builder import (
     ProvenanceInput,
     RunContext,
     SummaryBuilder,
 )
+from wiki_interest.contracts.narrative import Facts, Narrative, NarrativeProblem
 from wiki_interest.contracts.request import AnalysisRequest, Period
 from wiki_interest.contracts.summary import AnalysisSummary, Artifacts
-from wiki_interest.errors import ClarificationNeededError
+from wiki_interest.errors import ClarificationNeededError, TopicNotFoundError
 from wiki_interest.i18n import Translator
 from wiki_interest.ports import ChartRenderer, Clock, ReportRenderer
 
-__all__ = ["Pipeline", "PipelineOutcome", "Renderers", "RunServices", "ServiceFactory"]
+__all__ = [
+    "NarrationOutcome",
+    "Pipeline",
+    "PipelineOutcome",
+    "Renderers",
+    "RunServices",
+    "ServiceFactory",
+    "load_run_summary",
+]
 
 CHARTS_DIRNAME = "charts"
 SUMMARY_JSON = "summary.json"
 SUMMARY_MD = "summary.md"
 REPORT_MD = "report.md"
 REPORT_PDF = "report.pdf"
+FACTS_JSON = "facts.json"
+TEMPLATE_JSON = "narrative.template.json"
+CHAT_BRIEF_MD = "chat_brief.md"
+ATTEMPTS_FILE = "narrative.attempts"
+MAX_NARRATIVE_ATTEMPTS = 2
+"""The agent's text is rejected once with the reasons; a second failure keeps the template."""
 EXIT_OK = 0
+EXIT_INVALID = 2
 EXIT_CLARIFICATION = 3
 
 
@@ -52,11 +72,14 @@ class RunServices:
     """Collaborators the pipeline needs for one request."""
 
     resolver: TopicResolver
+    coverage: CoverageAdvisor
     loader: SeriesLoader
     analysis_settings: AnalysisSettings
     translator: Translator
     renderers: Renderers
     provenance: ProvenanceInput
+    stop_after_resolve: bool = False
+    """End the run after the topic stage (see ``Settings.stop_after``)."""
 
 
 class ServiceFactory(Protocol):
@@ -93,15 +116,101 @@ class PipelineOutcome:
             "charts": list(artifacts.charts),
             "headline": self.summary.verdict.headline,
         }
+        if self.summary.status == "ok":
+            payload["facts_json"] = str(Path(artifacts.run_dir) / FACTS_JSON)
+            payload["narrative_template"] = str(Path(artifacts.run_dir) / TEMPLATE_JSON)
+        if self.summary.resolution:
+            # What each topic resolved to, so the agent can check it against what the user
+            # meant before relaying anything, and switch by qid if it is the wrong entity.
+            payload["topics"] = [
+                {
+                    "id": topic.topic_id,
+                    "qid": topic.qid,
+                    "label": topic.label,
+                    "description": topic.description,
+                    "other_meanings": [c.model_dump() for c in topic.alternatives],
+                }
+                for topic in self.summary.resolution
+            ]
         if self.summary.clarification is not None:
             clarification = self.summary.clarification
-            payload["clarification"] = {
+            details: dict[str, object] = {
+                "kind": clarification.kind,
                 "topic_id": clarification.topic_id,
                 "query": clarification.query,
                 "question": clarification.question,
-                "candidates": [c.model_dump() for c in clarification.candidates],
             }
+            if clarification.candidates:
+                details["candidates"] = [c.model_dump() for c in clarification.candidates]
+            if clarification.gaps:
+                details["gaps"] = [
+                    {
+                        "project": gap.project,
+                        "question": gap.question,
+                        "options": [
+                            {
+                                "number": o.number,
+                                "description": o.description,
+                                "choose": {
+                                    k: v if isinstance(v, str) else v.model_dump()
+                                    for k, v in o.choose.items()
+                                },
+                            }
+                            for o in gap.options
+                        ],
+                    }
+                    for gap in clarification.gaps
+                ]
+            payload["clarification"] = details
             payload["hint"] = clarification.question
+        if self.summary.status == "topic_resolved":
+            payload["hint"] = self.summary.verdict.headline
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class NarrationOutcome:
+    """What became of the agent's text.
+
+    Attributes:
+        summary: The summary as rendered, with the agent's text when it was accepted.
+        status: ``accepted``; ``rejected`` (fix the problems and render again); or
+            ``fallback`` (rejected a second time: the report keeps the template text).
+        problems: Why the text was rejected.
+    """
+
+    summary: AnalysisSummary
+    status: Literal["accepted", "rejected", "fallback"]
+    problems: tuple[NarrativeProblem, ...] = ()
+
+    @property
+    def exit_code(self) -> int:
+        """2 while the agent has to fix its text, else 0."""
+        return EXIT_INVALID if self.status == "rejected" else EXIT_OK
+
+    def to_dict(self) -> dict[str, object]:
+        """JSON for stdout: status, paths, and the answer or the problems."""
+        artifacts = self.summary.artifacts
+        payload: dict[str, object] = {
+            "status": self.status,
+            "exit_code": self.exit_code,
+            "run_dir": artifacts.run_dir,
+            "report_pdf": artifacts.report_pdf,
+            "report_md": artifacts.report_md,
+            "summary_md": artifacts.summary_md,
+        }
+        if self.problems:
+            payload["problems"] = [p.model_dump(exclude_none=True) for p in self.problems]
+        if self.status == "accepted":
+            payload["chat_brief"] = str(Path(artifacts.run_dir) / CHAT_BRIEF_MD)
+            payload["chat_answer"] = self.summary.chat_answer
+        elif self.status == "rejected":
+            payload["hint"] = (
+                "Fix every problem in narrative.json and render again; a second rejection "
+                "keeps the template text."
+            )
+        else:
+            payload["hint"] = "The report keeps the template text: relay summary_md."
         return payload
 
 
@@ -116,8 +225,10 @@ class Pipeline:
         """Execute a request and write the run directory.
 
         Returns:
-            The outcome with exit code 0, or 3 when the user has to disambiguate a topic (the
-            run directory then holds a ``summary.md`` that states the question).
+            The outcome with exit code 0, or 3 when the user has to decide something first: which
+            entity an ambiguous topic means, or what to measure in an edition without an article
+            (the run directory then holds a ``summary.md`` that states the question). The
+            coverage question is asked before any pageview series is fetched.
 
         Raises:
             UpstreamError, DataUnavailableError, RenderError: propagated for the CLI to map.
@@ -131,6 +242,19 @@ class Pipeline:
             summary = builder.build_clarification(request=request, period=period, error=error)
             self._write_clarification(summary, context.run_dir, services.renderers)
             return PipelineOutcome(summary, EXIT_CLARIFICATION)
+        except TopicNotFoundError as error:
+            summary = builder.build_not_found(request=request, period=period, error=error)
+            self._write_clarification(summary, context.run_dir, services.renderers)
+            return PipelineOutcome(summary, EXIT_CLARIFICATION)
+        gaps = services.coverage.gaps(request, resolved, self._clock.today())
+        if gaps:
+            summary = builder.build_coverage_question(request=request, period=period, gaps=gaps)
+            self._write_clarification(summary, context.run_dir, services.renderers)
+            return PipelineOutcome(summary, EXIT_CLARIFICATION)
+        if services.stop_after_resolve:
+            summary = builder.build_topic_only(request=request, period=period, resolved=resolved)
+            self._write_clarification(summary, context.run_dir, services.renderers)
+            return PipelineOutcome(summary, EXIT_OK)
         loaded = services.loader.load(resolved, period)
         analysis = analyse(
             resolved,
@@ -141,7 +265,7 @@ class Pipeline:
         summary = builder.build(
             request=request, period=period, resolved=resolved, analysis=analysis
         )
-        rendered = self._render(summary, context.run_dir, services.renderers)
+        rendered = self._render(summary, context.run_dir, services.renderers, services.translator)
         return PipelineOutcome(rendered, EXIT_OK)
 
     def resolve(self, request: AnalysisRequest) -> Sequence[ResolvedTopic]:
@@ -150,23 +274,62 @@ class Pipeline:
 
     def render(self, summary: AnalysisSummary, run_dir: Path) -> AnalysisSummary:
         """Re-render charts and reports of a saved summary into ``run_dir``."""
-        _, renderers = self._factory.renderers_for(summary.request.report.language)
-        if summary.status == "needs_clarification":
+        translator, renderers = self._factory.renderers_for(summary.request.report.language)
+        if summary.status != "ok":
             self._write_clarification(summary, run_dir, renderers)
             return summary
-        return self._render(summary, run_dir, renderers)
+        return self._render(summary, run_dir, renderers, translator)
+
+    def narrate(self, run_dir: Path, narrative: Narrative) -> NarrationOutcome:
+        """Check the agent's text against the run's facts and, if it holds, render with it.
+
+        A rejected text leaves the report as it was and returns the problems; the second
+        rejection of the same run is final and the template text stays (see
+        :data:`MAX_NARRATIVE_ATTEMPTS`).
+
+        Raises:
+            FileNotFoundError: If the run has no ``summary.json`` or ``facts.json``.
+        """
+        summary = load_run_summary(run_dir)
+        facts = Facts.model_validate_json((run_dir / FACTS_JSON).read_text(encoding="utf-8"))
+        cache = _ui_cache_path(run_dir, summary.request.report.language)
+        cached = _read_ui(cache)
+        problems = check_narrative(facts, narrative, ui_cached=cached)
+        if problems:
+            attempts = _bump_attempts(run_dir)
+            status: Literal["rejected", "fallback"] = (
+                "fallback" if attempts >= MAX_NARRATIVE_ATTEMPTS else "rejected"
+            )
+            return NarrationOutcome(summary, status, tuple(problems))
+        if narrative.ui:
+            _write_json(cache, {**cached, **narrative.ui})
+        translator, renderers = self._factory.renderers_for(summary.request.report.language)
+        final = self._render(
+            apply_narrative(summary, narrative), run_dir, renderers, translator, facts=False
+        )
+        (run_dir / CHAT_BRIEF_MD).write_text(narrative.chat_answer + "\n", encoding="utf-8")
+        return NarrationOutcome(final, "accepted")
 
     # -- writing --------------------------------------------------------------------------
 
     def _render(
-        self, summary: AnalysisSummary, run_dir: Path, renderers: Renderers
+        self,
+        summary: AnalysisSummary,
+        run_dir: Path,
+        renderers: Renderers,
+        translator: Translator,
+        *,
+        facts: bool = True,
     ) -> AnalysisSummary:
+        """Write charts, reports and ``summary.json``; with ``facts``, also the agent's inputs.
+
+        The keys the user-facing renderers look up are recorded: for a report language
+        without a catalog they are the interface labels the agent translates.
+        """
         run_dir.mkdir(parents=True, exist_ok=True)
+        if not translator.has_catalog:
+            translator.override(_read_ui(_ui_cache_path(run_dir, translator.requested)))
         charts_dir = run_dir / CHARTS_DIRNAME
-        png_files: list[Path] = []
-        for spec in summary.charts:
-            written = renderers.charts.render(spec, charts_dir)
-            png_files.extend(p for p in written if p.suffix == ".png")
         formats = summary.request.report.formats
         artifacts = Artifacts(
             run_dir=str(run_dir),
@@ -174,15 +337,22 @@ class Pipeline:
             summary_md=str(run_dir / SUMMARY_MD),
             report_md=str(run_dir / REPORT_MD) if "md" in formats else None,
             report_pdf=str(run_dir / REPORT_PDF) if "pdf" in formats else None,
-            charts=[str(p) for p in png_files],
         )
-        final = summary.model_copy(update={"artifacts": artifacts})
+        png_files: list[Path] = []
+        with translator.recording() as used:
+            for spec in summary.charts:
+                written = renderers.charts.render(spec, charts_dir)
+                png_files.extend(p for p in written if p.suffix == ".png")
+            artifacts = artifacts.model_copy(update={"charts": [str(p) for p in png_files]})
+            final = summary.model_copy(update={"artifacts": artifacts})
+            if artifacts.report_md is not None:
+                renderers.report_markdown.render(final, png_files, Path(artifacts.report_md))
+            if artifacts.report_pdf is not None:
+                renderers.report_pdf.render(final, png_files, Path(artifacts.report_pdf))
         renderers.agent_summary.render(final, png_files, run_dir / SUMMARY_MD)
-        if artifacts.report_md is not None:
-            renderers.report_markdown.render(final, png_files, Path(artifacts.report_md))
-        if artifacts.report_pdf is not None:
-            renderers.report_pdf.render(final, png_files, Path(artifacts.report_pdf))
         _write_summary_json(final, run_dir)
+        if facts:
+            _write_facts(final, run_dir, translator, used)
         return final
 
     @staticmethod
@@ -190,6 +360,51 @@ class Pipeline:
         run_dir.mkdir(parents=True, exist_ok=True)
         renderers.agent_summary.render(summary, [], run_dir / SUMMARY_MD)
         _write_summary_json(summary, run_dir)
+
+
+def load_run_summary(run_dir: Path) -> AnalysisSummary:
+    """The saved summary of a run directory."""
+    return AnalysisSummary.model_validate_json((run_dir / SUMMARY_JSON).read_text(encoding="utf-8"))
+
+
+def _write_facts(
+    summary: AnalysisSummary, run_dir: Path, translator: Translator, used: set[str]
+) -> None:
+    """``facts.json`` and the template text, for the agent that writes the report text."""
+    template = run_dir / TEMPLATE_JSON
+    cached = _read_ui(_ui_cache_path(run_dir, translator.requested))
+    ui = (
+        {}
+        if translator.has_catalog
+        else {key: translator.english(key) for key in sorted(used) if key not in cached}
+    )
+    facts = build_facts(summary, translator, ui_strings=ui, template_file=str(template))
+    _write_json(run_dir / FACTS_JSON, facts.model_dump(mode="json"))
+    _write_json(template, template_narrative(summary, translator).model_dump(mode="json"))
+    (run_dir / ATTEMPTS_FILE).unlink(missing_ok=True)
+
+
+def _ui_cache_path(run_dir: Path, language: str) -> Path:
+    """Interface translations live per session: the session directory holds its runs."""
+    return run_dir.parent / f"ui-{language}.json"
+
+
+def _read_ui(path: Path) -> dict[str, str]:
+    if not path.is_file():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+
+
+def _bump_attempts(run_dir: Path) -> int:
+    path = run_dir / ATTEMPTS_FILE
+    attempts = (int(path.read_text(encoding="utf-8")) if path.is_file() else 0) + 1
+    path.write_text(str(attempts), encoding="utf-8")
+    return attempts
+
+
+def _write_json(path: Path, payload: object) -> None:
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _write_summary_json(summary: AnalysisSummary, run_dir: Path) -> None:

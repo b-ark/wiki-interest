@@ -1,0 +1,24 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "Rust",
+          "query_language": "pl",
+          "query_en": "Rust programming language",
+          "id": "rust-course",
+          "qid": "Q575650"
+        }
+      ],
+      "projects": [
+        "pl",
+        "en"
+      ],
+      "report": {
+        "language": "pl"
+      },
+      "session": "o-ts-ctx-rust-course"
+    }
+  ]
+}

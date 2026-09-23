@@ -12,6 +12,7 @@ from wiki_interest.adapters.http import HttpJsonClient
 from wiki_interest.adapters.mediawiki import ActionApiError
 from wiki_interest.adapters.wikidata import MAX_IDS_PER_REQUEST, WikidataApi
 from wiki_interest.domain.models import WikiProject
+from wiki_interest.ports.wikidata import EntitySummary
 
 WD = "https://www.wikidata.org/w/api.php"
 UK, PL, CS = WikiProject("uk"), WikiProject("pl"), WikiProject("cs")
@@ -276,3 +277,57 @@ class TestRelatedEntities:
             )
         )
         assert wikidata.related_entities("Q0", ["P279"]) == {"P279": ()}
+
+
+class TestLabelsWithoutFallback:
+    def test_only_the_requested_language_is_used(
+        self, respx_mock: respx.MockRouter, wikidata: WikidataApi
+    ) -> None:
+        route = respx_mock.get(WD).mock(
+            side_effect=_entities_handler({"Q1": {"id": "Q1", "labels": {"en": {"value": "One"}}}})
+        )
+        assert wikidata.labels(["Q1"], "pl", fallback=False) == {}
+        assert route.calls.last.request.url.params["languages"] == "pl"
+
+
+class TestSummary:
+    def test_label_description_and_wikipedia_languages(
+        self, respx_mock: respx.MockRouter, wikidata: WikidataApi
+    ) -> None:
+        route = respx_mock.get(WD).mock(
+            side_effect=_entities_handler(
+                {
+                    "Q1666254": {
+                        "id": "Q1666254",
+                        "labels": {"en": {"value": "intermittent fasting"}},
+                        "descriptions": {
+                            "ru": {"value": "медицинская практика"},
+                            "en": {"value": "a diet"},
+                        },
+                        "sitelinks": {
+                            "enwiki": {"site": "enwiki", "title": "Intermittent fasting"},
+                            "be_x_oldwiki": {"site": "be_x_oldwiki", "title": "X"},
+                            "commonswiki": {"site": "commonswiki", "title": "Category:X"},
+                            "enwikiquote": {"site": "enwikiquote", "title": "X"},
+                            "cswiki": {"site": "cswiki", "title": "Přerušovaný půst"},
+                        },
+                    }
+                }
+            )
+        )
+        summary = wikidata.summary("Q1666254", "ru")
+        params = route.calls.last.request.url.params
+        assert params["props"] == "labels|descriptions|sitelinks"
+        assert params["languages"] == "ru|en"
+        assert summary == EntitySummary(
+            qid="Q1666254",
+            label="intermittent fasting",
+            description="медицинская практика",
+            languages=("en", "be-x-old", "cs"),
+        )
+
+    def test_unknown_item_is_none(
+        self, respx_mock: respx.MockRouter, wikidata: WikidataApi
+    ) -> None:
+        respx_mock.get(WD).mock(side_effect=_entities_handler({}))
+        assert wikidata.summary("Q404", "en") is None

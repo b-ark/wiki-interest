@@ -18,11 +18,16 @@ from wiki_interest.contracts.summary import (
     AnalysisSummary,
     ArticleOut,
     Artifacts,
+    AssessmentOut,
     BundleOut,
     CandidateOut,
     CheckOut,
     Clarification,
     ComparisonRow,
+    ContextArticleOut,
+    DecisionOut,
+    EvidenceOut,
+    FindingOut,
     MetricsOut,
     PointOut,
     Provenance,
@@ -32,6 +37,7 @@ from wiki_interest.contracts.summary import (
     TopicResolutionOut,
     Verdict,
 )
+from wiki_interest.domain.assessment import EditionRelation, Momentum, RelativeSize, Robustness
 from wiki_interest.domain.models import (
     ArticleRole,
     AudienceProfile,
@@ -69,7 +75,7 @@ _PROSE: dict[str, dict[str, list[str]]] = {
         "limitations": [
             "Wikipedia interest is a signal to verify, not a forecast of product demand",
             "Two Czech months have no data; the Czech growth figure is less certain",
-            "The Ukrainian bundle includes the related article 'Fasting' at half weight",
+            "Only the main article is counted; related articles are shown as context",
         ],
         "next_steps": [
             "Extend the period to 36 months to check whether the growth is seasonal",
@@ -89,7 +95,7 @@ _PROSE: dict[str, dict[str, list[str]]] = {
         "limitations": [
             "Інтерес у Вікіпедії — сигнал для перевірки, а не прогноз попиту на продукт",
             "За два місяці в чеському розділі немає даних; чеське зростання менш певне",
-            "Українська зв'язка включає суміжну статтю «Голодування» з вагою 0,5",
+            "Рахується лише головна стаття; пов'язані статті показано як контекст",
         ],
         "next_steps": [
             "Розширити період до 36 місяців, щоб перевірити сезонність зростання",
@@ -193,7 +199,49 @@ def example_summary(
         ranking=_ranking(projects) if question_type == "rank" else [],
         charts=_charts(analysed, translator),
         verdict=Verdict(headline=prose["headline"][0], bullets=prose["bullets"]),
-        limitations=prose["limitations"],
+        assessments=_assessments(analysed, translator),
+        decision=_decision(analysed, translator),
+        data_note=[
+            translator.t(
+                "report.data_line",
+                items="; ".join(
+                    [
+                        translator.t("evidence.months", months="24"),
+                        translator.t("evidence.spikes_ok"),
+                    ]
+                ),
+            ),
+            translator.t(
+                "report.data_concerns",
+                label="cs.wikipedia",
+                items=translator.t("evidence.gaps", missing_months="2"),
+            ),
+        ]
+        if len(analysed) > 1
+        else [],
+        findings=[
+            FindingOut(
+                kind="level_shift" if index == 0 else "recent",
+                topic_id=TOPIC_ID,
+                project="uk.wikipedia" if index == 0 else "cs.wikipedia",
+                importance=0.8 - index / 10,
+                text=text,
+                params={"change": 0.4} if index == 0 else {"change": 0.32},
+            )
+            for index, text in enumerate(prose["bullets"])
+        ],
+        context=[
+            ContextArticleOut(
+                topic_id=TOPIC_ID,
+                project="uk.wikipedia",
+                title="Голодування",
+                role=ArticleRole.RELATED,
+                views_avg=3200.0,
+                growth=0.04,
+            )
+        ],
+        limitations=prose["limitations"][1:],
+        general_limitations=prose["limitations"][:1],
         next_steps=prose["next_steps"],
         artifacts=Artifacts(
             run_dir=RUN_DIR,
@@ -280,7 +328,6 @@ def _resolution(projects: list[str]) -> TopicResolutionOut:
                             title=_TITLES[project],
                             role=ArticleRole.MAIN,
                             source=ResolutionSource.SEARCH_FALLBACK,
-                            weight=1.0,
                         )
                     ],
                 )
@@ -291,7 +338,6 @@ def _resolution(projects: list[str]) -> TopicResolutionOut:
                 title=_TITLES[project],
                 role=ArticleRole.MAIN,
                 source=ResolutionSource.SITELINK,
-                weight=1.0,
                 qid="Q1666254",
                 redirects=["Інтервальний піст"] if project == "uk.wikipedia" else [],
             )
@@ -302,7 +348,6 @@ def _resolution(projects: list[str]) -> TopicResolutionOut:
                     title="Голодування",
                     role=ArticleRole.RELATED,
                     source=ResolutionSource.WIKIDATA_RELATION,
-                    weight=0.5,
                     qid="Q1201325",
                 )
             )
@@ -314,6 +359,7 @@ def _resolution(projects: list[str]) -> TopicResolutionOut:
                 articles=articles,
                 article_count=len(articles),
                 related_count=len(articles) - 1,
+                redirect_count=len(articles[0].redirects),
             )
         )
     return TopicResolutionOut(
@@ -347,16 +393,21 @@ def _series_for(project: str) -> list[SeriesOut]:
     for index, month in enumerate(MONTHS):
         views = _views(project, index, month)
         per_million = None if views is None else round(views / _PROJECT_TOTAL_MILLIONS[project], 2)
-        points.append(PointOut(period=month, views=views, per_million=per_million))
+        points.append(
+            PointOut(
+                period=month,
+                views=views,
+                per_million=per_million,
+                edition_views=_PROJECT_TOTAL_MILLIONS[project] * 1_000_000,
+            )
+        )
     return [
         SeriesOut(
             topic_id=TOPIC_ID,
             project=project,
-            kind=kind,
             granularity=Granularity.MONTHLY,
             points=points,
         )
-        for kind in ("bundle", "main")
     ]
 
 
@@ -381,7 +432,6 @@ def _metrics_for(project: str) -> list[MetricsOut]:
         MetricsOut(
             topic_id=TOPIC_ID,
             project=project,
-            kind=kind,
             periods=len(MONTHS),
             completeness=len(observed) / len(MONTHS),
             views_total=sum(observed),
@@ -397,7 +447,6 @@ def _metrics_for(project: str) -> list[MetricsOut]:
             volatility_cv=0.21,
             automated_share=0.05 if project != "pl.wikipedia" else None,
         )
-        for kind in ("bundle", "main")
     ]
 
 
@@ -462,7 +511,6 @@ def _reliability_for(project: str, translator: Translator) -> ReliabilityOut:
         checks.append(
             _check(translator, "automated", CheckStatus.PASS, "automated.low", share=0.05)
         )
-        checks.append(_check(translator, "bundle", CheckStatus.PASS, "bundle.consistent"))
     return ReliabilityOut(topic_id=TOPIC_ID, project=project, level=_LEVELS[project], checks=checks)
 
 
@@ -479,6 +527,101 @@ def _comparison_row(project: str) -> ComparisonRow:
         trend_direction=_DIRECTIONS[project],
         reliability=_LEVELS[project],
         note="2 months missing" if project == "cs.wikipedia" else None,
+        index=100.0 if project == "uk.wikipedia" else 60.0,
+        views_growth=_GROWTH_YOY[project] - 0.05,
+        edition_growth=-0.05,
+    )
+
+
+_EDITION_GROWTH = -0.05
+
+
+def _assessments(projects: list[str], translator: Translator) -> list[AssessmentOut]:
+    """Size, momentum, edition and trust per audience, as the decision layer states them."""
+    shares = {p: _metrics_for(p)[0].per_million_avg or 0.0 for p in projects}
+    largest = max(shares.values())
+    out = []
+    for project in projects:
+        metrics = _metrics_for(project)[0]
+        growing = _DIRECTIONS[project] is TrendDirection.RISING
+        trend = Momentum.GROWING if growing else Momentum.FLAT
+        size: RelativeSize | None = None
+        if len(projects) > 1:
+            size = RelativeSize.LARGEST if shares[project] == largest else RelativeSize.SMALLER
+        low = _LEVELS[project] is ReliabilityLevel.LOW
+        scale = "single" if size is None else ("large" if size is RelativeSize.LARGEST else "small")
+        outcome = "low_trust" if low else f"{scale}_{trend.value}"
+        article = _GROWTH_YOY[project] - 0.05
+        evidence = [
+            EvidenceOut(text=translator.t("evidence.months", months="24")),
+            EvidenceOut(text=translator.t("evidence.spikes_ok")),
+        ]
+        steady = Robustness.MIXED if project == "cs.wikipedia" else Robustness.CONFIRMED
+        recent = translator.t(f"outcome.recent.{steady.value}")
+        if project == "cs.wikipedia":
+            evidence.insert(
+                0,
+                EvidenceOut(text=translator.t("evidence.gaps", missing_months="2"), concern=True),
+            )
+        out.append(
+            AssessmentOut(
+                topic_id=TOPIC_ID,
+                project=project,
+                label=project,
+                measured=True,
+                per_million=metrics.per_million_avg,
+                views_avg=metrics.views_avg,
+                size=size,
+                momentum=trend,
+                change=_GROWTH_YOY[project],
+                basis="yoy",
+                article_change=article,
+                edition_change=_EDITION_GROWTH,
+                share_change=_GROWTH_YOY[project],
+                relation=EditionRelation.GAINING,
+                relation_basis="yoy",
+                recent_months=3,
+                recent_article=0.1,
+                recent_edition=0.08,
+                recent_shift=0.02,
+                robustness=steady,
+                robustness_line=translator.t(
+                    f"robustness.{steady.value}.{trend.value}",
+                    label=project,
+                    change=translator.percent(_GROWTH_YOY[project], signed=True),
+                    basis=translator.t("basis.yoy"),
+                    months="3",
+                    article=translator.percent(0.1, signed=True),
+                    edition=translator.percent(0.08, signed=True),
+                ),
+                confidence=_LEVELS[project],
+                evidence=evidence,
+                outcome=outcome,
+                decision=translator.t(f"outcome.{outcome}", label=project, recent=recent),
+                edition_line=translator.t(
+                    "edition.gaining",
+                    label=project,
+                    article=translator.percent(article, signed=True),
+                    edition=translator.percent(_EDITION_GROWTH, signed=True),
+                ),
+            )
+        )
+    return out
+
+
+def _decision(projects: list[str], translator: Translator) -> DecisionOut:
+    items = _assessments(projects, translator)
+    lines = [a.decision for a in items] if len(items) > 1 else []
+    if len(items) == 1:
+        return DecisionOut(
+            conclusion="single_growing", lines=lines, next_step=translator.t("next_step.confirm")
+        )
+    best = next(a for a in items if a.size == RelativeSize.LARGEST)
+    return DecisionOut(
+        conclusion="strong",
+        candidate=best.label,
+        lines=lines,
+        next_step=translator.t("next_step.confirm_for", label=best.label),
     )
 
 
@@ -521,33 +664,43 @@ def _charts(projects: list[str], translator: Translator) -> list[ChartSpec]:
     uk_points = _series_for("uk.wikipedia")[0].points
     uk_values = [pt.per_million for pt in uk_points]
     trend_y: list[float | None] = [round(85.7 + 0.9 * i, 2) for i in range(len(MONTHS))]
+    codes = [p.split(".")[0] for p in projects]
     return [
         ChartSpec(
             id="intermittent-fasting-per-million",
             kind="lines",
-            title=translator.t("chart.compare_title"),
+            size="wide",
+            title=translator.t("chart.share_title"),
+            subtitle=translator.t("chart.share_subtitle"),
             y_label=translator.t("chart.axis_per_million"),
             series=per_million_series,
-            footnote=footnote,
         ),
         ChartSpec(
             id="intermittent-fasting-growth",
-            kind="bars",
-            title=translator.t("chart.growth_title"),
-            y_label=translator.t("col.growth_yoy"),
+            kind="grouped_bars",
+            size="half",
+            title=translator.t("chart.edition_growth_title", basis=translator.t("basis.yoy")),
+            y_label=translator.t("chart.axis_growth"),
             series=[
                 ChartSeries(
-                    label=translator.t("col.growth_yoy"),
-                    x=[_TITLES[p] for p in projects],
+                    label=translator.t("chart.series_article"),
+                    x=codes,
                     y=[_GROWTH_YOY[p] * 100 for p in projects],
-                )
+                ),
+                ChartSeries(
+                    label=translator.t("chart.series_edition_short"),
+                    x=codes,
+                    y=[-5.0 for _ in projects],
+                ),
             ],
-            footnote=footnote,
+            reference_y=0.0,
+            value_suffix="%",
         ),
         ChartSpec(
             id="intermittent-fasting-uk-trend",
             kind="trend",
-            title=translator.t("chart.trend_title"),
+            size="half",
+            title=translator.t("chart.views_title", label=_TITLES["uk.wikipedia"]),
             y_label=translator.t("chart.axis_per_million"),
             series=[ChartSeries(label=_TITLES["uk.wikipedia"], x=MONTHS, y=uk_values)],
             trend_y=trend_y,

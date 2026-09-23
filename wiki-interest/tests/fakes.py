@@ -26,7 +26,8 @@ from wiki_interest.domain.models import (
     WikiProject,
     Window,
 )
-from wiki_interest.ports.mediawiki import PageInfo
+from wiki_interest.ports.mediawiki import Mention, PageInfo
+from wiki_interest.ports.wikidata import EntitySummary
 
 __all__ = [
     "AstronomyWorld",
@@ -100,16 +101,44 @@ class FakeWikidata:
             if qid in self.entities
         }
 
-    def labels(self, qids: Sequence[str], language: str) -> Mapping[str, str]:
+    def labels(
+        self, qids: Sequence[str], language: str, *, fallback: bool = True
+    ) -> Mapping[str, str]:
         self.calls.append(("labels", (tuple(qids), language)))
         out: dict[str, str] = {}
         for qid in qids:
             entity = self.entities.get(qid)
             if entity is None:
                 continue
-            label = entity.labels.get(language) or entity.labels.get("en")
+            label = entity.labels.get(language) or (entity.labels.get("en") if fallback else None)
             if label:
                 out[qid] = label
+        return out
+
+    def summary(self, qid: str, language: str) -> EntitySummary | None:
+        self.calls.append(("summary", (qid, language)))
+        entity = self.entities.get(qid)
+        if entity is None:
+            return None
+        return EntitySummary(
+            qid=qid,
+            label=entity.labels.get(language) or entity.labels.get("en"),
+            description=entity.description,
+            languages=tuple(p.language for p in entity.sitelinks),
+        )
+
+    def summaries(self, qids: Sequence[str], language: str) -> Mapping[str, EntitySummary]:
+        self.calls.append(("summaries", (tuple(qids), language)))
+        out: dict[str, EntitySummary] = {}
+        for qid in qids:
+            entity = self.entities.get(qid)
+            if entity is not None:
+                out[qid] = EntitySummary(
+                    qid=qid,
+                    label=entity.labels.get(language) or entity.labels.get("en"),
+                    description=entity.description,
+                    languages=tuple(p.language for p in entity.sitelinks),
+                )
         return out
 
     def related_entities(
@@ -133,6 +162,8 @@ class FakePage:
     qid: str | None = None
     redirects: list[str] = field(default_factory=list)
     lead_links: list[str] = field(default_factory=list)
+    redirect_sections: dict[str, str] = field(default_factory=dict)
+    """Redirect title -> section of this page it points into."""
 
 
 class FakeMediaWiki:
@@ -141,6 +172,7 @@ class FakeMediaWiki:
     def __init__(self) -> None:
         self.pages: dict[WikiProject, dict[str, FakePage]] = {}
         self.search_index: dict[WikiProject, dict[str, list[str]]] = {}
+        self.mention_index: dict[WikiProject, dict[str, list[Mention]]] = {}
         self.calls: list[tuple[str, tuple[object, ...]]] = []
 
     def add_page(self, project: WikiProject, page: FakePage) -> FakePage:
@@ -151,6 +183,10 @@ class FakeMediaWiki:
     def add_search(self, project: WikiProject, query: str, titles: Sequence[str]) -> None:
         """Define full-text search results for an exact query string."""
         self.search_index.setdefault(project, {})[query] = list(titles)
+
+    def add_mentions(self, project: WikiProject, phrase: str, mentions: Sequence[Mention]) -> None:
+        """Define the articles that contain ``phrase`` verbatim."""
+        self.mention_index.setdefault(project, {})[phrase] = list(mentions)
 
     def _target(self, project: WikiProject, title: str) -> tuple[FakePage, str | None] | None:
         pages = self.pages.get(project, {})
@@ -172,7 +208,13 @@ class FakeMediaWiki:
                 result[title] = None
             else:
                 page, redirected_from = found
-                result[title] = PageInfo(page.title, page.qid, redirected_from)
+                result[title] = PageInfo(
+                    page.title,
+                    page.qid,
+                    redirected_from,
+                    redirect_title=redirected_from,
+                    fragment=page.redirect_sections.get(redirected_from or ""),
+                )
         return result
 
     def redirects_to(self, project: WikiProject, title: str) -> Sequence[str]:
@@ -188,6 +230,10 @@ class FakeMediaWiki:
     def search(self, project: WikiProject, query: str, *, limit: int = 5) -> Sequence[str]:
         self.calls.append(("search", (project, query, limit)))
         return self.search_index.get(project, {}).get(query, [])[:limit]
+
+    def mentions(self, project: WikiProject, phrase: str, *, limit: int = 5) -> Sequence[Mention]:
+        self.calls.append(("mentions", (project, phrase, limit)))
+        return self.mention_index.get(project, {}).get(phrase, [])[:limit]
 
 
 # ---------------------------------------------------------------------------

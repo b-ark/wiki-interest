@@ -1,0 +1,25 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "ртуть",
+          "query_language": "uk",
+          "query_en": "mercury",
+          "id": "mercury",
+          "meaning": "the chemical element Hg",
+          "qid": "Q925"
+        }
+      ],
+      "projects": [
+        "uk",
+        "pl"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-chem-uk"
+    }
+  ]
+}

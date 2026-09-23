@@ -6,8 +6,8 @@ from the summary (already localised); this module only adds section titles, tabl
 and number formatting through the :class:`Translator`. Empty sections are skipped rather than
 rendered as empty headings.
 
-The table and label helpers are public because ``agent_summary`` builds its condensed view
-from the same blocks; one implementation keeps the two documents consistent.
+The table and label helpers are public because ``agent_summary`` and the PDF build their
+views from the same blocks; one implementation keeps the documents consistent.
 """
 
 from __future__ import annotations
@@ -16,11 +16,21 @@ import os
 from collections.abc import Sequence
 from pathlib import Path
 
+from wiki_interest.adapters.report_blocks import (
+    coverage_line,
+    decision_lines,
+    edition_basis,
+    edition_lines,
+    kpi_table,
+    per_million_text,
+    robustness_lines,
+)
 from wiki_interest.contracts.summary import (
     AnalysisSummary,
     ArticleOut,
     BundleOut,
     CheckOut,
+    ComparisonRow,
     ReliabilityOut,
 )
 from wiki_interest.errors import RenderError
@@ -30,23 +40,27 @@ __all__ = [
     "MarkdownReportRenderer",
     "bundle_lines",
     "comparison_table",
+    "context_lines",
     "markdown_table",
     "period_text",
+    "project_label",
     "question_line",
     "ranking_table",
     "relative_chart_path",
     "report_title",
     "row_label",
+    "share_change",
     "sorted_checks",
 ]
 
 PERCENT_DECIMALS = 0
-PER_MILLION_DECIMALS = 1
 SCORE_DECIMALS = 2
-WEIGHT_DECIMALS = 2
 SEPARATOR = " · "
-RANGE_DASH = " – "  # noqa: RUF001 -- an en dash is the typographic range separator
+RANGE_DASH = " – "
 GENERATED_AT_FORMAT = "%Y-%m-%d %H:%M UTC"
+MAX_CONTEXT_ITEMS = 4
+MAX_TITLE_DESCRIPTION = 60
+"""Longer Wikidata descriptions stay in the "Topic:" line and out of the title."""
 
 _STATUS_SEVERITY = {"fail": 0, "warn": 1, "info": 2, "pass": 3}
 """Order in which reasons are shown: what lowers trust comes first."""
@@ -77,13 +91,20 @@ class MarkdownReportRenderer:
         """Return the document text without touching the file system."""
         blocks = [
             self._header(summary),
-            self._key_numbers(summary),
+            self._answer(summary),
+            self._cards(summary),
             self._charts(summary, charts, base_dir),
-            self._verdict(summary),
-            self._reliability(summary),
-            self._bundles(summary),
+            self._vs_edition(summary),
+            self._robustness(summary),
+            self._list_section("report.decision", decision_lines(summary)),
+            self._list_section("report.other_findings", summary.verdict.bullets),
+            self._key_numbers(summary),
             self._ranking(summary),
+            self._reliability(summary),
+            self._context(summary),
+            self._bundles(summary),
             self._list_section("report.limitations", summary.limitations),
+            self._list_section("report.method_note", summary.general_limitations),
             self._list_section("report.next_steps", summary.next_steps),
             self._footer(summary),
         ]
@@ -98,11 +119,37 @@ class MarkdownReportRenderer:
         note = summary.request.report.audience_note
         if note:
             lines.append(f"**{t.t('report.audience')}:** {note}")
-        lines.append(
-            f"**{t.t('report.period')}:** {period_text(summary)}{SEPARATOR}"
-            f"**{t.t('report.projects')}:** {', '.join(summary.request.projects)}"
-        )
+        lines.append(f"**{t.t('report.period')}:** {period_text(summary)}")
         return lines
+
+    def _answer(self, summary: AnalysisSummary) -> list[str]:
+        lines = [f"## {self._t.t('report.answer')}", "", f"**{summary.verdict.headline}**"]
+        if summary.happening:
+            lines += ["", *[f"- {item}" for item in summary.happening]]
+        return lines
+
+    def _cards(self, summary: AnalysisSummary) -> list[str]:
+        headers, rows = kpi_table(summary, self._t)
+        return markdown_table(headers, rows) if rows else []
+
+    def _robustness(self, summary: AnalysisSummary) -> list[str]:
+        items = robustness_lines(summary)
+        if not items:
+            return []
+        lines = [f"## {self._t.t('report.robustness')}", "", *[f"- {item}" for item in items]]
+        if summary.data_note:
+            lines += ["", *summary.data_note]
+        return lines
+
+    def _vs_edition(self, summary: AnalysisSummary) -> list[str]:
+        items = edition_lines(summary)
+        if not items:
+            return []
+        lines = [f"## {self._t.t('report.vs_edition')}", ""]
+        basis = edition_basis(summary, self._t)
+        if basis:
+            lines += [f"_{basis}_", ""]
+        return lines + [f"- {item}" for item in items]
 
     def _key_numbers(self, summary: AnalysisSummary) -> list[str]:
         if not summary.comparison:
@@ -129,16 +176,13 @@ class MarkdownReportRenderer:
             lines += [f"![{title}]({relative_chart_path(image, base_dir)})", ""]
         return lines[:-1]
 
-    def _verdict(self, summary: AnalysisSummary) -> list[str]:
-        lines = [f"## {self._t.t('report.verdict')}", "", f"**{summary.verdict.headline}**"]
-        if summary.verdict.bullets:
-            lines += ["", *[f"- {bullet}" for bullet in summary.verdict.bullets]]
-        return lines
-
     def _reliability(self, summary: AnalysisSummary) -> list[str]:
         if not summary.reliability:
             return []
         lines = [f"## {self._t.t('report.reliability')}"]
+        coverage = coverage_line(summary, self._t)
+        if coverage:
+            lines += ["", coverage]
         for item in summary.reliability:
             lines += ["", self._reliability_heading(summary, item)]
             lines += [f"- {self._check_line(check)}" for check in sorted_checks(item.checks)]
@@ -147,10 +191,16 @@ class MarkdownReportRenderer:
     def _reliability_heading(self, summary: AnalysisSummary, item: ReliabilityOut) -> str:
         label = row_label(summary, item.topic_id, item.project)
         level = self._t.label("level", item.level)
-        return f"### {label} — {item.project}: {level}"
+        return f"### {label} — {project_label(summary, item.topic_id, item.project)}: {level}"
 
     def _check_line(self, check: CheckOut) -> str:
         return f"{self._t.label('status', check.status)}: {check.message}"
+
+    def _context(self, summary: AnalysisSummary) -> list[str]:
+        lines = context_lines(summary, self._t)
+        if not lines:
+            return []
+        return [f"## {self._t.t('report.context')}", "", *[f"- {line}" for line in lines]]
 
     def _bundles(self, summary: AnalysisSummary) -> list[str]:
         if not summary.resolution:
@@ -191,8 +241,23 @@ class MarkdownReportRenderer:
 
 
 def report_title(summary: AnalysisSummary, t: Translator) -> str:
-    """The user's title if given, otherwise the localised default."""
-    return summary.request.report.title or t.t("report.title_default")
+    """The user's title if given, else the topic's name, else the localised default.
+
+    A single topic with a short Wikidata description carries it in the title ("Python — general-
+    purpose programming language"), so the meaning analysed is stated where nobody skips it.
+    """
+    if summary.request.report.title:
+        return summary.request.report.title
+    names = [topic.label or topic.query for topic in summary.resolution]
+    if not names:
+        return t.t("report.title_default")
+    if len(summary.resolution) == 1:
+        description = summary.resolution[0].description
+        if description and len(description) <= MAX_TITLE_DESCRIPTION:
+            names = [f"{names[0]} — {description}"]
+    title = t.t("report.title_topic", topic=", ".join(names))
+    # Wikidata labels are lower case in many languages ("шахматы"); a title is not.
+    return title[:1].upper() + title[1:]
 
 
 def question_line(summary: AnalysisSummary, t: Translator) -> str:
@@ -203,7 +268,7 @@ def question_line(summary: AnalysisSummary, t: Translator) -> str:
 
 
 def period_text(summary: AnalysisSummary) -> str:
-    """The period as ``start – end`` (en dash), e.g. ``2024-09`` to ``2026-08``."""  # noqa: RUF002
+    """The period as ``start – end`` (en dash), e.g. ``2024-09`` to ``2026-08``."""
     return f"{summary.period.start:%Y-%m}{RANGE_DASH}{summary.period.end:%Y-%m}"
 
 
@@ -230,26 +295,38 @@ def markdown_table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> lis
     return lines
 
 
+def share_change(row: ComparisonRow) -> float | None:
+    """The headline change of a row: year over year, else second half over first."""
+    return row.growth_yoy if row.growth_yoy is not None else row.growth_halves
+
+
 def comparison_table(summary: AnalysisSummary, t: Translator) -> list[str]:
-    """Key-numbers table with one row per (topic, project)."""
+    """Key-numbers table with one row per (topic, project).
+
+    The share of attention (views per million views of the edition) and its change sit next
+    to the article's and the edition's own view changes, so a falling share can be read as
+    "the topic lost readers" or "the edition gained them" at a glance.
+    """
     headers = [
         t.t("col.topic"),
         t.t("col.project"),
         t.t("col.views_avg"),
         t.t("col.per_million_avg"),
-        t.t("col.growth_yoy"),
-        t.t("col.growth_halves"),
+        t.t("col.share_growth"),
+        t.t("col.views_growth"),
+        t.t("col.edition_growth"),
         t.t("col.trend"),
         t.t("col.reliability"),
     ]
     rows = [
         [
             row.label,
-            row.project,
+            project_label(summary, row.topic_id, row.project),
             t.number(row.views_avg),
-            t.number(row.per_million_avg, PER_MILLION_DECIMALS),
-            t.percent(row.growth_yoy, PERCENT_DECIMALS, signed=True),
-            t.percent(row.growth_halves, PERCENT_DECIMALS, signed=True),
+            per_million_text(row.per_million_avg, t),
+            t.percent(share_change(row), PERCENT_DECIMALS, signed=True),
+            t.percent(row.views_growth, PERCENT_DECIMALS, signed=True),
+            t.percent(row.edition_growth, PERCENT_DECIMALS, signed=True),
             t.label("direction", row.trend_direction),
             t.label("level", row.reliability),
         ]
@@ -273,7 +350,7 @@ def ranking_table(summary: AnalysisSummary, t: Translator) -> list[str]:
         [
             str(row.rank),
             row.label,
-            row.project,
+            project_label(summary, row.topic_id, row.project),
             t.number(row.score, SCORE_DECIMALS),
             t.label("profile", row.profile),
             t.label("level", row.reliability),
@@ -284,22 +361,52 @@ def ranking_table(summary: AnalysisSummary, t: Translator) -> list[str]:
     return markdown_table(headers, rows)
 
 
+def context_lines(summary: AnalysisSummary, t: Translator) -> list[str]:
+    """One line per (topic, edition) naming its most read related articles and their views."""
+    grouped: dict[tuple[str, str], list[str]] = {}
+    for item in summary.context:
+        items = grouped.setdefault((item.topic_id, item.project), [])
+        if len(items) < MAX_CONTEXT_ITEMS:
+            items.append(
+                t.t("summary.context_item", title=item.title, views=t.number(item.views_avg))
+            )
+    single_topic = len({topic for topic, _ in grouped}) <= 1
+    lines = []
+    for (topic_id, project), items in grouped.items():
+        prefix = project if single_topic else f"{row_label(summary, topic_id, project)} · {project}"
+        lines.append(f"{prefix}: {'; '.join(items)}")
+    return lines
+
+
 def bundle_lines(bundle: BundleOut, t: Translator) -> list[str]:
-    """Status line for one bundle followed by its article table (if any)."""
+    """Status line for one edition followed by its article table (if any)."""
     lines = [f"**{bundle.project}** — {t.label('bundle_status', bundle.status)}"]
     if bundle.articles:
-        headers = [t.t("col.article"), t.t("col.role"), t.t("col.weight"), t.t("col.source")]
+        headers = [t.t("col.article"), t.t("col.role"), t.t("col.source")]
         rows = [
             [
                 _article_cell(article),
                 t.label("role", article.role),
-                t.number(article.weight, WEIGHT_DECIMALS),
                 t.label("source", article.source),
             ]
             for article in bundle.articles
         ]
         lines += ["", *markdown_table(headers, rows)]
     return lines
+
+
+def project_label(summary: AnalysisSummary, topic_id: str, project: str) -> str:
+    """Edition as shown to readers: ``pl.wikipedia (Post)`` when a substitute was measured.
+
+    The edition code alone would present the substitute's numbers as the topic's own.
+    """
+    for topic in summary.resolution:
+        if topic.topic_id != topic_id:
+            continue
+        for bundle in topic.bundles:
+            if bundle.project == project and bundle.substitute_kind and bundle.articles:
+                return f"{project} ({bundle.articles[0].title})"
+    return project
 
 
 def row_label(summary: AnalysisSummary, topic_id: str, project: str) -> str:

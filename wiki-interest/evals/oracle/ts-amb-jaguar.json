@@ -1,0 +1,22 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "Jaguar",
+          "query_language": "en",
+          "id": "jaguar"
+        }
+      ],
+      "projects": [
+        "en",
+        "es"
+      ],
+      "report": {
+        "language": "en"
+      },
+      "session": "o-ts-amb-jaguar"
+    }
+  ]
+}

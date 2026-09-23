@@ -11,19 +11,20 @@ metadata:
 
 Turns Wikipedia pageview statistics into a short, data-backed answer: is interest in a topic
 growing, how does it differ between language editions, which audiences look promising, and
-how much can that be trusted. Output: `summary.md` (for you to relay), a one-page
-`report.pdf` and charts (for the user), `summary.json` (every number).
+how much can that be trusted. Output: a one-page `report.pdf` with charts (for the user) and
+your answer in the chat.
 
-## The one rule
+## Who does what
 
-The code does the thinking; you translate. Write a small `request.json`, run one script,
-relay what it wrote. Never compute growth or percentages yourself, never call the Wikimedia
-API by hand, never write your own analysis code: the script already normalises traffic by
-edition size, tests the trend, checks reliability and writes the caveats. Numbers in your
-answer come only from `summary.md`, copied as written. That rules out anything you would
-have to calculate: ratios ("14 times more"), shares ("62 % of the bundle"), differences, sums
-and counts of articles. If a number is not in `summary.md`, leave it out; the summary already
-states how many articles each bundle contains.
+The code measures: it fetches the data, computes every number, decides the states (growing,
+steady, robust or not), draws the charts. You write the analysis in the user's language:
+the headline, what happened, how robust it is, what it means for their decision, the next
+step, the chat answer. The code then checks your text against its numbers and puts it into
+the PDF.
+
+So: never compute a number yourself, never call the Wikimedia API, never write analysis
+code. Every number you write is copied from `facts.json` (`numbers[].display`); rounding is
+fine, deriving is not (no ratios, differences, sums, "1 in N").
 
 ## Workflow
 
@@ -31,35 +32,71 @@ states how many articles each bundle contains.
 user's current directory: the request and the reports belong there, not inside `<skill>`,
 which may be read-only.
 
-1. **Needs only `uv`.** The first run creates the Python environment by itself (about ten
+1. **Decide what the user means before running anything.** Many names have several
+   meanings: "Mercury" is a planet, a chemical element, a god, a singer. If the conversation
+   settles it ("our chemistry app"), write that meaning into the request (step 3) and use the
+   name that has that meaning as `query`. If it does not, list the common meanings and ask; do
+   not run. Search goes by spelling, not meaning: Ukrainian "Меркурій" finds the planet first,
+   the element is "ртуть".
+2. **Needs only `uv`.** The first run creates the Python environment by itself (about ten
    seconds). If `uv` is missing, run `<skill>/scripts/setup.sh` (Windows:
    `<skill>/scripts/setup.ps1`) once.
-2. **Write `request.json`** in the current directory with your file-writing tool. Copy the
+3. **Write `request.json`** in the current directory with your file-writing tool. Copy the
    closest example from `<skill>/assets/examples/` and change only what the user asked for:
    - `question_type`: `compare` (editions or topics against each other), `assess` (is one
      topic growing and can we trust it), `rank` (which audiences to pursue next);
    - `topics[].query` in the user's own words and `query_language` = the language of that
-     wording; give each topic a short Latin `id`;
+     wording; `query_en` = the topic in English (skip it if the query is English); give each
+     topic a short Latin `id`;
+   - `topics[].meaning`: what the user means in a few English words ("the chemical element
+     Hg"), when you decided it in step 1;
    - `projects`: language codes such as `["pl", "cs"]`;
    - `period` only if the user named one (default: last 24 complete months);
-   - `report.language`: the language the user writes in (`uk`, `ru`, `en`, `pl`, `cs`);
+   - `report.language`: the language the user writes in (`ru`, `de`, `es`...), never the
+     language of an edition and never the example's value;
    - `report.audience_note`: one line of context if the user gave any;
+   - `report.seasonality: "show"` only if the user asks about timing (which months, seasons,
+     when to launch);
    - `session`: a short slug for this conversation, reused for follow-ups.
    Every other field has a sensible default. Full reference: `references/request-schema.md`.
-3. **Run:**
+4. **Run:**
 
    ```
    uv run --project "<skill>" "<skill>/scripts/run.py" request.json
    ```
 
-   It prints one JSON object on stdout (ignore anything on stderr). On success it contains
-   `summary_md`, `report_pdf` and `run_dir`; results go to
-   `./wiki-interest-runs/<session>/<run-id>/`.
-4. **Answer.** Read `summary_md` and relay it almost verbatim in the user's language: the
-   one-line answer, the key numbers table, the trust level with its reasons, the caveats.
-   Tell the user where `report.pdf` and the charts are. Keep every number exactly as written.
-5. **Follow-ups:** edit the same `request.json`, keep the same `session`, run again (cached
-   data makes it fast), then answer from the *new* `summary.md`:
+   It prints one JSON object on stdout (ignore stderr) with `run_dir`, `facts_json` and
+   `narrative_template`. A first run can take a few minutes: give the command a 10-minute
+   timeout (600000 ms) and wait for it; never send it to the background.
+5. **Check the topic.** `topics[]` in the output names the entity that was analysed, with
+   its description and other meanings. If it is not what the user meant, set `topics[].qid`
+   to the right one and rerun.
+6. **Write `narrative.json`.** Read `facts_json`: `pairs[]` (states and numbers per edition),
+   `conclusion`, `findings`, `caveats`, and `blocks` and `rules` (how each field is written).
+   `narrative_template` is the code's own text in the same schema (in English when the
+   language has no catalog): start from it and rewrite it for this user and their question.
+   Fields:
+   - `language` = `facts.language`; `glossary`: your term for each metric, used in every
+     sentence with a number (`{"attention_share": "доля внимания", "article_views": ...,
+     "edition_traffic": ...}`);
+   - `headline`, `happening[]`, `robustness[]` (one `{"pair": pairs[].id, "text": ...}` per
+     measured pair, naming its edition), `decision[]`, `next_step`, `chat_answer`;
+   - `covered_caveats`: the ids of `facts.caveats` your `chat_answer` carries;
+   - `ui`: only when `facts.ui_strings` is not empty, each key translated, `{placeholders}`
+     kept.
+7. **Render:**
+
+   ```
+   uv run --project "<skill>" "<skill>/scripts/render.py" <run_dir> --narrative narrative.json
+   ```
+
+   - exit 0, `status: accepted`: your answer is `chat_answer` as you wrote it; point to
+     `report_pdf`.
+   - exit 2, `status: rejected`: fix every item of `problems` and render once more.
+   - `status: fallback` (rejected twice): the report keeps the code's text; relay
+     `summary_md` instead, numbers exactly as written.
+8. **Follow-ups:** edit the same `request.json`, keep the same `session`, run again (cached
+   data makes it fast), write a new `narrative.json` from the *new* `facts.json`:
 
    | The user says | Change |
    |---|---|
@@ -68,48 +105,48 @@ which may be read-only.
    | "only the main article", "without related articles" | `topics[].bundle: "main"` |
    | "that article is not what I meant" | `topics[].exclude_titles` |
    | "raw numbers", "without normalisation" | `normalization: "absolute"` |
+   | "which months are strongest", "when to launch" | `report.seasonality: "show"` |
    | "growth matters most" | `ranking_weights` |
 
    To explain what the change did, compare the two runs:
    `uv run --project "<skill>" "<skill>/scripts/run.py" --diff <run_dir-a> <run_dir-b>`.
 
-## Exit codes
+## Exit codes of run.py
 
 | Code | Meaning | Do this |
 |---|---|---|
-| 0 | done | relay `summary.md`, point to the PDF |
+| 0 | done | write `narrative.json`, render (steps 6–7) |
 | 2 | request invalid | fix the field named in `error`, rerun |
-| 3 | clarification needed | the output lists `candidates`; ask the user which one they mean, then set `topics[].qid` and rerun. Do not guess. |
+| 3 | a decision is needed | Nothing has been measured yet; `clarification.kind` says what. `ambiguous_topic`: if the conversation clearly means one of the `candidates`, set its `qid` and rerun, and say which meaning you chose; otherwise ask. `missing_article`: some edition has no article; show the numbered options from `summary.md` as written, ask which to use and end your turn with that question. Only after the user answers, copy that option's `choose` value into `topics[].substitutes` and rerun; never choose for the user. `topic_not_found`: say plainly that nothing was found and ask for a link to a Wikipedia article about what they mean; put it into `topics[].article_url`, rerun. |
 | 4 | Wikimedia unreachable or no data for the period | say so, offer to retry or change the period |
 | 5 | internal error | report `error`; run `uv run --project "<skill>" "<skill>/scripts/doctor.py"` and include its output |
 
 Errors are JSON on stdout with `error`, `exit_code` and `hint`.
 
-## What the answer must contain
+## What your text must get right
 
-- The trust level (`high` / `medium` / `low`) **with at least one reason** taken from the
-  "how much to trust this" section of `summary.md`, for every edition you report. A level
-  without a reason tells the user nothing; a low level is not a failure, it says a decision
-  should not rest on this signal alone.
-- A caveats section, every time, including follow-ups: Wikipedia readership measures
-  curiosity, not willingness to pay, and editions differ in how well they cover a topic.
-  `summary.md` phrases these for you.
-- Any change you made to what the user asked for, stated plainly: a period moved because
-  data starts in 2015-07, a topic reworded after "no article" everywhere, an edition dropped.
-- "Per million" means per million page views of that Wikipedia edition, not per million
-  people; keep the summary's wording.
-- Directions and profiles in the summary's own words. A falling edition is falling even if it
-  ranks first; do not call it "growth potential". When everything declines, say so, then say
-  which edition declines least.
-- When an edition has no article for the topic, say "no article", not "no interest".
-- The bundle composition (which articles were counted) if the user might dispute it, and
-  the offer to exclude or add articles.
+The render step checks numbers, metric names, edition labels, caveats and lengths. What it
+cannot check is meaning, so:
+
+- Say which meaning of the topic was analysed, in one line ("Python, the programming
+  language"), even when it seems obvious.
+- Follow the states in `facts.json`: `momentum`, `robustness`, `outcome`, `conclusion`. A
+  declining share is a decline even for the largest audience; when everything declines, say
+  so, then which edition declines least. Do not replace the conclusion with your own.
+- The size of interest is the attention share: views per million views of that edition,
+  not people and not a market size.
+- Wikipedia views measure attention and curiosity, not demand or willingness to pay; a
+  language edition is not a country.
+- An edition without an article has "no article", not "no interest"; a substitute
+  (`pl.wikipedia (Post)`) is named every time.
+- State any change you made to what the user asked for: a period moved because data starts
+  in 2015-07, a topic reworded, an edition dropped.
 
 ## When to read more
 
 - `references/request-schema.md`: any field you are unsure about, follow-up patterns.
-- `references/methodology.md`: the user asks how a number was computed or what the trust
-  level means.
+- `references/methodology.md`: the user asks how a number was computed or what the states
+  mean.
 - `references/troubleshooting.md`: a command fails or output looks wrong.
 - `references/api-notes.md`: only when debugging data issues.
 - `references/roadmap.md`: the user asks for something the skill cannot do yet (topic

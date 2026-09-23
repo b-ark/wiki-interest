@@ -1,10 +1,15 @@
-"""Re-render the charts and reports of a saved run from its summary.json.
+"""Render a saved run: with the agent's report text, or again from its summary.json.
 
 Usage:
+    uv run scripts/render.py runs/<session>/<run-id> --narrative narrative.json
     uv run scripts/render.py runs/<session>/<run-id>
 
-No network access is needed; use it after a report-template change or to regenerate a
-deleted PDF.
+With ``--narrative`` the text is checked against the run's facts.json first. Accepted: the
+PDF and reports are rebuilt with it and stdout carries ``chat_answer`` (exit 0). Rejected:
+stdout lists ``problems`` (exit 2); fix them and render again. A second rejection keeps the
+template text (``status: fallback``, exit 0).
+
+Without it, the reports are rebuilt from summary.json; no network access is needed.
 """
 
 import sys

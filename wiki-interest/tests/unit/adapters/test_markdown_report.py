@@ -1,7 +1,5 @@
 """Markdown report: every section present, localised, deterministic, charts linked relatively."""
 
-# ruff: noqa: RUF001  -- expected strings contain Cyrillic and typographic dashes.
-
 from pathlib import Path
 
 import pytest
@@ -32,12 +30,25 @@ def test_english_report_contains_every_section(tmp_path: Path) -> None:
         "**Question:** Compare interest in intermittent fasting across uk.wikipedia, cs.wikipedia",
         "**Context:** Nutrition app choosing the next localisation",
         "**Period:** 2024-09 – 2026-08",
+        "## Answer",
+        "| Metric | uk.wikipedia | cs.wikipedia |",
+        "| Attention share, last 12 months vs the 12 before | +12% | +32% |",
+        "| Do the last 3 months confirm the trend? | yes | no, the share is steady |",
+        "## Is the topic growing faster or slower than its Wikipedia?",
+        "- cs.wikipedia: article views +27%, edition traffic -5% → the attention share rises",
+        "## How robust is this conclusion?",
+        "- uk.wikipedia: steady growth of the attention share.",
+        "Data: 24 months of data; bursts do not drive the result.",
+        "## What this means for the decision",
+        "- Next step: confirm the signal for cs.wikipedia with an independent source of demand",
+        "## Also worth knowing",
         "## Key numbers",
         "## Charts",
-        "## Verdict",
-        "## How much to trust this",
-        "## Bundle composition",
+        "## Data checks",
+        "## Related articles (context, not counted)",
+        "## Articles analysed",
         "## Assumptions and limitations",
+        "## About the method",
         "## What can be refined",
         "Sources: https://wikimedia.org/api/rest_v1/metrics/pageviews/",
         "Generated: 2026-09-22 12:00 UTC",
@@ -48,9 +59,14 @@ def test_english_report_contains_every_section(tmp_path: Path) -> None:
 
 def test_key_numbers_table_is_formatted_in_report_locale(tmp_path: Path) -> None:
     text = _render(example_summary(), tmp_path)
-    assert "| Topic | Edition | Views/month | Per million edition views | Growth YoY |" in text
+    assert (
+        "| Topic | Edition | Article views/month | Attention share, per 1M edition views "
+        "| Attention share: change | Article views: change | Edition traffic: change "
+        "| Attention share trend | Reliability |"
+    ) in text
     assert "| Přerušovaný půst | cs.wikipedia |" in text
-    assert "+32% | +19% | rising | medium |" in text
+    assert "| 5,654 | 117.8 per million | +32% | +27% | -5% | rising | medium |" in text
+    assert "1 in" not in text
     assert "*Notes:*" in text
     assert "- Přerušovaný půst (cs.wikipedia): 2 months missing" in text
 
@@ -58,7 +74,9 @@ def test_key_numbers_table_is_formatted_in_report_locale(tmp_path: Path) -> None
 def test_ukrainian_report_is_localised(tmp_path: Path) -> None:
     text = _render(example_summary(language="uk"), tmp_path)
     assert "## Ключові числа" in text
-    assert "## Наскільки можна довіряти" in text
+    assert "## Відповідь" in text
+    assert "## Наскільки стійкий цей висновок?" in text
+    assert "## Перевірки даних" in text
     assert "### Інтервальне голодування — uk.wikipedia: висока" in text
     assert "- пройдено: 24 місяців даних" in text
     assert "**Період:** 2024-09 – 2026-08" in text
@@ -69,7 +87,10 @@ def test_ukrainian_report_is_localised(tmp_path: Path) -> None:
 
 def test_charts_are_embedded_as_relative_png_links_only(tmp_path: Path) -> None:
     text = _render(example_summary(), tmp_path)
-    assert "![Interest by edition](charts/intermittent-fasting-per-million.png)" in text
+    assert (
+        "![How visible the topic is inside each Wikipedia]"
+        "(charts/intermittent-fasting-per-million.png)"
+    ) in text
     assert ".svg" not in text
 
 
@@ -81,34 +102,48 @@ def test_reliability_lists_failures_before_passes(tmp_path: Path) -> None:
     assert order[-1] == "- pass"
 
 
-def test_bundle_composition_shows_roles_weights_sources_and_redirects(tmp_path: Path) -> None:
+def test_articles_analysed_show_roles_sources_and_redirects(tmp_path: Path) -> None:
     text = _render(example_summary(question_type="rank"), tmp_path)
     assert "### intermittent fasting (Q1666254)" in text
     assert "**uk.wikipedia** — found" in text
-    assert (
-        "| Інтервальне голодування (← Інтервальний піст) | main | 1.00 | Wikidata sitelink |"
-        in text
-    )
-    assert "| Голодування | related | 0.50 | Wikidata relation |" in text
+    assert "| Article | Role | Source |" in text
+    assert "| Інтервальне голодування (← Інтервальний піст) | main | Wikidata sitelink |" in text
+    assert "| Голодування | related | Wikidata relation |" in text
     assert "**pl.wikipedia** — found via search" in text
-    assert "| Post przerywany | main | 1.00 | search fallback |" in text
+    assert "| Post przerywany | main | search fallback |" in text
 
 
 def test_ranking_table_present_only_for_rank(tmp_path: Path) -> None:
     assert "## Ranking" not in _render(example_summary(), tmp_path)
     text = _render(example_summary(question_type="rank"), tmp_path)
     assert "## Ranking" in text
-    assert "| 1 | Přerušovaný půst | cs.wikipedia | 0.81 | growth market | medium |" in text
+    assert (
+        "| 1 | Přerušovaný půst | cs.wikipedia | 0.81 "
+        "| large audience, attention share growing | medium |"
+    ) in text
 
 
 def test_empty_sections_are_skipped(tmp_path: Path) -> None:
     summary = example_summary().model_copy(
-        update={"limitations": [], "next_steps": [], "ranking": [], "resolution": []}
+        update={
+            "limitations": [],
+            "general_limitations": [],
+            "next_steps": [],
+            "ranking": [],
+            "resolution": [],
+            "decision": None,
+            "assessments": [],
+            "context": [],
+        }
     )
     text = _render(summary, tmp_path)
     assert "## Assumptions and limitations" not in text
+    assert "## About the method" not in text
     assert "## What can be refined" not in text
-    assert "## Bundle composition" not in text
+    assert "## Articles analysed" not in text
+    assert "## What this means" not in text
+    assert "## Is the topic growing" not in text
+    assert "## Related articles" not in text
 
 
 def test_no_charts_skips_chart_section(tmp_path: Path) -> None:
@@ -170,3 +205,18 @@ def test_svg_only_chart_list_is_still_embedded(tmp_path: Path) -> None:
     text = renderer.build(summary, [tmp_path / "charts" / "x.svg"], tmp_path)
     assert "## Chart" + chr(10) in text
     assert "![x](charts/x.svg)" in text
+
+
+def test_title_carries_a_short_description_of_the_topic(tmp_path: Path) -> None:
+    summary = example_summary()
+    topic = summary.resolution[0].model_copy(update={"description": "diet of timed fasting"})
+    request = summary.request.model_copy(
+        update={"report": summary.request.report.model_copy(update={"title": None})}
+    )
+    text = _render(summary.model_copy(update={"resolution": [topic], "request": request}), tmp_path)
+    assert text.startswith("# Intermittent fasting — diet of timed fasting: interest on Wikipedia")
+    long_topic = topic.model_copy(update={"description": "x" * 80})
+    text = _render(
+        summary.model_copy(update={"resolution": [long_topic], "request": request}), tmp_path
+    )
+    assert text.startswith("# Intermittent fasting: interest on Wikipedia")

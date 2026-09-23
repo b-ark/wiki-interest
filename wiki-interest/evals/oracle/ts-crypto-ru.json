@@ -1,0 +1,24 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "криптовалюта",
+          "query_language": "ru",
+          "query_en": "cryptocurrency",
+          "id": "ru",
+          "qid": "Q13479982"
+        }
+      ],
+      "projects": [
+        "ru",
+        "uk"
+      ],
+      "report": {
+        "language": "ru"
+      },
+      "session": "o-ts-crypto-ru"
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 """Catalog completeness and Translator behaviour."""
 
+from datetime import date
+
 import pytest
 
 from wiki_interest.domain.models import ReliabilityLevel
@@ -29,8 +31,6 @@ REASON_KEYS = [
     "automated.unavailable",
     "volume.ok",
     "volume.low",
-    "bundle.consistent",
-    "bundle.diverges",
 ]
 
 LABEL_KEYS = [
@@ -73,15 +73,13 @@ SECTION_KEYS = [
             "project",
             "views_avg",
             "per_million_avg",
-            "growth_yoy",
-            "growth_halves",
+            "share_growth",
             "trend",
             "reliability",
             "rank",
             "score",
             "profile",
             "article",
-            "weight",
             "source",
         )
     ],
@@ -90,7 +88,6 @@ SECTION_KEYS = [
         for v in (
             "answer",
             "key_numbers",
-            "trust",
             "caveats",
             "refine",
             "artifacts",
@@ -101,9 +98,17 @@ SECTION_KEYS = [
     "chart.axis_per_million",
     "chart.axis_views",
     "chart.footnote",
-    "chart.growth_title",
-    "chart.trend_title",
-    "chart.compare_title",
+    "chart.share_title",
+    "chart.edition_title",
+    "chart.season_title",
+    "report.answer",
+    "report.vs_edition",
+    "report.decision",
+    "report.other_findings",
+    "summary.decision",
+    "report.robustness",
+    "card.robustness",
+    "value.per_million",
 ]
 
 
@@ -145,8 +150,6 @@ def test_reason_templates_format_with_their_parameters(language: str, key: str) 
         "direction": "rising",
         "title": "Astronomie",
         "views_avg": 12345.6,
-        "main_direction": "rising",
-        "bundle_direction": "flat",
     }
     text = Translator(language).t(key, **params)
     assert "{" not in text, text
@@ -168,10 +171,94 @@ def test_direction_parameter_is_localised() -> None:
     assert "rising" not in text
 
 
-def test_bundle_directions_are_localised_in_diverges_message() -> None:
-    text = Translator("ru").t("bundle.diverges", main_direction="rising", bundle_direction="flat")
-    assert "растёт" in text
-    assert "без изменений" in text
+FINDING_PARAMS = {
+    "label": "uk.wikipedia",
+    "topic": "Astronomy",
+    "article_change": "-12 %",
+    "edition_change": "-5 %",
+    "share_change": "-7 %",
+    "basis": "last 12 months vs the 12 before",
+    "start_month": "03.2025",
+    "end_month": "05.2025",
+    "change": "+40 %",
+    "before": "12.3",
+    "after": "17.2",
+    "months": "14",
+    "unit": "views/month",
+    "start": "03.09.2024",
+    "end": "05.09.2024",
+    "peak_day": "03.09.2024",
+    "peak_views": "401",
+    "multiple": "4.8",
+    "baseline": "83",
+    "share": "2.4 %",
+    "peak_month": "September",
+    "peak": "+119 %",
+    "trough_month": "June",
+    "trough": "-41 %",
+    "leader": "ru.wikipedia",
+    "count": "3",
+    "value": "39.3",
+    "others": "uk.wikipedia 28.6",
+    "labels": "uk.wikipedia",
+    "largest": "ru.wikipedia",
+    "measure": "The topic's share of attention",
+    "parts": "falling in uk.wikipedia (-22 %)",
+    "project": "uk.wikipedia",
+    "projects": "pl.wikipedia",
+    "views": "972",
+    "article": "-36 %",
+    "edition": "-22 %",
+    "missing_months": "2",
+    "metric": "Attention share",
+    "subject": "The attention share of «chess»",
+    "topics": "«chess»",
+    "scope": "in both editions",
+    "fastest": "fastest in uk.wikipedia",
+    "recent": "; recent months confirm it",
+    "reason": "the period is too short for a trend",
+    "items": "uk -12 % (-5 %)",
+    "what": 'the broader article "Post"',
+    "title": "Post",
+}
+
+
+@pytest.mark.parametrize("language", SUPPORTED_LANGUAGES)
+def test_answer_and_finding_templates_format(language: str) -> None:
+    translator = Translator(language)
+    prefixes = (
+        "finding.",
+        "answer.",
+        "outcome.",
+        "edition.",
+        "next_step.",
+        "evidence.",
+        "card.",
+        "robustness.",
+        "headline.",
+        "happening.",
+        "kpi.",
+    )
+    keys = [k for k in CATALOGS["en"] if k.startswith(prefixes)]
+    assert len(keys) > 60
+    for key in keys:
+        text = translator.t(key, **FINDING_PARAMS)
+        assert "{" not in text, (key, text)
+
+
+@pytest.mark.parametrize(
+    ("language", "day", "month"),
+    [("en", "2025-03-14", "2025-03"), ("uk", "14.03.2025", "03.2025")],
+)
+def test_dates_follow_the_report_convention(language: str, day: str, month: str) -> None:
+    translator = Translator(language)
+    assert translator.date(date(2025, 3, 14)) == day
+    assert translator.month_year(date(2025, 3, 1)) == month
+
+
+def test_month_names_are_nominative() -> None:
+    assert Translator("uk").month_name(9) == "вересень"
+    assert Translator("en").month_name(1) == "January"
 
 
 def test_thousands_separator_follows_report_locale() -> None:

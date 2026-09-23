@@ -1,0 +1,26 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "шахматы",
+          "query_language": "ru",
+          "id": "chess"
+        }
+      ],
+      "projects": [
+        "ru",
+        "uk"
+      ],
+      "report": {
+        "language": "ru"
+      },
+      "session": "o-chess",
+      "period": {
+        "start": "2023-09",
+        "end": "2026-08"
+      }
+    }
+  ]
+}

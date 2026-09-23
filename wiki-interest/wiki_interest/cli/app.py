@@ -24,6 +24,7 @@ from wiki_interest.application.runs import diff_runs, list_runs, load_summary
 from wiki_interest.application.summary_builder import RunContext, SummaryBuilder
 from wiki_interest.cli.container import Container
 from wiki_interest.cli.doctor import run_doctor
+from wiki_interest.contracts.narrative import Narrative
 from wiki_interest.contracts.request import AnalysisRequest
 from wiki_interest.errors import RequestValidationError, WikiInterestError
 
@@ -39,6 +40,7 @@ EXIT_PROBLEMS_FOUND = 1
 EXIT_INTERNAL = 5
 DEFAULT_SESSION = "default"
 SCHEMA_HINT = "See references/request-schema.md and assets/examples/ for valid requests."
+NARRATIVE_HINT = "Start from narrative.template.json in the run directory; keep its fields."
 
 build_container: Callable[[], Container] = Container.build
 """Factory for the composition root; tests replace it with one built on fakes."""
@@ -58,7 +60,16 @@ def _root() -> None:
 
 
 def _emit(payload: object) -> None:
-    """Write one JSON document to stdout."""
+    """Write one JSON document to stdout, always as UTF-8.
+
+    On Windows a piped stdout uses the ANSI code page (cp1251, cp1252), which cannot encode
+    characters the reports use, such as the narrow no-break space that separates thousands
+    in Russian and Ukrainian numbers; the whole run then failed with exit code 5 after the
+    files were already written.
+    """
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(encoding="utf-8")
     sys.stdout.write(json.dumps(payload, ensure_ascii=False, indent=2, default=str) + "\n")
 
 
@@ -104,6 +115,24 @@ def load_request(path: Path) -> AnalysisRequest:
         location = ".".join(str(part) for part in first["loc"]) or "request"
         msg = f"Invalid request at {location}: {first['msg']}"
         raise RequestValidationError(msg, hint=SCHEMA_HINT) from exc
+
+
+def load_narrative(path: Path) -> Narrative:
+    """Read the agent's report text.
+
+    Raises:
+        RequestValidationError: For unreadable JSON or a file that violates the schema.
+    """
+    text = path.read_text(encoding="utf-8-sig")
+    try:
+        return Narrative.model_validate_json(text)
+    except ValidationError as exc:
+        problems = [
+            f"{'.'.join(str(p) for p in e['loc']) or 'narrative'}: {e['msg']}"
+            for e in exc.errors()[:5]
+        ]
+        msg = f"{path} does not match the narrative schema: {'; '.join(problems)}"
+        raise RequestValidationError(msg, hint=NARRATIVE_HINT) from exc
 
 
 def new_run_context(runs_dir: Path, session: str | None) -> RunContext:
@@ -168,9 +197,19 @@ def resolve(
 @app.command()
 def render(
     run_dir: Annotated[Path, typer.Argument(help="A run directory containing summary.json.")],
+    narrative: Annotated[
+        Path | None,
+        typer.Option(
+            "--narrative", help="The agent's report text (narrative.json) to check and render."
+        ),
+    ] = None,
 ) -> None:
-    """Re-render charts and reports from a saved summary.json."""
+    """Re-render charts and reports from a saved summary.json, or with the agent's text."""
     with _guarded(), build_container() as container:
+        if narrative is not None:
+            outcome = container.pipeline().narrate(run_dir, load_narrative(narrative))
+            _emit(outcome.to_dict())
+            raise typer.Exit(code=outcome.exit_code)
         summary = load_summary(run_dir)
         rendered = container.pipeline().render(summary, run_dir)
         artifacts = rendered.artifacts

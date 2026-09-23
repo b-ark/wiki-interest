@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
 from skill_evals.oracle import (
     OracleReport,
     PipelineOutput,
+    PipelineRunner,
     render_markdown,
     run_oracle,
 )
@@ -34,7 +36,7 @@ def _scenario(**overrides: object) -> Scenario:
 
 
 def _fake_runner(status: str = "ok", exit_code: int = 0):  # type: ignore[no-untyped-def]
-    def run(request_file: Path, runs_dir: Path) -> PipelineOutput:
+    def run(request_file: Path, runs_dir: Path, extra_env: Mapping[str, str]) -> PipelineOutput:
         run_dir = runs_dir / "s" / request_file.stem
         run_dir.mkdir(parents=True)
         (run_dir / "summary.md").write_text(SUMMARY_MD, encoding="utf-8")
@@ -96,7 +98,7 @@ def test_pipeline_failure_and_turn_mismatch_are_errors(tmp_path: Path) -> None:
     report = run_oracle([_scenario()], oracle_dir, tmp_path / "out", _fake_runner())
     assert report.scenarios[0].error == "2 oracle requests for 1 turns"
 
-    def broken(request_file: Path, runs_dir: Path) -> PipelineOutput:
+    def broken(request_file: Path, runs_dir: Path, extra_env: Mapping[str, str]) -> PipelineOutput:
         return PipelineOutput(5, {"error": "boom"})
 
     two_turns = _scenario(turns=["a", "b"])
@@ -111,3 +113,17 @@ def test_scenarios_without_spec_are_skipped_and_report_serialises(tmp_path: Path
     assert report.oracle_pass_rate is None
     assert json.loads(json.dumps(report.to_dict()))["skipped"] == ["other"]
     assert isinstance(report, OracleReport)
+
+
+def test_resolve_stage_reaches_the_pipeline_as_environment(tmp_path: Path) -> None:
+    seen: list[Mapping[str, str]] = []
+    inner: PipelineRunner = _fake_runner()
+
+    def spy(request_file: Path, runs_dir: Path, extra_env: Mapping[str, str]) -> PipelineOutput:
+        seen.append(dict(extra_env))
+        return inner(request_file, runs_dir, extra_env)
+
+    oracle_dir = _spec(tmp_path, n=1)
+    run_oracle([_scenario(stage="resolve")], oracle_dir, tmp_path / "out", spy)
+    run_oracle([_scenario()], oracle_dir, tmp_path / "out2", spy)
+    assert seen == [{"WIKI_INTEREST_STOP_AFTER": "resolve"}, {}]

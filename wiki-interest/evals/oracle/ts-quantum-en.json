@@ -1,0 +1,23 @@
+{
+  "requests": [
+    {
+      "question_type": "compare",
+      "topics": [
+        {
+          "query": "quantum computing",
+          "query_language": "en",
+          "id": "en",
+          "qid": "Q17995793"
+        }
+      ],
+      "projects": [
+        "en",
+        "de"
+      ],
+      "report": {
+        "language": "en"
+      },
+      "session": "o-ts-quantum-en"
+    }
+  ]
+}

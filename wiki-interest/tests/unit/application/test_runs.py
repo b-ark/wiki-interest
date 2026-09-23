@@ -28,13 +28,10 @@ from wiki_interest.domain.models import (
 )
 
 
-def _metrics(
-    project: str, *, kind: str = "bundle", growth: float | None = 0.1, views: float = 1000.0
-) -> MetricsOut:
+def _metrics(project: str, *, growth: float | None = 0.1, views: float = 1000.0) -> MetricsOut:
     return MetricsOut(
         topic_id="astronomy",
         project=project,
-        kind="bundle" if kind == "bundle" else "main",
         periods=24,
         completeness=1.0,
         views_total=views * 24,
@@ -94,7 +91,6 @@ def _summary(
                                 title=t,
                                 role=ArticleRole.MAIN if i == 0 else ArticleRole.RELATED,
                                 source=ResolutionSource.SITELINK,
-                                weight=1.0 if i == 0 else 0.5,
                             )
                             for i, t in enumerate(articles)
                         ],
@@ -103,8 +99,7 @@ def _summary(
                 ],
             )
         ],
-        metrics=[_metrics(p, growth=growth) for p in projects]
-        + [_metrics(p, kind="main", growth=growth) for p in projects],
+        metrics=[_metrics(p, growth=growth) for p in projects],
         reliability=[
             ReliabilityOut(topic_id="astronomy", project=p, level=level, checks=[])
             for p in projects

@@ -1,13 +1,19 @@
 """One-page A4 PDF report built with fpdf2.
 
-The page is a strict grid (title, key-number tiles, the first chart, verdict, reliability,
-limitations, footer) drawn from the theme in ``assets/report_theme.json``. It must never
-spill onto a second page, so the renderer draws the page on a throwaway document, measures,
-and if the content overflows retries with a progressively tighter layout: fewer reliability
-reasons, then fewer limitation lines, then a smaller font down to a floor, and finally a
-layout that truncates lists with a pointer to ``summary.md``. Fonts come from matplotlib's
-bundled DejaVu Sans so Cyrillic and Central European diacritics render without shipping
-font files. Metadata is fixed (no creation timestamp) so re-runs are byte-identical.
+The page reads top to bottom as an answer: the title, the answer in two or three sentences,
+three cards (size of interest, its change, whether recent months confirm it), the main chart
+(share of attention over time), whether the topic grows faster or slower than its whole
+edition (next to a smaller chart), how robust the conclusion is with one line on the data,
+what it means for the decision with the next step, further observations, run-specific
+limitations, one line on what the method measures, and the footer.
+
+It must never spill onto a second page, so the renderer draws the page on a throwaway
+document, measures, and if the content overflows retries with a progressively tighter
+layout: no coverage line, fewer limitation lines, fewer observations, no secondary charts, a
+smaller font, no data line, and finally a layout that truncates with a pointer to
+``summary.md``. Fonts come from matplotlib's bundled DejaVu Sans so Cyrillic and Central
+European diacritics render without shipping font files. Metadata is fixed (no creation
+timestamp) so re-runs are byte-identical.
 """
 
 from __future__ import annotations
@@ -25,17 +31,21 @@ from PIL import Image
 
 from wiki_interest.adapters.markdown_report import (
     GENERATED_AT_FORMAT,
-    PER_MILLION_DECIMALS,
-    PERCENT_DECIMALS,
-    SCORE_DECIMALS,
     period_text,
     question_line,
     report_title,
-    row_label,
-    sorted_checks,
+)
+from wiki_interest.adapters.report_blocks import (
+    Card,
+    cards,
+    coverage_line,
+    decision_lines,
+    edition_basis,
+    edition_lines,
+    robustness_lines,
 )
 from wiki_interest.adapters.report_theme import PdfTheme, ReportTheme
-from wiki_interest.contracts.summary import AnalysisSummary, ReliabilityOut
+from wiki_interest.contracts.summary import AnalysisSummary
 from wiki_interest.errors import RenderError
 from wiki_interest.i18n import Translator
 
@@ -49,27 +59,37 @@ FIXED_CREATION_DATE = datetime(2000, 1, 1, tzinfo=UTC)
 """Constant so the PDF bytes (which hash the creation date) do not vary between runs."""
 PT_PER_MM = 72 / 25.4
 PAGE_FORMAT = "A4"
-MAX_TILES = 4
-TILE_MAX_ROWS = 3
 TILE_LARGE_VALUE_MAX_ROWS = 2
 """With more rows than this a tile falls back to body-size values to stay inside its box."""
-TILE_KEY_MAX_CHARS = 14
 TILE_PADDING_MM = 2.0
 BULLET = "•  "
-ELLIPSIS = "…"
 FLOAT_TOLERANCE = 1e-6
-INITIAL_MAX_REASONS = 3
-REASON_STEPS = (2, 1)
-LIMITATION_STEPS = (4, 2)
+MAX_CHARTS = 3
+REDUCED_CHARTS = 1
+"""Only the main chart is kept when the page is tight; the text says the rest."""
+LIMITATION_STEPS = (2, 1)
+INITIAL_MAX_FINDINGS = 2
+"""Further observations on the page; ``report.md`` and ``summary.md`` list all of them."""
+REDUCED_FINDINGS = 1
+FIRST_FONT_STEP = 1
+"""Font steps tried before the data line is dropped; the rest come after."""
+ANSWER_SCALE = 1.04
+"""The answer is set a little larger than body text: it is what the page is for."""
+METHOD_NOTE_ITEM = 0
+"""The general limitation quoted on the page (what the numbers measure); the full list is in
+``report.md`` and ``summary.md``."""
 
 
 @dataclass(frozen=True, slots=True)
 class _Layout:
     """One attempt at fitting the page; attempts get tighter until the content fits."""
 
-    max_reasons: int = INITIAL_MAX_REASONS
+    show_data_note: bool = True
     max_limitations: int | None = None
+    max_findings: int = INITIAL_MAX_FINDINGS
+    show_coverage: bool = True
     font_scale: float = 1.0
+    max_charts: int = MAX_CHARTS
     truncate: bool = False
 
 
@@ -126,21 +146,39 @@ class FpdfReportRenderer:
         raise RenderError(msg, hint="Shorten the report title or the verdict headline")
 
     def _layouts(self) -> Iterator[_Layout]:
-        """Tightening sequence: reasons, then limitation lines, then font size, then truncate."""
+        """Tightening sequence, from what the reader misses least to what they miss most.
+
+        The coverage line goes first (it is context, and complete in ``report.md``), then
+        run-specific limitations beyond the first, further observations beyond one, and the
+        secondary charts (the text above them states what they show). Then a step of font
+        size, and only after that the line on the state of the data (it is in ``report.md``
+        in full). The answer, the cards, the main chart and the robustness lines always stay.
+        """
+        pdf_theme = self._theme.pdf
+        scales: list[float] = []
+        scale = 1.0 - pdf_theme.font_scale_step
+        while scale >= pdf_theme.min_font_scale - FLOAT_TOLERANCE:
+            scales.append(scale)
+            scale -= pdf_theme.font_scale_step
         layout = _Layout()
         yield layout
-        for reasons in REASON_STEPS:
-            layout = replace(layout, max_reasons=reasons)
-            yield layout
+        layout = replace(layout, show_coverage=False)
+        yield layout
         for limitations in LIMITATION_STEPS:
             layout = replace(layout, max_limitations=limitations)
             yield layout
-        pdf_theme = self._theme.pdf
-        scale = 1.0 - pdf_theme.font_scale_step
-        while scale >= pdf_theme.min_font_scale - FLOAT_TOLERANCE:
+        layout = replace(layout, max_findings=REDUCED_FINDINGS)
+        yield layout
+        layout = replace(layout, max_charts=REDUCED_CHARTS)
+        yield layout
+        for scale in scales[:FIRST_FONT_STEP]:
             layout = replace(layout, font_scale=scale)
             yield layout
-            scale -= pdf_theme.font_scale_step
+        layout = replace(layout, show_data_note=False)
+        yield layout
+        for scale in scales[FIRST_FONT_STEP:]:
+            layout = replace(layout, font_scale=scale)
+            yield layout
         yield replace(layout, truncate=True)
 
 
@@ -163,6 +201,7 @@ class _Page:
         self._layout = layout
         self.overflowed = False
         self._stopped = False
+        self._edition_drawn = False
         self.pdf = self._new_document()
         self._footer_top = self._draw_footer()
         self._limit = self._footer_top - self._style.section_gap_mm
@@ -244,10 +283,14 @@ class _Page:
             self._t.t(key), self._style.heading_pt, bold=True, color=self._theme.accent_color
         )
 
-    def _bullets(self, items: Sequence[str]) -> None:
+    def _bullets(self, items: Sequence[str], points: float | None = None) -> None:
         for item in items:
-            if not self._paragraph(f"{BULLET}{item}", self._style.body_pt):
+            if not self._paragraph(f"{BULLET}{item}", points or self._style.body_pt):
                 return
+
+    def _text_height(self, text: str, points: float, width: float) -> float:
+        line_h = self._font(points)
+        return cast(float, self.pdf.multi_cell(width, line_h, text, dry_run=True, output="HEIGHT"))
 
     def _gap(self) -> None:
         self.pdf.set_y(self.pdf.get_y() + self._style.section_gap_mm)
@@ -258,11 +301,15 @@ class _Page:
         """Draw every section in order; stops early only in truncating layouts."""
         sections: list[Callable[[], None]] = [
             self._title,
+            self._answer,
             self._tiles,
-            self._chart,
-            self._verdict,
-            self._reliability,
+            self._chart_grid,
+            self._vs_edition,
+            self._robustness,
+            self._decision,
+            self._findings,
             self._limitations,
+            self._method_note,
         ]
         for section in sections:
             if self._stopped:
@@ -272,153 +319,189 @@ class _Page:
     def _title(self) -> None:
         summary, t = self._summary, self._t
         self._paragraph(report_title(summary, t), self._style.title_pt, bold=True)
-        subtitle = (
-            f"{question_line(summary, t)} · {t.t('report.period')}: {period_text(summary)} · "
-            f"{t.t('report.projects')}: {', '.join(summary.request.projects)}"
-        )
+        subtitle = f"{question_line(summary, t)} · {t.t('report.period')}: {period_text(summary)}"
         self._paragraph(subtitle, self._style.subtitle_pt, color=self._theme.muted_color)
         note = summary.request.report.audience_note
         if note:
             self._paragraph(note, self._style.subtitle_pt, color=self._theme.muted_color)
 
+    def _answer(self) -> None:
+        if not self._heading("report.answer"):
+            return
+        if not self._paragraph(
+            self._summary.verdict.headline, self._style.body_pt * ANSWER_SCALE, bold=True
+        ):
+            return
+        self._bullets(self._summary.happening)
+
     def _tiles(self) -> None:
-        tiles = self._tile_contents()
+        tiles = cards(self._summary, self._t)
         if not tiles:
             return
         self._gap()
-        height = self._style.tile_height_mm * self._layout.font_scale
-        if not self._fits(height):
-            return
         gap = self._style.tile_gap_mm
         width = (self.pdf.epw - gap * (len(tiles) - 1)) / len(tiles)
+        row_count = max(len(card.rows) for card in tiles)
+        value_pt = (
+            self._style.tile_value_pt
+            if row_count <= TILE_LARGE_VALUE_MAX_ROWS
+            else self._style.body_pt
+        )
+        inner = width - 2 * TILE_PADDING_MM
+        note_height = max(
+            (self._text_height(c.note, self._style.small_pt, inner) for c in tiles if c.note),
+            default=0.0,
+        )
+        needed = (
+            2 * TILE_PADDING_MM
+            + self._line_height(self._style.small_pt)
+            + row_count * self._line_height(value_pt)
+            + note_height
+        )
+        height = max(self._style.tile_height_mm * self._layout.font_scale, needed)
+        if not self._fits(height):
+            return
         top = self.pdf.get_y()
-        for index, (label, rows) in enumerate(tiles):
+        for index, card in enumerate(tiles):
             origin = (self.pdf.l_margin + index * (width + gap), top)
-            self._draw_tile(origin, (width, height), label, rows)
+            self._draw_tile(origin, (width, height), card, value_pt)
         self.pdf.set_y(top + height)
 
     def _draw_tile(
         self,
         origin: tuple[float, float],
         size: tuple[float, float],
-        label: str,
-        rows: Sequence[str],
+        card: Card,
+        value_pt: float,
     ) -> None:
         (x, y), (w, h) = origin, size
         pdf = self.pdf
+        inner = w - 2 * TILE_PADDING_MM
         pdf.set_fill_color(*_Rgb.parse(self._style.tile_fill))
         pdf.rect(x, y, w, h, style="F")
         pdf.set_xy(x + TILE_PADDING_MM, y + TILE_PADDING_MM)
-        line_h = self._font(self._style.small_pt, color=self._theme.muted_color)
-        pdf.cell(w - 2 * TILE_PADDING_MM, line_h, label)
-        large = len(rows) <= TILE_LARGE_VALUE_MAX_ROWS
-        value_pt = self._style.tile_value_pt if large else self._style.body_pt
+        label_h = self._font(self._style.small_pt, color=self._theme.muted_color)
+        pdf.cell(inner, label_h, card.label)
         line_h = self._font(value_pt, bold=True)
-        for offset, row in enumerate(rows):
-            pdf.set_xy(
-                x + TILE_PADDING_MM,
-                y + TILE_PADDING_MM + self._line_height(self._style.small_pt) + offset * line_h,
-            )
-            pdf.cell(w - 2 * TILE_PADDING_MM, line_h, row)
+        for offset, row in enumerate(card.rows):
+            pdf.set_xy(x + TILE_PADDING_MM, y + TILE_PADDING_MM + label_h + offset * line_h)
+            pdf.cell(inner, line_h, row)
+        if card.note:
+            pdf.set_xy(x + TILE_PADDING_MM, y + TILE_PADDING_MM + label_h + len(card.rows) * line_h)
+            note_h = self._font(self._style.small_pt, color=self._theme.muted_color)
+            pdf.multi_cell(inner, note_h, card.note, align="L")
 
-    def _tile_contents(self) -> list[tuple[str, list[str]]]:
-        """Up to four (label, value lines) pairs from the comparison, else from the ranking."""
-        t, summary = self._t, self._summary
-        if summary.comparison:
-            rows = summary.comparison[:TILE_MAX_ROWS]
-            keys = _tile_keys([(r.topic_id, r.project, r.label) for r in rows])
-            return [
-                (
-                    t.t("col.views_avg"),
-                    [f"{k}: {t.number(r.views_avg)}" for k, r in zip(keys, rows, strict=True)],
-                ),
-                (
-                    t.t("col.per_million_avg"),
-                    [
-                        f"{k}: {t.number(r.per_million_avg, PER_MILLION_DECIMALS)}"
-                        for k, r in zip(keys, rows, strict=True)
-                    ],
-                ),
-                (
-                    t.t("col.growth_yoy"),
-                    [
-                        f"{k}: {t.percent(r.growth_yoy, PERCENT_DECIMALS, signed=True)}"
-                        for k, r in zip(keys, rows, strict=True)
-                    ],
-                ),
-                (
-                    t.t("col.reliability"),
-                    [
-                        f"{k}: {t.label('level', r.reliability)}"
-                        for k, r in zip(keys, rows, strict=True)
-                    ],
-                ),
-            ][:MAX_TILES]
-        if summary.ranking:
-            ranked = sorted(summary.ranking, key=lambda r: r.rank)[:TILE_MAX_ROWS]
-            keys = _tile_keys([(r.topic_id, r.project, r.label) for r in ranked])
-            return [
-                (
-                    t.t("col.score"),
-                    [
-                        f"{r.rank}. {k}: {t.number(r.score, SCORE_DECIMALS)}"
-                        for k, r in zip(keys, ranked, strict=True)
-                    ],
-                ),
-                (
-                    t.t("col.profile"),
-                    [
-                        f"{k}: {t.label('profile', r.profile)}"
-                        for k, r in zip(keys, ranked, strict=True)
-                    ],
-                ),
-                (
-                    t.t("col.reliability"),
-                    [
-                        f"{k}: {t.label('level', r.reliability)}"
-                        for k, r in zip(keys, ranked, strict=True)
-                    ],
-                ),
-            ]
-        return []
+    def _chart_grid(self) -> None:
+        """The main chart across the page, then the smaller ones side by side.
 
-    def _chart(self) -> None:
-        image = next((c for c in self._charts if c.suffix.lower() == ".png"), None)
-        if image is None:
+        A lone half-width chart shares its row with the topic-against-edition lines, which
+        is the question it illustrates, so the row carries no empty half.
+        """
+        images = [c for c in self._charts if c.suffix.lower() == ".png"][: self._layout.max_charts]
+        if not images:
             return
+        main, rest = images[0], images[1:]
+        if not self._chart_row([main]):
+            return
+        if len(rest) == 1 and self._is_half(rest[0]) and edition_lines(self._summary):
+            self._chart_beside_text(rest[0])
+        elif rest:
+            self._chart_row(rest)
+
+    def _chart_box(self, image: Path, slot: float) -> tuple[float, float]:
         with Image.open(image) as opened:
             pixel_w, pixel_h = opened.size
-        width = self.pdf.epw
-        height = width * pixel_h / pixel_w
+        width, height = slot, slot * pixel_h / pixel_w
         max_height = self._style.chart_max_height_mm * self._layout.font_scale
         if height > max_height:
             width, height = max_height * pixel_w / pixel_h, max_height
+        return width, height
+
+    def _chart_row(self, images: Sequence[Path]) -> bool:
+        gap = self._style.chart_gap_mm
+        columns = 2 if len(images) > 1 or self._is_half(images[0]) else 1
+        slot = (self.pdf.epw - gap * (columns - 1)) / columns
+        boxes = [self._chart_box(image, slot) for image in images]
+        row_height = max(h for _, h in boxes)
         self._gap()
-        if not self._fits(height):
-            return
-        x = self.pdf.l_margin + (self.pdf.epw - width) / 2
-        self.pdf.image(str(image), x=x, y=self.pdf.get_y(), w=width, h=height)
-        self.pdf.set_y(self.pdf.get_y() + height)
+        if not self._fits(row_height):
+            return False
+        top = self.pdf.get_y()
+        for column, (image, (width, height)) in enumerate(zip(images, boxes, strict=True)):
+            x = self.pdf.l_margin + column * (slot + gap) + (slot - width) / 2
+            self.pdf.image(str(image), x=x, y=top, w=width, h=height)
+        self.pdf.set_y(top + row_height)
+        return True
 
-    def _verdict(self) -> None:
-        if not self._heading("report.verdict"):
+    def _chart_beside_text(self, image: Path) -> None:
+        """A half-width chart on the left, the topic-against-edition section on the right."""
+        gap = self._style.chart_gap_mm
+        slot = (self.pdf.epw - gap) / 2
+        width, height = self._chart_box(image, slot)
+        heading, lines = self._edition_texts()
+        body = "\n".join(f"{BULLET}{line}" for line in lines)
+        text_h = self._text_height(heading, self._style.heading_pt, slot) + self._text_height(
+            body, self._style.body_pt, slot
+        )
+        self._gap()
+        if not self._fits(max(height, text_h)):
             return
-        if not self._paragraph(self._summary.verdict.headline, self._style.body_pt, bold=True):
-            return
-        self._bullets(self._summary.verdict.bullets)
+        top = self.pdf.get_y()
+        self.pdf.image(str(image), x=self.pdf.l_margin, y=top, w=width, h=height)
+        x = self.pdf.l_margin + slot + gap
+        self.pdf.set_xy(x, top)
+        line_h = self._font(self._style.heading_pt, bold=True, color=self._theme.accent_color)
+        self.pdf.multi_cell(slot, line_h, heading, align="L", new_x=XPos.LEFT, new_y=YPos.NEXT)
+        line_h = self._font(self._style.body_pt)
+        self.pdf.multi_cell(slot, line_h, body, align="L", new_x=XPos.LEFT, new_y=YPos.NEXT)
+        self.pdf.set_xy(self.pdf.l_margin, top + max(height, text_h))
+        self._edition_drawn = True
 
-    def _reliability(self) -> None:
-        if not self._summary.reliability or not self._heading("report.reliability"):
-            return
-        for item in self._summary.reliability:
-            if not self._paragraph(self._reliability_line(item), self._style.body_pt):
-                return
+    def _is_half(self, image: Path) -> bool:
+        return any(s.id == image.stem and s.size == "half" for s in self._summary.charts)
 
-    def _reliability_line(self, item: ReliabilityOut) -> str:
-        label = row_label(self._summary, item.topic_id, item.project)
-        level = self._t.label("level", item.level)
-        reasons = sorted_checks(item.checks)[: self._layout.max_reasons]
-        return f"{label} — {item.project}: {level}. " + "; ".join(c.message for c in reasons)
+    def _edition_texts(self) -> tuple[str, list[str]]:
+        """Heading and lines of the topic-against-edition section, the basis last."""
+        lines = edition_lines(self._summary)
+        basis = edition_basis(self._summary, self._t)
+        return self._t.t("report.vs_edition"), [*lines, *([basis] if basis else [])]
+
+    def _vs_edition(self) -> None:
+        """Whether the topic grows faster or slower than its edition, one line per audience."""
+        if self._edition_drawn or not edition_lines(self._summary):
+            return
+        if not self._heading("report.vs_edition"):
+            return
+        self._bullets(edition_lines(self._summary))
+        basis = edition_basis(self._summary, self._t)
+        if basis:
+            self._paragraph(basis, self._style.small_pt, color=self._theme.muted_color)
+
+    def _decision(self) -> None:
+        lines = decision_lines(self._summary)
+        if not lines or not self._heading("report.decision"):
+            return
+        self._bullets(lines)
+
+    def _findings(self) -> None:
+        items = self._summary.verdict.bullets
+        shown = items[: self._layout.max_findings]
+        if not shown or not self._heading("report.other_findings"):
+            return
+        self._bullets(shown)
+
+    def _robustness(self) -> None:
+        """How robust the conclusion is per audience, then the state of the data in one line."""
+        items = robustness_lines(self._summary)
+        if not items or not self._heading("report.robustness"):
+            return
+        self._bullets(items)
+        note = self._summary.data_note
+        if note and self._layout.show_data_note:
+            self._paragraph(" ".join(note), self._style.small_pt, color=self._theme.muted_color)
+        coverage = coverage_line(self._summary, self._t)
+        if coverage and self._layout.show_coverage:
+            self._paragraph(coverage, self._style.small_pt, color=self._theme.muted_color)
 
     def _limitations(self) -> None:
         items = self._summary.limitations
@@ -432,13 +515,21 @@ class _Page:
                 self._t.t("report.see_summary"), self._style.small_pt, color=self._theme.muted_color
             )
 
+    def _method_note(self) -> None:
+        notes = self._summary.general_limitations
+        if not notes:
+            return
+        self._gap()
+        text = f"{self._t.t('report.method_note')}: {notes[METHOD_NOTE_ITEM]}"
+        self._paragraph(text, self._style.small_pt, color=self._theme.muted_color)
+
     def _draw_footer(self) -> float:
         """Draw the footer at the page bottom and return the y where content must end."""
         t, provenance = self._t, self._summary.provenance
         generated = provenance.generated_at.strftime(GENERATED_AT_FORMAT)
         text = " · ".join(
             [
-                f"{t.t('report.sources')}: {', '.join(provenance.sources)}",
+                f"{t.t('report.sources')}: {t.t('report.sources_names')}",
                 f"{t.t('report.data_through')}: {provenance.data_through}",
                 f"{t.t('report.generated')}: {generated}",
                 f"{t.t('report.version')}: {provenance.code_version}",
@@ -462,19 +553,3 @@ class _Page:
         )
         self.pdf.set_xy(self.pdf.l_margin, self._style.margin_mm)
         return top - self._style.section_gap_mm
-
-
-def _tile_keys(rows: Sequence[tuple[str, str, str]]) -> list[str]:
-    """Short row identifiers for tiles: the language code alone when the topic is the same."""
-    single_topic = len({topic for topic, _, _ in rows}) == 1
-    keys = []
-    for _, project, label in rows:
-        code = project.split(".")[0]
-        keys.append(code if single_topic else f"{code} {_shorten(label)}")
-    return keys
-
-
-def _shorten(text: str) -> str:
-    if len(text) <= TILE_KEY_MAX_CHARS:
-        return text
-    return text[: TILE_KEY_MAX_CHARS - 1] + ELLIPSIS

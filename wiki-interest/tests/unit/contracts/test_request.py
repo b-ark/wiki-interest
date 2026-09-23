@@ -7,7 +7,12 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from wiki_interest.contracts.request import AnalysisRequest, Period, TopicSpec
+from wiki_interest.contracts.request import (
+    AnalysisRequest,
+    Period,
+    SubstituteSpec,
+    TopicSpec,
+)
 from wiki_interest.domain.models import WikiProject
 
 EXAMPLES = sorted((Path(__file__).resolve().parents[3] / "assets" / "examples").glob("*.json"))
@@ -82,7 +87,7 @@ class TestRejections:
             )
 
     def test_titles_for_unlisted_project_are_rejected(self) -> None:
-        with pytest.raises(ValidationError, match="not in request"):
+        with pytest.raises(ValidationError, match="not in the request"):
             AnalysisRequest.model_validate(
                 _minimal(topics=[{"query": "a", "extra_titles": {"pl": ["X"]}}])
             )
@@ -152,3 +157,58 @@ def test_bundled_examples_are_valid(path: Path) -> None:
 
 def test_examples_exist() -> None:
     assert len(EXAMPLES) >= 3
+
+
+class TestCoverageFields:
+    def test_local_terms_and_substitutes_are_keyed_by_project_domain(self) -> None:
+        request = AnalysisRequest.model_validate(
+            _minimal(
+                projects=["pl", "cs"],
+                topics=[
+                    {
+                        "query": "post przerywany",
+                        "query_language": "pl",
+                        "query_en": "intermittent fasting",
+                        "local_terms": {"cs": "přerušovaný půst"},
+                        "substitutes": {
+                            "plwiki": {"title": "Post", "kind": "broader"},
+                            "cs": "skip",
+                        },
+                    }
+                ],
+            )
+        )
+        topic = request.topics[0]
+        assert topic.query_en == "intermittent fasting"
+        assert topic.local_terms == {"cs.wikipedia": "přerušovaný půst"}
+        assert topic.substitutes == {
+            "pl.wikipedia": SubstituteSpec(title="Post", kind="broader"),
+            "cs.wikipedia": "skip",
+        }
+
+    def test_unknown_substitute_kind_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            TopicSpec.model_validate(
+                {"query": "a", "substitutes": {"pl": {"title": "X", "kind": "guess"}}}
+            )
+
+    @pytest.mark.parametrize("field", ["local_terms", "substitutes"])
+    def test_decisions_for_unlisted_projects_are_rejected(self, field: str) -> None:
+        value = {"de": "skip"} if field == "substitutes" else {"de": "Fasten"}
+        with pytest.raises(ValidationError, match="not in the request"):
+            AnalysisRequest.model_validate(_minimal(topics=[{"query": "a", field: value}]))
+
+
+class TestArticleUrl:
+    def test_link_is_parsed_into_edition_and_title(self) -> None:
+        topic = TopicSpec.model_validate(
+            {
+                "query": "a",
+                "article_url": "https://pl.m.wikipedia.org/wiki/G%C5%82od%C3%B3wka_lecznicza#x",
+            }
+        )
+        assert topic.article_ref == (WikiProject("pl"), "Głodówka lecznicza")
+
+    def test_non_wikipedia_link_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            TopicSpec.model_validate({"query": "a", "article_url": "https://example.com/wiki/X"})

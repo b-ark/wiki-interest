@@ -11,7 +11,9 @@
   "chart": {
     "dpi": 200,
     "width_mm": 170,
-    "height_mm": 95,
+    "height_mm": 58,
+    "half_width_mm": 88,
+    "half_height_mm": 46,
     "font_size_pt": 9,
     "title_size_pt": 11,
     "small_size_pt": 7.5,
@@ -21,20 +23,21 @@
   },
   "pdf": {
     "margin_mm": 15,
-    "title_pt": 16,
-    "subtitle_pt": 9.5,
+    "title_pt": 14,
+    "subtitle_pt": 8.5,
     "heading_pt": 11,
     "body_pt": 9,
     "small_pt": 7,
     "tile_value_pt": 12,
     "line_height": 1.35,
-    "section_gap_mm": 3,
-    "tile_height_mm": 20,
+    "section_gap_mm": 2.5,
+    "tile_height_mm": 17,
     "tile_gap_mm": 3,
     "tile_fill": "#F2F4F7",
     "rule_color": "#CCCCCC",
     "chart_max_height_mm": 90,
+    "chart_gap_mm": 4,
     "min_font_scale": 0.8,
-    "font_scale_step": 0.1
+    "font_scale_step": 0.05
   }
 }

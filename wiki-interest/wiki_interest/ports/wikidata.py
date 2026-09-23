@@ -3,11 +3,30 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Protocol
 
 from wiki_interest.domain.models import EntityCandidate, WikiProject
 
-__all__ = ["WikidataGateway"]
+__all__ = ["EntitySummary", "WikidataGateway"]
+
+
+@dataclass(frozen=True, slots=True)
+class EntitySummary:
+    """What an item is and where Wikipedia covers it, for showing the user.
+
+    Attributes:
+        qid: Item id.
+        label: Label in the requested language, else English, else ``None``.
+        description: Short description in the same language fallback order.
+        languages: Language codes of every Wikipedia edition with an article on the item
+            (``"en"``, ``"be-tarask"``), in Wikidata's order.
+    """
+
+    qid: str
+    label: str | None
+    description: str | None
+    languages: tuple[str, ...]
 
 
 class WikidataGateway(Protocol):
@@ -48,11 +67,37 @@ class WikidataGateway(Protocol):
         """
         ...
 
-    def labels(self, qids: Sequence[str], language: str) -> Mapping[str, str]:
+    def labels(
+        self, qids: Sequence[str], language: str, *, fallback: bool = True
+    ) -> Mapping[str, str]:
         """Return human-readable labels, falling back to English when ``language`` has none.
 
+        Args:
+            qids: Entity ids.
+            language: Wanted label language.
+            fallback: Whether an English label may stand in. Pass ``False`` when the label is
+                used to search text in ``language``: an English phrase in a Polish article
+                is usually a bibliography entry, not a mention of the topic.
+
         Returns:
-            ``{qid: label}``; ids with no label in either language are absent.
+            ``{qid: label}``; ids with no usable label are absent.
+        """
+        ...
+
+    def summary(self, qid: str, language: str) -> EntitySummary | None:
+        """Label, description and Wikipedia coverage of one item; ``None`` if it is unknown.
+
+        Used when an edition has no article: the user sees which entity the topic resolved
+        to and in which languages it *is* covered before deciding what to do.
+        """
+        ...
+
+    def summaries(self, qids: Sequence[str], language: str) -> Mapping[str, EntitySummary]:
+        """:meth:`summary` for several items in one request; unknown ids are absent.
+
+        Used to compare homonyms: the English label and description of each candidate are
+        matched against the meaning the agent stated, and the number of Wikipedias covering
+        it hints at the primary sense of the word.
         """
         ...
 

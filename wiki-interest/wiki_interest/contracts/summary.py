@@ -13,7 +13,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from wiki_interest.contracts.charts import ChartSpec
-from wiki_interest.contracts.request import AnalysisRequest, Period
+from wiki_interest.contracts.request import AnalysisRequest, Period, SubstituteChoice
+from wiki_interest.domain.assessment import EditionRelation, Momentum, RelativeSize, Robustness
 from wiki_interest.domain.models import (
     ArticleRole,
     AudienceProfile,
@@ -22,6 +23,7 @@ from wiki_interest.domain.models import (
     Granularity,
     ReliabilityLevel,
     ResolutionSource,
+    SubstituteKind,
     TrendDirection,
 )
 
@@ -29,25 +31,27 @@ __all__ = [
     "AnalysisSummary",
     "ArticleOut",
     "Artifacts",
+    "AssessmentOut",
     "BundleOut",
     "CandidateOut",
     "CheckOut",
     "Clarification",
     "ComparisonRow",
+    "ContextArticleOut",
+    "CoverageGapOut",
+    "CoverageOptionOut",
+    "DecisionOut",
+    "EvidenceOut",
+    "FindingOut",
     "MetricsOut",
     "PointOut",
     "Provenance",
     "RankedRow",
     "ReliabilityOut",
-    "SeriesKind",
     "SeriesOut",
     "TopicResolutionOut",
     "Verdict",
 ]
-
-SeriesKind = Literal["bundle", "main"]
-"""``bundle``: weighted sum of all articles of the topic; ``main``: the main article alone.
-Both are reported so a conclusion never silently depends on the bundle composition."""
 
 
 class _Model(BaseModel):
@@ -55,12 +59,11 @@ class _Model(BaseModel):
 
 
 class ArticleOut(_Model):
-    """One article of a bundle as reported to the user."""
+    """One article of a topic in an edition: the measured ``main`` one or context."""
 
     title: str
     role: ArticleRole
     source: ResolutionSource
-    weight: float
     qid: str | None = None
     redirects: list[str] = Field(default_factory=list)
 
@@ -79,32 +82,52 @@ class BundleOut(_Model):
     articles: list[ArticleOut] = Field(default_factory=list)
     article_count: int = 0
     related_count: int = 0
+    redirect_count: int = 0
+    """Redirects whose views were added to the measured (main) article."""
+    substitute_kind: SubstituteKind | None = None
 
 
 class TopicResolutionOut(_Model):
-    """What the pipeline understood a topic to be."""
+    """What the pipeline understood a topic to be.
+
+    ``description`` and ``alternatives`` let the agent check the entity against what the
+    user meant and switch to another one by ``qid`` without a new search.
+    """
 
     topic_id: str
     query: str
     label: str | None
     qid: str | None
     bundles: list[BundleOut]
+    description: str | None = None
+    matched_in_english: bool = False
+    alternatives: list[CandidateOut] = Field(default_factory=list)
+    method: Literal["pinned", "link", "unique", "auto", "default", "none"] = "none"
+    """How the item was chosen; ``auto``: among homonyms, by the meaning the agent stated."""
+    confidence: float | None = None
+    """For ``auto``: the leader's share of the two best candidate scores."""
+    runner_up: str | None = None
+    """For ``auto``: the second-best candidate's item id."""
 
 
 class PointOut(_Model):
-    """One monthly observation; ``per_million`` is present when normalisation was possible."""
+    """One monthly observation of the main article.
+
+    ``per_million`` is present when normalisation was possible; ``edition_views`` is the
+    whole edition's views that month, so a change in share can be traced to its cause.
+    """
 
     period: str = Field(pattern=r"^\d{4}-\d{2}$")
     views: float | None
     per_million: float | None = None
+    edition_views: float | None = None
 
 
 class SeriesOut(_Model):
-    """A series as plotted and analysed."""
+    """The measured series of one (topic, edition): main article plus its redirects."""
 
     topic_id: str
     project: str
-    kind: SeriesKind
     granularity: Granularity
     points: list[PointOut]
 
@@ -114,7 +137,6 @@ class MetricsOut(_Model):
 
     topic_id: str
     project: str
-    kind: SeriesKind
     periods: int
     completeness: float
     views_total: float
@@ -151,7 +173,18 @@ class ReliabilityOut(_Model):
 
 
 class ComparisonRow(_Model):
-    """One row of the comparison table shown in the report."""
+    """One row of the comparison table shown in the report.
+
+    Attributes:
+        views_avg: Mean monthly views of the main article.
+        per_million_avg: Mean share of the edition's views, per million.
+        index: ``per_million_avg`` against the highest in the table (= 100).
+        growth_yoy: Growth of the analysed series (share, or views without normalisation),
+            last 12 months over the 12 before.
+        growth_halves: The same, second half of the period over the first.
+        views_growth: Growth of the article's raw views, same rule as the headline.
+        edition_growth: Growth of the whole edition's views over the same months.
+    """
 
     topic_id: str
     project: str
@@ -163,6 +196,9 @@ class ComparisonRow(_Model):
     trend_direction: TrendDirection
     reliability: ReliabilityLevel
     note: str | None = None
+    index: float | None = None
+    views_growth: float | None = None
+    edition_growth: float | None = None
 
 
 class RankedRow(_Model):
@@ -180,10 +216,133 @@ class RankedRow(_Model):
 
 
 class Verdict(_Model):
-    """The answer, ready to be relayed: one headline and a few supporting bullets."""
+    """The answer, ready to be relayed, and the further findings as bullets.
+
+    ``headline`` is the answer in one sentence without numbers, built from the states of the
+    audiences; the numbers are in :attr:`AnalysisSummary.happening`. ``bullets`` holds the
+    text of :attr:`AnalysisSummary.findings`, strongest first.
+    """
 
     headline: str
     bullets: list[str] = Field(default_factory=list)
+
+
+class EvidenceOut(_Model):
+    """One reason behind a trust level: ``36 months of data``, ``no missing months``..."""
+
+    text: str
+    concern: bool = False
+    """Whether it lowers trust rather than supports it."""
+
+
+class AssessmentOut(_Model):
+    """The decision view of one (topic, edition): size, momentum, the edition, trust.
+
+    Attributes:
+        label: The pair as shown to readers (``ru.wikipedia``, ``Yoga · uk.wikipedia``).
+        measured: Whether the edition had an article to measure.
+        per_million: Mean views of the topic per million views of the whole edition: the
+            size of interest, comparable across editions of different size.
+        views_avg: Mean monthly views of the article.
+        size: Against the largest pair of the report; ``None`` with nothing to compare.
+        momentum: Where the share (or views without normalisation) is heading; ``flat``
+            means no clear trend.
+        change: The change behind ``momentum``, as a fraction; ``basis`` names the months.
+        article_change: The article's views over the months in ``relation_basis``.
+        edition_change: The whole edition's views over the same months.
+        share_change: The topic's share of the edition over the same months.
+        relation: Whether the topic gained or lost ground inside its edition.
+        recent_months: Length of the recent window: the last months against the same months a
+            year earlier. ``recent_article``, ``recent_edition`` and ``recent_shift`` (the
+            share) are the changes over it.
+        robustness: Whether the recent months confirm the long-term direction.
+        robustness_line: That in words, with the numbers behind it.
+        confidence: The reliability level; the report shows ``robustness`` instead.
+        evidence: The state of the data (months, gaps, bursts), concerns first.
+        outcome: Decision outcome key: ``<large|small|single>_<growing|flat|declining>``,
+            ``low_trust``, ``unknown``, ``substitute`` or ``no_article``.
+        decision: What the outcome means, as one sentence.
+        edition_line: The article against its edition in words, ``None`` when not computable.
+    """
+
+    topic_id: str
+    project: str
+    label: str
+    measured: bool
+    per_million: float | None = None
+    views_avg: float | None = None
+    size: RelativeSize | None = None
+    momentum: Momentum
+    change: float | None = None
+    basis: str | None = None
+    article_change: float | None = None
+    edition_change: float | None = None
+    share_change: float | None = None
+    relation: EditionRelation | None = None
+    relation_basis: str | None = None
+    recent_months: int | None = None
+    recent_article: float | None = None
+    recent_edition: float | None = None
+    recent_shift: float | None = None
+    robustness: Robustness = Robustness.UNKNOWN
+    robustness_line: str | None = None
+    confidence: ReliabilityLevel
+    evidence: list[EvidenceOut] = Field(default_factory=list)
+    outcome: str
+    decision: str
+    edition_line: str | None = None
+
+
+class DecisionOut(_Model):
+    """What the report concludes for a decision, and the next step.
+
+    Attributes:
+        conclusion: Conclusion key (``strong``, ``emerging``, ``no_growth_stable``,
+            ``all_declining``, ``single_<momentum>``, ``unknown``, ``low_trust``, ``none``).
+        candidate: Label of the audience worth the next check, when there is one.
+        lines: What each outcome means, one line per outcome with the audiences it applies
+            to (``uk.wikipedia, pl.wikipedia: smaller audience...``); empty for one audience.
+        next_step: The next step in one sentence, with examples of independent sources.
+    """
+
+    conclusion: str
+    candidate: str | None = None
+    summary: str | None = None
+    """The conclusion in one sentence, shown first."""
+    lines: list[str] = Field(default_factory=list)
+    next_step: str
+
+
+class FindingOut(_Model):
+    """One fact the analysis found, in words and as data.
+
+    Attributes:
+        kind: What was found (``level_shift``, ``burst``, ``recent``, ``season``,
+            ``edition.*``, ``share_ratio``, ``divergence``...).
+        topic_id: Topic it is about; ``None`` for a statement across topics.
+        project: Edition it is about; ``None`` for a statement across editions.
+        importance: Ranking score in ``[0, 1]``; findings are listed strongest first.
+        text: The finding as a sentence in the report language.
+        params: The numbers and dates behind ``text``.
+    """
+
+    kind: str
+    topic_id: str | None = None
+    project: str | None = None
+    importance: float
+    text: str
+    params: dict[str, float | int | str] = Field(default_factory=dict)
+
+
+class ContextArticleOut(_Model):
+    """A related article reported next to a topic with its own numbers (never summed in)."""
+
+    topic_id: str
+    project: str
+    title: str
+    role: ArticleRole
+    views_avg: float | None
+    growth: float | None = None
 
 
 class CandidateOut(_Model):
@@ -192,15 +351,71 @@ class CandidateOut(_Model):
     qid: str
     label: str
     description: str | None = None
+    article_projects: list[str] = Field(default_factory=list)
+    """Requested editions with an article about this entity (shown, never used to choose)."""
 
 
-class Clarification(_Model):
-    """Why the pipeline stopped and what to ask the user."""
+class CoverageOptionOut(_Model):
+    """One choice for an edition without an article, ready to show and to apply.
+
+    Attributes:
+        number: Position in the list shown to the user, from 1.
+        kind: ``redirect``, ``broader``, ``mention`` or ``skip``.
+        title: Page that would be measured; ``None`` for ``skip``.
+        target: Article a redirect leads to.
+        section: Section of ``target`` a redirect points into.
+        snippet: Passage that mentions the topic, for ``mention``.
+        views_avg: Mean monthly views of ``title`` over the last 12 complete months.
+        description: The option in one localised sentence, views included.
+        choose: The exact value to merge into ``topics[].substitutes`` when the user picks
+            this option; the agent copies it instead of composing it.
+    """
+
+    number: int
+    kind: Literal["redirect", "broader", "mention", "skip"]
+    title: str | None = None
+    target: str | None = None
+    section: str | None = None
+    snippet: str | None = None
+    views_avg: float | None = None
+    description: str
+    choose: dict[str, SubstituteChoice]
+
+
+class CoverageGapOut(_Model):
+    """An edition without an article on a topic, with the choices the user has.
+
+    ``topic_note`` says once per topic which entity the topic resolved to and in how many
+    languages it has an article, so the user can catch a wrong entity before choosing.
+    """
 
     topic_id: str
     query: str
+    project: str
+    qid: str | None = None
+    article_languages: list[str] = Field(default_factory=list)
+    matched_in_english: bool = False
+    topic_note: str
+    terms: list[str]
     question: str
-    candidates: list[CandidateOut]
+    options: list[CoverageOptionOut]
+
+
+class Clarification(_Model):
+    """Why the pipeline stopped and what to ask the user.
+
+    ``kind`` tells the questions apart: ``ambiguous_topic`` lists Wikidata ``candidates``
+    (answered with ``topics[].qid``); ``missing_article`` lists ``gaps``, editions without an
+    article and what could stand in for it (answered with ``topics[].substitutes``);
+    ``topic_not_found`` means nothing matched at all (answered with ``topics[].article_url``).
+    """
+
+    kind: Literal["ambiguous_topic", "missing_article", "topic_not_found"] = "ambiguous_topic"
+    topic_id: str
+    query: str
+    question: str
+    candidates: list[CandidateOut] = Field(default_factory=list)
+    gaps: list[CoverageGapOut] = Field(default_factory=list)
 
 
 class Artifacts(_Model):
@@ -230,7 +445,9 @@ class AnalysisSummary(_Model):
     """Complete result of one pipeline run."""
 
     schema_version: Literal["1"] = "1"
-    status: Literal["ok", "needs_clarification"]
+    status: Literal["ok", "needs_clarification", "topic_resolved"]
+    """``topic_resolved``: the run stopped after the topic stage on purpose (evaluation mode);
+    ``resolution`` is filled, nothing was measured."""
     run_id: str
     session: str | None
     request: AnalysisRequest
@@ -243,8 +460,26 @@ class AnalysisSummary(_Model):
     ranking: list[RankedRow] = Field(default_factory=list)
     charts: list[ChartSpec] = Field(default_factory=list)
     verdict: Verdict
+    assessments: list[AssessmentOut] = Field(default_factory=list)
+    """One per (topic, edition), in the order of ``comparison``."""
+    decision: DecisionOut | None = None
+    happening: list[str] = Field(default_factory=list)
+    """What happened: two or three sentences, each naming its metric and window."""
+    data_note: list[str] = Field(default_factory=list)
+    """The state of the data in one line when every audience is clean, else a line per
+    audience with its concerns."""
+    findings: list[FindingOut] = Field(default_factory=list)
+    context: list[ContextArticleOut] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
+    """Limitations specific to this run (missing articles, substitutes, short period...)."""
+    general_limitations: list[str] = Field(default_factory=list)
+    """Limitations of the method that hold for every run (views measure curiosity...)."""
     next_steps: list[str] = Field(default_factory=list)
+    narrative_source: Literal["template", "agent"] = "template"
+    """Who wrote the headline, happening, robustness and decision text: the code's templates,
+    or the agent (``narrative.json``, checked against ``facts.json``)."""
+    chat_answer: str | None = None
+    """The agent's chat reply, when it wrote the text."""
     artifacts: Artifacts
     provenance: Provenance
     clarification: Clarification | None = None

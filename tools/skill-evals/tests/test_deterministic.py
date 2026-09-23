@@ -232,6 +232,16 @@ def test_clarification_asked(tmp_path: Path) -> None:
     assert not grade(ClarificationAsked(type="clarification_asked"), asked).passed
 
 
+def test_clarification_asked_by_request_without_question_mark(tmp_path: Path) -> None:
+    request = _ctx(tmp_path, "Nothing was found. Please send a link to a Wikipedia article.")
+    plain = ClarificationAsked(type="clarification_asked")
+    by_link = ClarificationAsked(type="clarification_asked", request_patterns=["(?i)link"])
+    assert not grade(plain, request).passed
+    outcome = grade(by_link, request)
+    assert outcome.passed
+    assert outcome.evidence.startswith("request")
+
+
 def test_describe_is_readable() -> None:
     text = describe(MaxTurns(type="max_turns", n=5))
     assert text == "max_turns(n=5)"

@@ -1,10 +1,13 @@
-"""Use-case: fetch every pageview series an analysis needs, in parallel, and assemble bundles.
+"""Use-case: fetch every pageview series an analysis needs, in parallel.
 
-For each resolved bundle the loader fetches monthly views of every article and its redirects,
-the edition's monthly total (for normalisation), daily views of the main article (for spike
-detection) and, when the analysis filters on human traffic, the main article's automated
-traffic (for bot suspicion). Requests are independent, so they run on a thread pool; the
-adapter is responsible for caching and rate limiting.
+For each (topic, edition) the loader fetches monthly views of the main article and of the
+redirects that lead to it (summed: a reader who typed a redirect's name read the article),
+the edition's monthly total (for normalisation and for the article-against-edition
+comparison), daily views of the main article (for bursts) and, when the analysis filters on
+human traffic, the main article's automated traffic (for bot suspicion). Related articles are
+fetched too, each on its own, as context: they are reported next to the topic, never added
+into its numbers. Requests are independent, so they run on a thread pool; the adapter is
+responsible for caching and rate limiting.
 """
 
 from __future__ import annotations
@@ -30,7 +33,7 @@ from wiki_interest.domain.models import (
 from wiki_interest.domain.series import combine
 from wiki_interest.ports.pageviews import PageviewsSource
 
-__all__ = ["LoadSettings", "LoadedSeries", "SeriesLoader"]
+__all__ = ["ContextSeries", "LoadSettings", "LoadedSeries", "SeriesLoader"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,22 +58,31 @@ _DEFAULT_SETTINGS = LoadSettings()
 
 
 @dataclass(frozen=True, slots=True)
+class ContextSeries:
+    """Monthly views of one related article, shown next to the topic as context."""
+
+    article: ArticleRef
+    views: Series
+
+
+@dataclass(frozen=True, slots=True)
 class LoadedSeries:
     """All series fetched for one (topic, edition) pair, aligned to the analysis window.
 
-    ``bundle_views`` and ``main_views`` are ``None`` for a bundle with no articles; the other
+    ``main_views`` is ``None`` when the edition has no article to measure; the other optional
     fields are ``None`` when they were not requested.
     """
 
     topic_id: str
     project: WikiProject
-    bundle_views: Series | None
     main_views: Series | None
     project_total: Series
     main_daily: Series | None
     main_automated: Series | None
     main_user_for_automated: Series | None = None
     """Canonical main-title user traffic, excluding redirects, matching ``main_automated``."""
+    context: tuple[ContextSeries, ...] = ()
+    """Related articles in the edition, each with its own views, in bundle order."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,8 +183,9 @@ class SeriesLoader:
     ) -> LoadedSeries:
         project = bundle.project
         total = results[("aggregate", project.domain)]
-        if not bundle.articles:
-            return LoadedSeries(topic_id, project, None, None, total, None, None)
+        main = bundle.main
+        if main is None:
+            return LoadedSeries(topic_id, project, None, total, None, None)
 
         def article_views(article: ArticleRef) -> Series:
             parts = [
@@ -181,25 +194,26 @@ class SeriesLoader:
             ]
             return combine(parts)
 
-        bundle_views = combine([(article_views(a), a.weight) for a in bundle.articles])
-        main = bundle.main
-        main_views = article_views(main) if main is not None else None
-        main_daily = results.get(("daily", project.domain, main.title)) if main else None
-        main_automated = results.get(("automated", project.domain, main.title)) if main else None
+        main_views = article_views(main)
+        context = tuple(
+            ContextSeries(article, article_views(article))
+            for article in bundle.articles
+            if article is not main
+        )
+        main_daily = results.get(("daily", project.domain, main.title))
+        main_automated = results.get(("automated", project.domain, main.title))
         main_user = (
-            results[("monthly", project.domain, main.title)]
-            if main is not None and main_automated is not None
-            else None
+            results[("monthly", project.domain, main.title)] if main_automated is not None else None
         )
         return LoadedSeries(
             topic_id,
             project,
-            bundle_views,
             main_views,
             total,
             main_daily,
             main_automated,
             main_user,
+            context,
         )
 
 

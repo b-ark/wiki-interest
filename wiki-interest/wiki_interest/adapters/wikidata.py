@@ -26,6 +26,7 @@ from typing import Any
 from wiki_interest.adapters.http import HttpJsonClient, as_array, as_object
 from wiki_interest.adapters.mediawiki import ActionApiError, raise_for_action_api_error
 from wiki_interest.domain.models import EntityCandidate, WikiProject
+from wiki_interest.ports.wikidata import EntitySummary
 
 __all__ = ["MAX_IDS_PER_REQUEST", "WikidataApi"]
 
@@ -36,6 +37,27 @@ _NO_SUCH_ENTITY_CODE = "no-such-entity"
 _FALLBACK_LABEL_LANGUAGE = "en"
 _VALUE_SNAK = "value"
 _DEPRECATED_RANK = "deprecated"
+_WIKI_SUFFIX = "wiki"
+_NOT_WIKIPEDIA = frozenset(
+    {
+        "commonswiki",
+        "foundationwiki",
+        "incubatorwiki",
+        "mediawikiwiki",
+        "metawiki",
+        "nostalgiawiki",
+        "outreachwiki",
+        "sourceswiki",
+        "specieswiki",
+        "testwiki",
+        "test2wiki",
+        "testwikidatawiki",
+        "wikidatawiki",
+        "wikifunctionswiki",
+        "wikimaniawiki",
+    }
+)
+"""Site ids that end in ``wiki`` but are not language editions of Wikipedia."""
 
 
 class WikidataApi:
@@ -87,9 +109,11 @@ class WikidataApi:
             result[qid] = titles
         return result
 
-    def labels(self, qids: Sequence[str], language: str) -> Mapping[str, str]:
-        """Labels in ``language``, falling back to English; ids without either are absent."""
-        languages = _unique((language, _FALLBACK_LABEL_LANGUAGE))
+    def labels(
+        self, qids: Sequence[str], language: str, *, fallback: bool = True
+    ) -> Mapping[str, str]:
+        """Labels in ``language``, optionally falling back to English; others are absent."""
+        languages = _unique((language, _FALLBACK_LABEL_LANGUAGE)) if fallback else (language,)
         result: dict[str, str] = {}
         for qid, entity in self._entities(
             qids, {"props": "labels", "languages": "|".join(languages)}
@@ -100,6 +124,31 @@ class WikidataApi:
                     label = as_object(found[candidate_language], "labels[]")
                     result[qid] = str(label["value"])
                     break
+        return result
+
+    def summary(self, qid: str, language: str) -> EntitySummary | None:
+        """Label, description and Wikipedia editions of one item, in one request."""
+        return self.summaries([qid], language).get(qid)
+
+    def summaries(self, qids: Sequence[str], language: str) -> Mapping[str, EntitySummary]:
+        """Label, description and Wikipedia editions of several items, batched."""
+        languages = _unique((language, _FALLBACK_LABEL_LANGUAGE))
+        found = self._entities(
+            qids, {"props": "labels|descriptions|sitelinks", "languages": "|".join(languages)}
+        )
+        result: dict[str, EntitySummary] = {}
+        for qid, entity in found.items():
+            sites = as_object(entity.get("sitelinks", {}), "entity.sitelinks")
+            result[qid] = EntitySummary(
+                qid=qid,
+                label=_first_text(entity.get("labels", {}), languages),
+                description=_first_text(entity.get("descriptions", {}), languages),
+                languages=tuple(
+                    site[: -len(_WIKI_SUFFIX)].replace("_", "-")
+                    for site in sites
+                    if site.endswith(_WIKI_SUFFIX) and site not in _NOT_WIKIPEDIA
+                ),
+            )
         return result
 
     def related_entities(
@@ -199,6 +248,15 @@ def _unknown_entity_id(exc: ActionApiError) -> str | None:
         return None
     unknown = exc.details.get("id")
     return str(unknown) if unknown else None
+
+
+def _first_text(raw: Any, languages: Sequence[str]) -> str | None:
+    """Value of the first language present in a ``labels``/``descriptions`` object."""
+    texts = as_object(raw, "entity terms")
+    for language in languages:
+        if language in texts:
+            return str(as_object(texts[language], "term")["value"])
+    return None
 
 
 def _unique(values: Sequence[str]) -> tuple[str, ...]:

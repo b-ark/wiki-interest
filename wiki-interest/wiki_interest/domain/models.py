@@ -33,6 +33,7 @@ __all__ = [
     "ResolutionSource",
     "Series",
     "SeriesUnit",
+    "SubstituteKind",
     "TopicBundle",
     "TrendDirection",
     "TrendMetrics",
@@ -188,18 +189,38 @@ class ResolutionSource(StrEnum):
     LEAD_LINK = "lead_link"
     SEARCH_FALLBACK = "search_fallback"
     MANUAL = "manual"
+    SUBSTITUTE = "substitute"
+
+
+class SubstituteKind(StrEnum):
+    """What stands in for a missing article after the user chose it.
+
+    When an edition has no article about the topic, the pipeline asks the user instead of
+    guessing (see :mod:`wiki_interest.application.coverage`). Each kind measures something
+    different, and the report says which:
+
+    * ``REDIRECT`` - a page under the topic's own name that redirects to another article.
+      Its views count only visits under that exact name: a narrow, honest lower bound.
+    * ``BROADER`` - the article about a wider subject (Wikidata "subclass of" / "part of").
+      Its views are an upper bound: most readers came for the wider subject.
+    * ``MENTION`` - an article that mentions the topic in its text. The topic is a small part
+      of it, so the views describe the neighbourhood rather than the topic.
+    """
+
+    REDIRECT = "redirect"
+    BROADER = "broader"
+    MENTION = "mention"
 
 
 @dataclass(frozen=True, slots=True)
 class ArticleRef:
-    """One Wikipedia article that contributes to a topic in one project.
+    """One Wikipedia article of a topic in one project: the measured one or context.
 
     Attributes:
         project: The language edition the article lives in.
         title: Canonical page title with spaces (adapters convert to underscores for URLs).
-        role: Why the article is in the bundle.
+        role: ``MAIN`` is measured; ``RELATED`` and ``MANUAL`` are reported as context.
         source: How the title was found.
-        weight: Relevance weight used when summing the bundle series; the main article is 1.0.
         qid: Wikidata item id (``"Q333"``) when known.
         redirects: Titles that redirect to this article; their views are added to the
             article's own because the Pageviews API counts them separately.
@@ -209,16 +230,12 @@ class ArticleRef:
     title: str
     role: ArticleRole
     source: ResolutionSource
-    weight: float = 1.0
     qid: str | None = None
     redirects: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.title.strip():
             msg = "Article title must not be empty"
-            raise ValueError(msg)
-        if not 0.0 < self.weight <= 1.0:
-            msg = f"Article weight must be in (0, 1], got {self.weight}"
             raise ValueError(msg)
 
 
@@ -227,21 +244,26 @@ class BundleStatus(StrEnum):
 
     FOUND = "found"
     FOUND_VIA_SEARCH = "found_via_search"
+    SUBSTITUTE = "substitute"
     NOT_FOUND = "not_found"
 
 
 @dataclass(frozen=True, slots=True)
 class TopicBundle:
-    """The set of articles that represent a topic in one project.
+    """The articles of a topic in one project: the main one, measured, and context.
 
-    A bundle with status ``NOT_FOUND`` has no articles and is reported honestly as "no article
-    in this edition" rather than as zero interest.
+    Only the main article (with its redirects) is measured; related and manual articles are
+    reported next to it with their own numbers, never summed in. A bundle with status
+    ``NOT_FOUND`` has no articles and is reported honestly as "no article in this edition"
+    rather than as zero interest. A ``SUBSTITUTE`` bundle holds the one page
+    the user chose to stand in for the missing article; ``substitute_kind`` says what it is.
     """
 
     topic_id: str
     project: WikiProject
     status: BundleStatus
     articles: tuple[ArticleRef, ...] = ()
+    substitute_kind: SubstituteKind | None = None
 
     def __post_init__(self) -> None:
         mains = [a for a in self.articles if a.role is ArticleRole.MAIN]
@@ -253,6 +275,9 @@ class TopicBundle:
             raise ValueError(msg)
         if self.status is not BundleStatus.NOT_FOUND and not self.articles:
             msg = f"A {self.status.value} bundle must contain at least one article"
+            raise ValueError(msg)
+        if (self.status is BundleStatus.SUBSTITUTE) != (self.substitute_kind is not None):
+            msg = "substitute_kind is set exactly when the status is SUBSTITUTE"
             raise ValueError(msg)
 
     @property
