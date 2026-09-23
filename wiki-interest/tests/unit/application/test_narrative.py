@@ -176,10 +176,16 @@ class TestAnalysisFacts:
         assert views.display.startswith("×")
         without = numbers[f"astronomy/uk.month.{month}.change_without"]
         assert without.value < numbers["astronomy/uk.change"].value
-        assert f"month:astronomy/uk:{month}" in {c.id for c in facts.caveats}
+        caveat = next(c for c in facts.caveats if c.id == "months:astronomy/uk")
+        assert month in caveat.meaning
         # The template does not describe the month, so the agent has to.
         messages = _messages(facts, _template(run_dir))
-        assert any(f"month:astronomy/uk:{month}" in m for m in messages)
+        assert any("months:astronomy/uk" in m for m in messages)
+        # A text written against the per-month ids of earlier versions still covers it.
+        old_id = _template(run_dir).model_copy(
+            update={"covered_caveats": [f"month:astronomy/uk:{month}"]}
+        )
+        assert not any("months:astronomy/uk" in m for m in _messages(facts, old_id))
 
 
 class TestChatBrief:
@@ -260,6 +266,45 @@ class TestRejections:
         broken = narrative.model_copy(update={"happening": [*narrative.happening, sentence]})
         assert any(expected in m for m in _messages(facts, broken)), _messages(facts, broken)
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "uk.wikipedia 37,9 на миллион просмотров раздела.",
+            "Доля просмотров за 12 месяцев:\n- uk.wikipedia: +21 %",
+            "Просмотры в uk.wikipedia: 37,9 на миллион.",
+            "Долю видно по окну в 24 месяца: uk.wikipedia 37,9 на миллион.",
+        ],
+    )
+    def test_a_metric_named_by_its_own_word_or_per_million_passes(
+        self, ru: tuple[Facts, Narrative], text: str
+    ) -> None:
+        facts, narrative = ru
+        extended = narrative.model_copy(update={"happening": [*narrative.happening, text]})
+        assert _messages(facts, extended) == []
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Просмотры статьи в uk.wikipedia: 37,9.",
+            "- uk.wikipedia: +21 %",
+            "Трафик раздела uk.wikipedia за 12 месяцев: +21 %.",
+        ],
+    )
+    def test_a_number_under_another_metric_or_none_is_rejected_with_the_words_to_use(
+        self, ru: tuple[Facts, Narrative], text: str
+    ) -> None:
+        facts, narrative = ru
+        broken = narrative.model_copy(update={"happening": [*narrative.happening, text]})
+        messages = _messages(facts, broken)
+        assert any("write it as 'доля просмотров" in m for m in messages), messages
+
+    def test_characters_of_another_script_are_rejected(self, ru: tuple[Facts, Narrative]) -> None:
+        facts, narrative = ru
+        broken = narrative.model_copy(
+            update={"decision": [*narrative.decision, "Учитывайте 季节性 интереса."]}
+        )
+        assert any("another script" in m for m in _messages(facts, broken))
+
     def test_headline_is_one_sentence_without_numbers(self, ru: tuple[Facts, Narrative]) -> None:
         facts, narrative = ru
         broken = narrative.model_copy(update={"headline": "Рост 21 %. Всё хорошо."})
@@ -304,7 +349,10 @@ class TestRejections:
     def test_interface_labels_keep_their_placeholders(self, tmp_path: Path) -> None:
         _, run_dir = _run(tmp_path, "de")
         facts, narrative = _facts(run_dir), _template(run_dir)
-        assert any("Translate every key" in m for m in _messages(facts, narrative))
+        # The template carries every label to translate; one left out stays English.
+        assert set(narrative.ui) == set(facts.ui_strings)
+        untranslated = narrative.model_copy(update={"ui": {}})
+        assert not any(p.block == "ui" for p in check_narrative(facts, untranslated))
         ui = {key: f"DE {text}" for key, text in facts.ui_strings.items()}
         with_ui = narrative.model_copy(update={"ui": ui})
         assert _messages(facts, with_ui) == []

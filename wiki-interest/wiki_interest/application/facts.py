@@ -145,8 +145,9 @@ RULES: tuple[str, ...] = (
     "Write in the report language, for the user; use audience_note when given.",
     "Copy numbers from numbers[].display (rounding is fine); never compute new ones: no "
     "ratios, differences, sums, shares of totals or '1 in N'.",
-    "Every sentence with a number names its metric with your glossary term; give each metric "
-    "one term in glossary and keep to it.",
+    "Every sentence with a number names its metric with your glossary term (a list item may "
+    "take it from the line that introduces the list, ending with ':'); give each metric one "
+    "term in glossary and keep to it. A rejection quotes the words to write: use them.",
     "Name editions by their label (uk.wikipedia).",
     "An edition without an article has 'no article', never 'no interest'.",
     "Wikipedia views measure attention and curiosity, not demand, a market or willingness "
@@ -155,7 +156,8 @@ RULES: tuple[str, ...] = (
     "step may speak of checking demand elsewhere.",
     "No statistical jargon (significant, p-value): say steady, mixed, turning, cannot be judged.",
     "A month in pairs[].anomalies with in_change is named with its month, its multiple and "
-    "the 12-month change without it; say possible_bot as 'possibly automated traffic'.",
+    "the 12-month change of the attention share without it, each with its metric; say "
+    "possible_bot as 'possibly automated traffic'.",
     "Mention a season only when season.shown, naming season.period; when the user asked about "
     "timing and it is not shown, say why (season.reason).",
     "Follow the states: a declining momentum is a decline even for the largest audience.",
@@ -460,18 +462,21 @@ def _caveats(assessments: Sequence[AssessmentOut], *, measured_count: int) -> li
             )
         )
     for a in assessments:
-        for month in a.months:
-            if month.in_change and month.nature != "edition":
-                out.append(
-                    CaveatFact(
-                        id=f"month:{pair_id(a)}:{month.month}",
-                        meaning=(
-                            f"{month.month} in {a.label} stands out ({month.nature}) and lies "
-                            "in the 12-month comparison: name it and the change without it."
-                        ),
-                        pair=a.label,
-                    )
+        # One caveat per pair for all its months: a separate id per month was the most
+        # frequent reason a text was rejected (verified 2026-09-23 on the evals).
+        months = [m for m in a.months if m.in_change and m.nature != "edition"]
+        if months:
+            listed = ", ".join(f"{m.month} ({m.nature})" for m in months)
+            out.append(
+                CaveatFact(
+                    id=f"months:{pair_id(a)}",
+                    meaning=(
+                        f"In {a.label}, {listed} stand{'s' if len(months) == 1 else ''} out and "
+                        "lie in the 12-month comparison: name them and the change without them."
+                    ),
+                    pair=a.label,
                 )
+            )
         if a.outcome == "no_article":
             meaning = f"{a.label} has no article on the topic: no article, not no interest."
         elif a.outcome == "substitute":
@@ -529,7 +534,7 @@ def template_narrative(summary: AnalysisSummary, translator: Translator) -> Narr
         covered_caveats=[
             c.id
             for c in _caveats(summary.assessments, measured_count=measured)
-            if not c.id.startswith("month:")
+            if not c.id.startswith("months:")
         ],
     )
 

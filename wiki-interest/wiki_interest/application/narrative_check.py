@@ -22,7 +22,9 @@ from wiki_interest.domain.prose_numbers import ProseNumber, extract_numbers, mat
 
 __all__ = ["check_narrative"]
 
-_LISTED_KEYS = 10
+_HINT_OPTIONS = 3
+_SHORT_WORD = 3
+_LONG_WORD = 8
 _ALWAYS_ALLOWED = (12.0, 24.0, 1_000_000.0)
 """Counts any text may use: the 12-month windows, "per 1 000 000 views"."""
 
@@ -53,34 +55,47 @@ _DESCRIPTIVE = ("headline", "happening", "robustness")
 """Blocks that describe the Wikipedia data: "demand" there would call views demand. The
 decision and the next step may speak of demand: "check the demand with Google Trends"."""
 _SENTENCE_BREAK = re.compile(r"[.!?…]\s+")
+_LIST_ITEM = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
+_PER_MILLION = re.compile(
+    r"(?i)(?<!\w)(?:per|на|na|pro|por|par|je|pe|op|al|för)\s+(?:1\s*)?"
+    r"(?:million|mln|мільйон|миллион|млн|milion|milión|millón|milione|miljoen|miljon|millió)"
+)
+""""Per million" in the languages the reports are written in: it names the attention share as
+surely as the glossary term does, for a number whose unit is per million."""
+_FOREIGN_SCRIPT = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]")
+"""Kana, CJK ideographs and Hangul: a cheap model sometimes drops a Chinese word into Ukrainian."""
+_CJK_LANGUAGES = frozenset({"zh", "ja", "ko"})
 
 
 @dataclass(frozen=True, slots=True)
 class _Known:
-    """A number the text may quote, on the scale prose writes it."""
+    """A number the text may quote, on the scale prose writes it.
+
+    ``unit`` and ``display`` come from ``numbers[]``: the unit decides whether "per million"
+    names the metric, the display form lets a problem show the agent the words to write.
+    """
 
     value: float
     percent: bool
     metric: str | None
     pair: str | None
+    unit: str | None = None
+    display: str | None = None
 
 
-def check_narrative(
-    facts: Facts, narrative: Narrative, *, ui_cached: Mapping[str, str] | None = None
-) -> list[NarrativeProblem]:
+def check_narrative(facts: Facts, narrative: Narrative) -> list[NarrativeProblem]:
     """Every reason ``narrative`` cannot go into the report; empty when it can.
 
     Args:
         facts: What the code computed for this run.
         narrative: The agent's text.
-        ui_cached: Interface translations kept from an earlier run of the session.
     """
     checker = _Checker(facts, narrative)
     checker.shape()
     checker.numbers_and_terms()
     checker.words()
     checker.caveats()
-    checker.ui(ui_cached or {})
+    checker.ui()
     return checker.problems
 
 
@@ -98,6 +113,7 @@ class _Checker:
             ]
             for metric in facts.metrics
         }
+        self.marks = _distinctive_stems(self.terms)
 
     def add(self, block: str, message: str, excerpt: str | None = None) -> None:
         self.problems.append(NarrativeProblem(block=block, message=message, excerpt=excerpt))
@@ -180,13 +196,26 @@ class _Checker:
     def numbers_and_terms(self) -> None:
         for block, text, pair in self.texts():
             known = [k for k in self.known if pair is None or k.pair in (None, pair)]
+            heading = ""
             for line in text.splitlines():
                 table_row = line.lstrip().startswith("|")
+                item = _LIST_ITEM.match(line) is not None
+                # A list continues the line that introduces it ("Attention share:"): a metric
+                # named there covers the numbers of every item.
+                context = heading if item else ""
                 for sentence in _sentences(line):
-                    self.sentence(block, sentence, known, check_terms=not table_row)
+                    self.sentence(block, sentence, known, context, check_terms=not table_row)
+                if not item:
+                    heading = line if line.rstrip().endswith(":") else ""
 
     def sentence(
-        self, block: str, sentence: str, known: Sequence[_Known], *, check_terms: bool
+        self,
+        block: str,
+        sentence: str,
+        known: Sequence[_Known],
+        context: str = "",
+        *,
+        check_terms: bool,
     ) -> None:
         for number in extract_numbers(sentence):
             hits = [k for k in known if matches(number, k.value, percent=k.percent)]
@@ -198,20 +227,35 @@ class _Checker:
                     sentence[:120],
                 )
                 continue
-            metrics = {k.metric for k in hits}
-            named = [m for m in metrics if m is not None]
-            if not check_terms or not named:
+            named = sorted({k.metric for k in hits if k.metric is not None})
+            if not check_terms or not named or _is_count(number, hits):
                 continue
-            if not any(self.names(sentence, m) for m in named):
-                terms = " or ".join(f"'{self.terms[m][-1]}'" for m in sorted(named))
-                self.add(
-                    block,
-                    f"{_quote(number)} needs its metric in the same sentence: {terms}.",
-                    sentence[:120],
-                )
+            text = f"{context} {sentence}"
+            if not any(self.names(text, m, hits) for m in named):
+                self.add(block, self.metric_hint(number, hits), sentence[:120])
 
-    def names(self, sentence: str, metric: str) -> bool:
-        return any(_has_term(sentence, term) for term in self.terms.get(metric, []))
+    def names(self, text: str, metric: str, hits: Sequence[_Known]) -> bool:
+        """Whether ``text`` names ``metric``: a term of it, or "per million" for a share."""
+        words = re.findall(r"\w+", text.lower())
+        for stems in self.marks.get(metric, []):
+            if any(w.startswith(s) for s in stems for w in words):
+                return True
+        per_million = any(k.metric == metric and k.unit == "per_million" for k in hits)
+        return per_million and _PER_MILLION.search(text) is not None
+
+    def metric_hint(self, number: ProseNumber, hits: Sequence[_Known]) -> str:
+        """The problem with the words to write: the agent's own term and the display form."""
+        options: list[str] = []
+        for hit in hits:
+            if hit.metric is None:
+                continue
+            option = f"'{self.terms[hit.metric][-1]} {hit.display or number.text}'"
+            if option not in options:
+                options.append(option)
+        return (
+            f"{_quote(number)} needs its metric in the same sentence; write it as "
+            f"{' or '.join(options[:_HINT_OPTIONS])}."
+        )
 
     # -- words ------------------------------------------------------------------------------
 
@@ -223,6 +267,10 @@ class _Checker:
             for pattern, message in _ANYWHERE:
                 if pattern.search(text):
                     self.add(block, message, text[:120])
+            odd = _FOREIGN_SCRIPT.search(text)
+            if odd is not None and language not in _CJK_LANGUAGES:
+                start = max(0, odd.start() - 40)
+                self.add(block, "Remove the characters of another script.", text[start:][:120])
             if jargon and re.search(jargon, text, re.IGNORECASE):
                 self.add(
                     block,
@@ -244,7 +292,7 @@ class _Checker:
             self.add("chat_answer", f"Give the path to the PDF in chat_answer: {pdf}.")
         declared = set(self.narrative.covered_caveats)
         for caveat in self.facts.caveats:
-            if caveat.id not in declared:
+            if not _declared(caveat.id, declared):
                 self.add(
                     "covered_caveats",
                     f"Cover caveat '{caveat.id}' in chat_answer "
@@ -253,15 +301,13 @@ class _Checker:
             elif caveat.pair and caveat.pair.split(" ")[0] not in self.narrative.chat_answer:
                 self.add("chat_answer", f"Caveat '{caveat.id}' must name {caveat.pair}.")
 
-    def ui(self, cached: Mapping[str, str]) -> None:
-        given = {**cached, **self.narrative.ui}
-        missing = [key for key in self.facts.ui_strings if not given.get(key, "").strip()]
-        if missing:
-            self.add(
-                "ui",
-                f"Translate every key of facts.ui_strings; missing: "
-                f"{', '.join(missing[:_LISTED_KEYS])}{'…' if len(missing) > _LISTED_KEYS else ''}.",
-            )
+    def ui(self) -> None:
+        """Translations keep their placeholders; a missing one stays English, not a rejection.
+
+        The template lists every label, so the agent translates in place. A label left out
+        costs an English word in the PDF; rejecting the text for it cost the user the whole
+        analysis (verified 2026-09-23 on the evals).
+        """
         for key, text in self.narrative.ui.items():
             english = self.facts.ui_strings.get(key)
             if english is not None and _fields(english) != _fields(text):
@@ -279,7 +325,16 @@ def _known(facts: Facts) -> list[_Known]:
     for pair in facts.pairs:
         for n in pair.numbers:
             fraction = n.unit == "fraction"
-            out.append(_Known(n.value * 100 if fraction else n.value, fraction, n.metric, pair.id))
+            value = n.value * 100 if fraction else n.value
+            out.append(_Known(value, fraction, n.metric, pair.id, n.unit, n.display))
+            # The display form always passes, whatever the rounding at a boundary: 1.95 is
+            # shown as "×2,0", and "2,0" read back is 0.05 away from the value.
+            out.extend(
+                _Known(v, shown.is_percent, n.metric, pair.id, n.unit, n.display)
+                for shown in extract_numbers(n.display, ignore_below=0)
+                for v in shown.values
+                if v != value
+            )
     quoted: list[tuple[str, str | None]] = [
         *((f.text, f.pair) for f in facts.findings),
         *((line, None) for line in (*facts.data_note, *facts.limitations)),
@@ -306,15 +361,66 @@ def _sentences(text: str) -> Iterator[str]:
 
 
 def _stems(term: str) -> list[str]:
-    """Word stems of a term, so inflected forms match ("доля" finds "доли", "долю")."""
-    words = re.findall(r"\w+", term.lower())
-    return [w[: max(3, len(w) - 2)] if len(w) > 3 else w for w in words]  # noqa: PLR2004
+    """Word stems of a term, so inflected forms match ("доля" finds "доли", "долю").
+
+    Long words lose three letters: Polish and Ukrainian endings change more than two
+    ("wyświetlenia", "wyświetleń"; "перегляди", "переглядів").
+    """
+    return [_stem(w) for w in re.findall(r"\w+", term.lower())]
 
 
-def _has_term(sentence: str, term: str) -> bool:
-    words = re.findall(r"\w+", sentence.lower())
-    stems = _stems(term)
-    return bool(stems) and all(any(w.startswith(s) for w in words) for s in stems)
+def _stem(word: str) -> str:
+    if len(word) <= _SHORT_WORD:
+        return word
+    cut = 3 if len(word) >= _LONG_WORD else 2
+    return word[: max(_SHORT_WORD, len(word) - cut)]
+
+
+def _distinctive_stems(terms: Mapping[str, list[str]]) -> dict[str, list[list[str]]]:
+    """For every metric, the stems of each of its terms that no other metric's terms share.
+
+    One distinctive stem names the metric: "289 переглядів" names "перегляди статті" when
+    no other metric speaks of "перегляди", while "перегляди статті" and "перегляди видання"
+    are told apart only by "статті" and "видання". A term with no stem of its own keeps all
+    its stems, and then any of them names it.
+    """
+    stems = {m: [_stems(t) for t in ts] for m, ts in terms.items()}
+    out: dict[str, list[list[str]]] = {}
+    for metric, own in stems.items():
+        others = {s for m, ts in stems.items() if m != metric for t in ts for s in t}
+        # Stems of one word differ with the ending cut ("просмот", "просмо"), so a stem is
+        # shared when it and another metric's stem are prefixes of one another.
+        out[metric] = [
+            [s for s in t if not any(s.startswith(o) or o.startswith(s) for o in others)] or t
+            for t in own
+            if t
+        ]
+    return out
+
+
+def _is_count(number: ProseNumber, hits: Sequence[_Known]) -> bool:
+    """A count or a window length ("the last 12 months"): it has no metric to name.
+
+    Only whole numbers written without a percent sign qualify, so a change that happens to
+    equal a number quoted in a finding still has to name its metric.
+    """
+    if number.is_percent:
+        return False
+    return any(k.metric is None and (k.unit == "count" or k.value in _ALWAYS_ALLOWED) for k in hits)
+
+
+def _declared(caveat_id: str, declared: set[str]) -> bool:
+    """Whether the agent listed ``caveat_id``; for the months of a pair, a per-month id counts.
+
+    ``months:<pair>`` replaced one ``month:<pair>:<month>`` caveat per month, and a text
+    written against the older ids covers the same thing.
+    """
+    if caveat_id in declared:
+        return True
+    if caveat_id.startswith("months:"):
+        prefix = "month:" + caveat_id.removeprefix("months:") + ":"
+        return any(d.startswith(prefix) for d in declared)
+    return False
 
 
 def _fields(template: str) -> set[str]:

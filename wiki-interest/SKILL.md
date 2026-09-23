@@ -82,8 +82,8 @@ which may be read-only.
    - `headline`, `happening[]`, `robustness[]` (one `{"pair": pairs[].id, "text": ...}` per
      measured pair, naming its edition), `decision[]`, `next_step`, `chat_answer`;
    - `covered_caveats`: the ids of `facts.caveats` your `chat_answer` carries;
-   - `ui`: only when `facts.ui_strings` is not empty, each key translated, `{placeholders}`
-     kept.
+   - `ui`: the interface labels of the PDF, already in the template in English: translate
+     each value, keep `{placeholders}`.
 7. **Render:**
 
    ```
@@ -94,7 +94,8 @@ which may be read-only.
      item analysed, gives the conclusion with the path to `report_pdf`, the assumptions
      (`caveats`), what could change the conclusion, and three to five next steps from
      `follow_ups`, saying which are instant (`cached`).
-   - exit 2, `status: rejected`: fix every item of `problems` and render once more.
+   - exit 2, `status: rejected`: fix every item of `problems` and render once more; where a
+     problem says "write it as ...", use exactly those words.
    - `status: fallback` (rejected twice): the report keeps the code's text; relay
      `summary_md` instead, numbers exactly as written.
 8. **Follow-ups:** edit the same `request.json`, keep the same `session`, run again (cached

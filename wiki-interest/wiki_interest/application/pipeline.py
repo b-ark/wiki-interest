@@ -296,7 +296,7 @@ class Pipeline:
         facts = Facts.model_validate_json((run_dir / FACTS_JSON).read_text(encoding="utf-8"))
         cache = _ui_cache_path(run_dir, summary.request.report.language)
         cached = _read_ui(cache)
-        problems = check_narrative(facts, narrative, ui_cached=cached)
+        problems = check_narrative(facts, narrative)
         if problems:
             attempts = _bump_attempts(run_dir)
             status: Literal["rejected", "fallback"] = (
@@ -380,7 +380,9 @@ def _write_facts(
     )
     facts = build_facts(summary, translator, ui_strings=ui, template_file=str(template))
     _write_json(run_dir / FACTS_JSON, facts.model_dump(mode="json"))
-    _write_json(template, template_narrative(summary, translator).model_dump(mode="json"))
+    # The labels to translate sit in the template, so the agent edits them in place.
+    text = template_narrative(summary, translator).model_copy(update={"ui": ui})
+    _write_json(template, text.model_dump(mode="json"))
     (run_dir / ATTEMPTS_FILE).unlink(missing_ok=True)
 
 
