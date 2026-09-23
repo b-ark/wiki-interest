@@ -50,6 +50,8 @@ _DEMAND: Mapping[str, str] = {
     "cs": r"poptávk",
     "de": r"nachfrage",
 }
+_UNMEASURED = ("caveats",)
+"""Blocks of warnings, not measurements: a number there must be a fact, but needs no metric."""
 _DESCRIPTIVE = ("headline", "happening", "robustness")
 """Blocks that describe the Wikipedia data: "demand" there would call views demand. The
 decision and the next step may speak of demand: "check the demand with Google Trends"."""
@@ -204,7 +206,8 @@ class _Checker:
                 # named there covers the numbers of every item.
                 context = heading if item else ""
                 for sentence in _sentences(line):
-                    self.sentence(block, sentence, known, context, check_terms=not table_row)
+                    check_terms = not table_row and block not in _UNMEASURED
+                    self.sentence(block, sentence, known, context, check_terms=check_terms)
                 if not item:
                     heading = line if line.rstrip().endswith(":") else ""
 
@@ -296,7 +299,7 @@ class _Checker:
         declared = set(self.narrative.covered_caveats)
         items = " ".join(self.narrative.caveats)
         for caveat in self.facts.caveats:
-            if not _declared(caveat.id, declared):
+            if caveat.id not in declared:
                 self.add(
                     "covered_caveats",
                     f"Cover caveat '{caveat.id}' in caveats ({caveat.meaning}) and list its id.",
@@ -309,8 +312,16 @@ class _Checker:
 
         The template lists every label, so the agent translates in place. A label left out
         costs an English word in the PDF; rejecting the text for it cost the user the whole
-        analysis (verified 2026-09-23 on the evals).
+        analysis (verified 2026-09-23 on the evals). No translation at all is rejected: an
+        agent that wrote the text from scratch dropped ``ui`` in a third of the runs, and
+        the whole PDF stayed English.
         """
+        if self.facts.template.ui and not self.narrative.ui:
+            self.add(
+                "ui",
+                "Translate every label of facts.template.ui into 'ui' (same keys, keep the "
+                "{placeholders}).",
+            )
         for key, text in self.narrative.ui.items():
             english = self.facts.template.ui.get(key)
             if english is not None and _fields(english) != _fields(text):
@@ -410,20 +421,6 @@ def _is_count(number: ProseNumber, hits: Sequence[_Known]) -> bool:
     if number.is_percent:
         return False
     return any(k.metric is None and (k.unit == "count" or k.value in _ALWAYS_ALLOWED) for k in hits)
-
-
-def _declared(caveat_id: str, declared: set[str]) -> bool:
-    """Whether the agent listed ``caveat_id``; for the months of a pair, a per-month id counts.
-
-    ``months:<pair>`` replaced one ``month:<pair>:<month>`` caveat per month, and a text
-    written against the older ids covers the same thing.
-    """
-    if caveat_id in declared:
-        return True
-    if caveat_id.startswith("months:"):
-        prefix = "month:" + caveat_id.removeprefix("months:") + ":"
-        return any(d.startswith(prefix) for d in declared)
-    return False
 
 
 def _fields(template: str) -> set[str]:

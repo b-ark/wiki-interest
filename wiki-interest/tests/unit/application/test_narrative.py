@@ -21,7 +21,7 @@ from fakes import AstronomyWorld, astronomy_world, fake_container
 from wiki_interest.application.narrative_check import check_narrative
 from wiki_interest.application.pipeline import Pipeline
 from wiki_interest.application.summary_builder import RunContext
-from wiki_interest.contracts.narrative import Facts, Narrative, PairText
+from wiki_interest.contracts.narrative import CaveatFact, Facts, Narrative, PairText
 from wiki_interest.contracts.request import AnalysisRequest
 from wiki_interest.domain.models import Access, Agent, Granularity, WikiProject
 from wiki_interest.i18n import CATALOGS
@@ -158,12 +158,12 @@ class TestAnalysisFacts:
         assert not uk.season.shown  # two years of history are too short
         assert uk.season.reason == "short_history"
 
-    def test_a_month_in_the_change_is_a_fact_with_its_cause_and_a_caveat(
+    def test_a_month_in_the_change_is_a_fact_with_its_cause_and_the_chat_names_it(
         self, tmp_path: Path
     ) -> None:
         world = _spiky_world()
         month = f"{world.months[20]:%Y-%m}"
-        _, run_dir = _run(tmp_path, "en", world=world)
+        pipeline, run_dir = _run(tmp_path, "en", world=world)
         facts = _facts(run_dir)
         uk = next(p for p in facts.pairs if p.id == "astronomy/uk")
         (anomaly,) = uk.anomalies
@@ -178,17 +178,12 @@ class TestAnalysisFacts:
         assert views.display.startswith("×")
         without = numbers[f"astronomy/uk.month.{month}.change_without"]
         assert without.value < numbers["astronomy/uk.change"].value
-        caveat = next(c for c in facts.caveats if c.id == "months:astronomy/uk")
-        assert month in caveat.meaning
-        # The template does not describe the month, so the agent has to.
-        uncovered = "Cover caveat 'months:astronomy/uk'"
-        messages = _messages(facts, _template(run_dir))
-        assert any(uncovered in m for m in messages)
-        # A text written against the per-month ids of earlier versions still covers it.
-        old_id = _template(run_dir).model_copy(
-            update={"covered_caveats": [f"month:astronomy/uk:{month}"]}
-        )
-        assert not any(uncovered in m for m in _messages(facts, old_id))
+        # Not a caveat the agent must write: the code names the month in the chat answer.
+        assert not any(c.id.startswith("months:") for c in facts.caveats)
+        assert pipeline.narrate(run_dir, _template(run_dir)).status == "accepted"
+        brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8")
+        assert f"{month} ×" in brief
+        assert "change without it" in brief
 
 
 class TestChatBrief:
@@ -202,14 +197,53 @@ class TestChatBrief:
         assert "appendix" in follow_ups["method_page"].change
 
     def test_a_caveat_of_an_edition_names_it(self, tmp_path: Path) -> None:
-        _, run_dir = _run(tmp_path, "en", world=_spiky_world())
-        facts, template = _facts(run_dir), _template(run_dir)
-        declared = template.model_copy(
-            update={"covered_caveats": [*template.covered_caveats, "months:astronomy/uk"]}
+        _, run_dir = _run(tmp_path, "en")
+        substitute = CaveatFact(
+            id="substitute:astronomy/uk",
+            meaning="uk.wikipedia is measured through a substitute article; name it every time.",
+            pair="uk.wikipedia (Космос)",
         )
-        assert not any("Cover caveat" in m for m in _messages(facts, declared))
+        base = _facts(run_dir)
+        facts = base.model_copy(update={"caveats": [*base.caveats, substitute]})
+        template = _template(run_dir)
+        undeclared = _messages(facts, template)
+        assert any("Cover caveat 'substitute:astronomy/uk'" in m for m in undeclared)
+        declared = template.model_copy(
+            update={"covered_caveats": [*template.covered_caveats, substitute.id]}
+        )
+        named = declared.model_copy(
+            update={"caveats": [*template.caveats, "uk.wikipedia: measured through Космос."]}
+        )
+        assert _messages(facts, named) == []
         unnamed = declared.model_copy(update={"caveats": ["Views show curiosity."]})
         assert any("must name uk.wikipedia" in m for m in _messages(facts, unnamed))
+
+    def test_a_caveat_may_quote_a_number_without_its_metric(self, tmp_path: Path) -> None:
+        _, run_dir = _run(tmp_path, "en")
+        facts, template = _facts(run_dir), _template(run_dir)
+        numbered = template.model_copy(
+            update={"caveats": [*template.caveats, "uk.wikipedia: +21 % may not last."]}
+        )
+        assert _messages(facts, numbered) == []
+
+    def test_labels_left_in_english_give_way_to_forms_without_words(self, tmp_path: Path) -> None:
+        pipeline, run_dir = _run(tmp_path, "de")
+        facts = _facts(run_dir)
+        # Only the PDF headings are translated, none of the chat's own labels.
+        ui = {k: f"DE {v}" for k, v in facts.template.ui.items() if k.startswith("report.")}
+        narrative = facts.template.model_copy(update={"ui": ui})
+        assert pipeline.narrate(run_dir, narrative).status == "accepted"
+        brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8")
+        assert "Topic:" not in brief
+        assert "«astronomy»" in brief
+        assert "I can also" not in brief
+        assert brief.splitlines()[-1].startswith("PDF: ")
+
+    def test_a_text_with_no_translated_label_is_rejected(self, tmp_path: Path) -> None:
+        _, run_dir = _run(tmp_path, "de")
+        facts = _facts(run_dir)
+        untranslated = facts.template.model_copy(update={"ui": {}})
+        assert any("facts.template.ui" in m for m in _messages(facts, untranslated))
 
     def test_the_run_writes_the_method_next_to_the_report(self, tmp_path: Path) -> None:
         _, run_dir = _run(tmp_path, "ru")
@@ -367,8 +401,9 @@ class TestRejections:
         facts, narrative = _facts(run_dir), _template(run_dir)
         # The template carries every label to translate; one left out stays English.
         assert narrative.ui
-        untranslated = narrative.model_copy(update={"ui": {}})
-        assert not any(p.block == "ui" for p in check_narrative(facts, untranslated))
+        some = dict(list(narrative.ui.items())[:1])
+        partly = narrative.model_copy(update={"ui": some})
+        assert not any(p.block == "ui" for p in check_narrative(facts, partly))
         ui = {key: f"DE {text}" for key, text in narrative.ui.items()}
         with_ui = narrative.model_copy(update={"ui": ui})
         assert _messages(facts, with_ui) == []

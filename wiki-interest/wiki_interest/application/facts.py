@@ -143,6 +143,8 @@ BLOCKS: tuple[BlockRule, ...] = (
 )
 _CHAT_FOLLOW_UPS = 3
 """How many next steps the chat answer offers."""
+_CHAT_MONTHS = 3
+"""How many months that stand out the chat answer names, as many as the PDF footer."""
 _BLANK_LINES = re.compile(r"\n{3,}")
 
 RULES: tuple[str, ...] = (
@@ -462,22 +464,10 @@ def _caveats(assessments: Sequence[AssessmentOut], *, measured_count: int) -> li
                 ),
             )
         )
+    # Months that stand out are not caveats the agent must write: the code states them in the
+    # chat answer and the PDF. As caveats they drew most rejections, a text with numbers
+    # in a block meant for short warnings (verified 2026-09-23 on the evals).
     for a in assessments:
-        # One caveat per pair for all its months: a separate id per month was the most
-        # frequent reason a text was rejected (verified 2026-09-23 on the evals).
-        months = [m for m in a.months if m.in_change and m.nature != "edition"]
-        if months:
-            listed = ", ".join(f"{m.month} ({m.nature})" for m in months)
-            out.append(
-                CaveatFact(
-                    id=f"months:{pair_id(a)}",
-                    meaning=(
-                        f"In {a.label}, {listed} stand{'s' if len(months) == 1 else ''} out and "
-                        "lie in the 12-month comparison: name them and the change without them."
-                    ),
-                    pair=a.label,
-                )
-            )
         if a.outcome == "no_article":
             meaning = f"{a.label} has no article on the topic: no article, not no interest."
         elif a.outcome == "substitute":
@@ -519,12 +509,7 @@ def template_narrative(
         decision=_decision_lines(decision, summary.assessments),
         next_step=decision.next_step if decision else "",
         caveats=template_caveats(summary, translator),
-        # Anomalous months are the agent's to describe: the template does not name them.
-        covered_caveats=[
-            c.id
-            for c in _caveats(summary.assessments, measured_count=measured)
-            if not c.id.startswith("months:")
-        ],
+        covered_caveats=[c.id for c in _caveats(summary.assessments, measured_count=measured)],
         ui=dict(ui or {}),
     )
 
@@ -547,17 +532,20 @@ def compose_chat(summary: AnalysisSummary, caveats: Sequence[str], translator: T
     """The answer the agent sends to the chat as it is, built from the report text.
 
     The agent's blocks are already checked and in the user's language; the code only lays
-    them out and adds the item analysed, a few next steps and the path to the PDF, so the
-    answer needs no second text and no second check.
+    them out and adds the item analysed, the months that stand out, a few next steps and the
+    path to the PDF, so the answer needs no second text and no second check. A label the
+    agent left untranslated gives way to a form without words (``PDF: <path>``) or is left
+    out, so the answer never switches to English.
 
     Args:
         summary: The summary as rendered, with the agent's text when it was accepted.
         caveats: The caveat items, the agent's or :func:`template_caveats`.
         translator: The report-language translator, with the agent's interface labels.
     """
+    t = translator
     decision = summary.decision
     lines = [
-        *_topic_lines(summary, translator),
+        *_topic_lines(summary, t),
         "",
         f"**{summary.verdict.headline}**",
         "",
@@ -573,39 +561,87 @@ def compose_chat(summary: AnalysisSummary, caveats: Sequence[str], translator: T
         decision.next_step if decision else "",
         "",
         *(f"- {line}" for line in caveats),
+        *_months_line(summary, t),
+        "",
+        *_offer_lines(summary, t),
     ]
-    offers = _follow_ups(summary)[:_CHAT_FOLLOW_UPS]
-    if offers:
-        instant = f" ({translator.t('chat.instant')})"
-        lines += [
-            "",
-            translator.t("chat.follow_ups"),
-            *(
-                f"- {translator.t(f'chat.follow_up.{f.id}')}{instant if f.cached else ''}"
-                for f in offers
-            ),
-        ]
     if summary.artifacts.report_pdf:
-        lines += ["", translator.t("chat.pdf", path=summary.artifacts.report_pdf)]
+        path = summary.artifacts.report_pdf
+        pdf = t.t("chat.pdf", path=path)
+        lines += ["", pdf if t.translates("chat.pdf") else f"PDF: {path}"]
     return _BLANK_LINES.sub("\n\n", "\n".join(lines)).strip()
+
+
+def _translated(t: Translator, *keys: str) -> bool:
+    """Whether every label read in the user's language.
+
+    Lookups record their keys for the agent to translate, so callers look a label up first
+    and ask this after: an untranslated label is still asked for on the next run.
+    """
+    return all(t.translates(key) for key in keys)
 
 
 def _topic_lines(summary: AnalysisSummary, t: Translator) -> list[str]:
     """Which item was analysed: the reader must see it was the language, not the snake."""
-    return [
-        t.t(
-            "summary.topic_line",
-            label=topic.label or topic.query,
-            description=(
-                t.t("gap.entity_description", description=topic.description)
-                if topic.description
-                else ""
-            ),
-            qid=topic.qid,
+    lines: list[str] = []
+    for topic in summary.resolution:
+        if topic.qid is None:
+            continue
+        label = topic.label or topic.query
+        description = (
+            t.t("gap.entity_description", description=topic.description)
+            if topic.description
+            else ""
         )
-        for topic in summary.resolution
-        if topic.qid is not None
+        line = t.t("summary.topic_line", label=label, description=description, qid=topic.qid)
+        if not _translated(t, "summary.topic_line", "gap.entity_description"):
+            tail = f" — {topic.description}" if topic.description else ""
+            line = f"«{label}»{tail} ({topic.qid})"
+        lines.append(line)
+    return lines
+
+
+def _months_line(summary: AnalysisSummary, t: Translator) -> list[str]:
+    """The months that stand out in the change and the change without each, as the PDF says."""
+    months = [
+        (a.label, m)
+        for a in summary.assessments
+        for m in a.months
+        if m.in_change and m.change_without is not None and m.multiples
+    ][:_CHAT_MONTHS]
+    if not months:
+        return []
+    items = [
+        t.t(
+            "report.footer_month_item",
+            label=label,
+            note=t.t(
+                f"chart.note.{m.nature}",
+                month=m.month,
+                multiple=t.number(max(m.multiples.values(), key=lambda v: abs(v - 1)), 1),
+            ),
+            change=t.percent(m.change_without, 0, signed=True),
+        )
+        for label, m in months
     ]
+    line = t.t("report.footer_months", items="; ".join(items))
+    keys = ["report.footer_months", "report.footer_month_item"]
+    keys += [f"chart.note.{m.nature}" for _, m in months]
+    return [f"- {line}"] if _translated(t, *keys) else []
+
+
+def _offer_lines(summary: AnalysisSummary, t: Translator) -> list[str]:
+    """A few next steps, the instant ones marked; left out unless the labels are translated."""
+    offers = _follow_ups(summary)[:_CHAT_FOLLOW_UPS]
+    if not offers:
+        return []
+    instant = f" ({t.t('chat.instant')})"
+    lines = [
+        t.t("chat.follow_ups"),
+        *(f"- {t.t(f'chat.follow_up.{f.id}')}{instant if f.cached else ''}" for f in offers),
+    ]
+    keys = ["chat.follow_ups", "chat.instant", *(f"chat.follow_up.{f.id}" for f in offers)]
+    return lines if _translated(t, *keys) else []
 
 
 def _decision_lines(

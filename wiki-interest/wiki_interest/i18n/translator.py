@@ -119,6 +119,10 @@ class Translator:
         finally:
             self._used = None
 
+    def translates(self, key: str) -> bool:
+        """Whether ``key`` reads in the requested language: its catalog, or the agent's text."""
+        return self.has_catalog or key in self._overrides
+
     def has(self, key: str) -> bool:
         """Whether ``key`` exists in this language or the English fallback."""
         return key in self._catalog or key in self._fallback

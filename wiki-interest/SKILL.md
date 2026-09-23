@@ -102,7 +102,8 @@ which may be read-only.
      `narrative.json` and render once more; where a problem says "write it as ...", use
      exactly those words.
    - `status: fallback` (rejected twice): the report keeps the code's text; relay
-     `summary_md` instead, numbers exactly as written.
+     `summary_md` instead, in the user's language (it is in English when the language has
+     no catalog), numbers exactly as written.
 8. **Follow-ups:** edit the same `request.json`, keep the same `session`, run again (cached
    data makes it fast), write a new `narrative.json` from the *new* `facts.json`:
 
