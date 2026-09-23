@@ -88,8 +88,7 @@ def test_ukrainian_report_is_localised(tmp_path: Path) -> None:
 def test_charts_are_embedded_as_relative_png_links_only(tmp_path: Path) -> None:
     text = _render(example_summary(), tmp_path)
     assert (
-        "![How visible the topic is inside each Wikipedia]"
-        "(charts/intermittent-fasting-per-million.png)"
+        "![Article views against edition traffic](charts/intermittent-fasting-per-million.png)"
     ) in text
     assert ".svg" not in text
 

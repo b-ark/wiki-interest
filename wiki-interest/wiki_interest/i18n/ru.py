@@ -116,7 +116,6 @@ MESSAGES: dict[str, str] = {
     "chart.axis_views": "просмотров в месяц",
     "chart.footnote": "Источник: {source} · Период: {period}",
     "chart.no_data": "Нет данных за этот период",
-    "chart.score_title": "Балл ранжирования",
     # -- вердикты ----------------------------------------------------------------------------
     "verdict.rank.headline": "Самая перспективная аудитория: {label} ({profile})",
     "verdict.none.headline": (
@@ -258,18 +257,8 @@ MESSAGES: dict[str, str] = {
     "basis.mixed": "по разделам",
     "finding.unit.per_million": "на миллион просмотров раздела",
     "finding.unit.views": "просмотров/мес",
-    "chart.views_title": "Просмотры за месяц: {label}",
-    "chart.edition_title": "Статья и весь раздел",
-    "chart.axis_index": "индекс, первый год = 100",
-    "chart.series_article": "статья",
-    "chart.series_edition": "весь {project}",
-    "chart.series_edition_short": "весь раздел",
     "chart.season_title": "Месяцы относительно обычного уровня",
     "chart.axis_season": "% к обычному уровню",
-    "chart.daily_title": "Просмотры за день, всплески выделены",
-    "chart.axis_daily": "просмотров за день",
-    "chart.views_compare_title": "Просмотры за месяц по разделам",
-    "chart.axis_views_log": "просмотров в месяц (лог. шкала)",
     "report.title_topic": "{topic}: интерес в Википедии",
     "report.context": "Связанные статьи (контекст, не учтены)",
     "report.method_note": "О методе",
@@ -304,8 +293,6 @@ MESSAGES: dict[str, str] = {
     "month.short.12": "дек",
     "summary.redirects": "+{count} перенаправл.",
     "finding.item.season": "{label}: {peak_month} {peak}, {trough_month} {trough}",
-    "chart.axis_per_million": "на миллион просмотров",
-    "chart.axis_score": "балл (0–1)",
     "finding.no_article": (
         "{label}: в этом разделе нет статьи на тему, поэтому он показан как «нет данных», а не как "
         "нулевой интерес."
@@ -378,12 +365,6 @@ MESSAGES: dict[str, str] = {
     ),
     "report.coverage_item": "{project}: {count}",
     "summary.decision": "Что это означает для решения",
-    "chart.share_title": "Насколько заметна тема внутри каждой Википедии",
-    "chart.share_single_title": "Насколько заметна тема внутри {label}",
-    "chart.share_subtitle": (
-        "Просмотры статьи на 1 млн просмотров всего языкового раздела: так можно сравнивать "
-        "Википедии разного размера"
-    ),
     "finding.item.season_tentative": "{label}: {peak_month} {peak}, {trough_month} {trough}",
     "limitation.scope": (
         "Анализ измеряет чтение одной основной статьи и её перенаправлений: это косвенный "
@@ -510,8 +491,6 @@ MESSAGES: dict[str, str] = {
     "col.views_growth": "Просмотры статьи: изменение",
     "col.edition_growth": "Трафик раздела: изменение",
     "col.trend": "Тренд доли внимания",
-    "chart.edition_growth_title": "Просмотры статьи и трафик раздела: изменение, {basis}",
-    "chart.axis_growth": "изменение, %",
     "edition.gaining": (
         "{label}: просмотры статьи {article}, трафик раздела {edition} → доля внимания растёт"
     ),
@@ -637,4 +616,35 @@ MESSAGES: dict[str, str] = {
         "{months} мес. к тем же месяцам год назад просмотры статьи {article}, трафик раздела "
         "{edition}, то есть доля продолжает расти."
     ),
+    "chart.index_title": "Просмотры статьи против трафика раздела",
+    "chart.index_subtitle": (
+        "Индекс: среднее первых 12 месяцев = 100, среднее за 3 месяца. Статья ниже раздела — тема "
+        "теряет долю внимания."
+    ),
+    "chart.axis_index": "индекс, первые 12 мес. = 100",
+    "chart.series_article_months": "просмотры статьи, месяц",
+    "chart.series_article_smooth": "просмотры статьи",
+    "chart.series_edition_short": "трафик раздела",
+    "chart.note.event": "{month} ×{multiple}",
+    "chart.note.possible_bot": "{month} ×{multiple}, возможно боты",
+    "chart.note.edition": "{month} раздел ×{multiple}",
+    "chart.note.unknown": "{month} ×{multiple}",
+    "chart.yoy_title": "{metric}: изменение к тем же месяцам год назад",
+    "chart.yoy_subtitle": "Каждая точка — последние 3 месяца к тем же 3 месяцам год назад.",
+    "chart.axis_growth": "изменение, %",
+    "chart.dumbbell_title": "{metric}: раньше и сейчас",
+    "chart.dumbbell_basis.yoy": "Среднее за предыдущие 12 месяцев и за последние 12 месяцев.",
+    "chart.dumbbell_basis.halves": "Среднее за первую и за вторую половину периода.",
+    "chart.dumbbell_basis.mixed": "Среднее за ранние и за поздние месяцы.",
+    "chart.series_before.yoy": "предыдущие 12 мес.",
+    "chart.series_after.yoy": "последние 12 мес.",
+    "chart.series_before.halves": "первая половина",
+    "chart.series_after.halves": "вторая половина",
+    "chart.series_before.mixed": "раньше",
+    "chart.series_after.mixed": "сейчас",
+    "chart.scatter_title": "{metric}: размер и изменение",
+    "chart.scatter_subtitle": "Правее — доля больше; выше линии — растёт, ниже — снижается.",
+    "chart.axis_log": "{unit}, логарифмическая шкала",
+    "chart.axis_per_million": "просмотров статьи на 1 млн просмотров раздела",
+    "chart.season_period": "Рассчитано за {start} – {end}.",
 }

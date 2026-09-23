@@ -6,7 +6,7 @@ import pytest
 
 from fixtures.summaries import example_summary
 from wiki_interest.adapters.matplotlib_charts import MatplotlibChartRenderer
-from wiki_interest.contracts.charts import ChartSeries, ChartSpec
+from wiki_interest.contracts.charts import ChartNote, ChartPanel, ChartPoint, ChartSeries, ChartSpec
 from wiki_interest.errors import RenderError
 
 PNG_MAGIC = b"\x89PNG"
@@ -191,3 +191,99 @@ def test_invalid_theme_file_raises_render_error(tmp_path: Path) -> None:
     broken.write_text('{"palette": []}', encoding="utf-8")
     with pytest.raises(RenderError):
         MatplotlibChartRenderer(theme_path=broken)
+
+
+def _panels(count: int) -> ChartSpec:
+    months = [f"2025-{m:02d}" for m in range(1, 13)]
+    panels = [
+        ChartPanel(
+            title=f"edition {n}",
+            series=[
+                ChartSeries(
+                    label="months",
+                    x=months,
+                    y=[100.0 + i for i in range(12)],
+                    style="points",
+                    color=0,
+                ),
+                ChartSeries(
+                    label="article",
+                    x=months,
+                    y=[None, None, *[101.0 + i for i in range(10)]],
+                    color=0,
+                ),
+                ChartSeries(label="edition", x=months, y=[100.0] * 12, style="dashed", color=1),
+            ],
+            notes=[
+                ChartNote(x="2025-05", text="2025-05 ×1.9, possibly bots"),
+                ChartNote(x="2025-07", text="2025-07 edition ×1.7", series=2),
+            ],
+        )
+        for n in range(count)
+    ]
+    return ChartSpec(
+        id="main",
+        kind="panels",
+        title="Article views against edition traffic",
+        subtitle="Index: mean of the first 12 months = 100. " * 4,
+        y_label="index",
+        panels=panels,
+        reference_y=100.0,
+        footnote="Source · Period",
+    )
+
+
+@pytest.mark.parametrize("count", [1, 2, 4, 5])
+def test_panels_render_one_per_edition_with_notes(
+    renderer: MatplotlibChartRenderer, tmp_path: Path, count: int
+) -> None:
+    _, svg = renderer.render(_panels(count), tmp_path)
+    text = svg.read_text(encoding="utf-8")
+    assert f"edition {count - 1}" in text
+    assert "possibly bots" in text
+    assert "Source · Period" in text
+
+
+def test_dumbbell_and_scatter_render(renderer: MatplotlibChartRenderer, tmp_path: Path) -> None:
+    dumbbell = ChartSpec(
+        id="before-after",
+        kind="dumbbell",
+        title="Before and now",
+        y_label="",
+        x_label="per million",
+        series=[
+            ChartSeries(label="before", x=["ru", "uk", "pl"], y=[33.7, 28.4, None], style="points"),
+            ChartSeries(label="now", x=["ru", "uk", "pl"], y=[27.9, 22.1, 23.1]),
+        ],
+    )
+    _, svg = renderer.render(dumbbell, tmp_path)
+    assert "27.9" in svg.read_text(encoding="utf-8")
+    scatter = ChartSpec(
+        id="size-change",
+        kind="scatter",
+        title="Size and change",
+        y_label="change, %",
+        x_label="per million, log scale",
+        points=[ChartPoint(label="uk", x=150.0, y=-13.0), ChartPoint(label="hu", x=42.0, y=-23.0)],
+        log_x=True,
+        reference_y=0.0,
+    )
+    _, svg = renderer.render(scatter, tmp_path)
+    text = svg.read_text(encoding="utf-8")
+    assert "hu" in text
+    assert "10^" not in text
+
+
+def test_a_chart_without_the_data_its_kind_needs_is_rejected() -> None:
+    with pytest.raises(ValueError, match="no data"):
+        ChartSpec(id="main", kind="panels", title="t", y_label="y")
+    with pytest.raises(ValueError, match="no data"):
+        ChartSpec(id="s", kind="scatter", title="t", y_label="y")
+    with pytest.raises(ValueError, match="no data"):
+        ChartSpec(
+            id="d",
+            kind="dumbbell",
+            title="t",
+            y_label="y",
+            series=[ChartSeries(label="a", x=["x"], y=[1.0])],
+        )

@@ -230,6 +230,23 @@ environment variable (`WIKI_INTEREST_SEASON_MIN_YEARS=6`, `WIKI_INTEREST_MIN_MOM
   it cannot trust. Profiles: **early niche** (fast growth, small audience), **growth market**
   (fast growth, large audience), **mature market** (flat), **declining**, **insufficient data**.
 
+### Charts
+
+- **Main chart**, every report: one panel per edition on a shared scale, the article's views
+  and the whole edition's traffic as indexes (mean of the first 12 months, or of the first
+  half of a shorter period, = 100), each as a 3-month average; pale dots are the article's
+  single months. The article's line below the edition's means the topic loses attention
+  share. Months that stand out (section 6) are ringed and listed under the panel's title.
+- **Second chart**, by the number of audiences: one topic in one or two editions, the share
+  (views without normalisation) of each month's last 3 months against the same 3 months a
+  year earlier; up to four audiences, the mean share of the previous 12 months and of the
+  last 12 ("dumbbells"; halves of a shorter period); five or more, the mean share (log axis)
+  against its headline change, one point per audience.
+- **Seasons**: the calendar-month profile, when section 6 says it deserves a chart, with the
+  months it was computed on.
+
+The palette is Okabe-Ito, readable with the common colour-vision deficiencies.
+
 ## 9. Limitations to state in every report
 
 - The analysis measures reading of one main article and its redirects: a proxy for interest

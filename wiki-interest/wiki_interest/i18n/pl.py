@@ -110,7 +110,6 @@ MESSAGES: dict[str, str] = {
     "chart.axis_views": "odsłon miesięcznie",
     "chart.footnote": "Źródło: {source} · Okres: {period}",
     "chart.no_data": "Brak danych za ten okres",
-    "chart.score_title": "Wynik rankingu",
     # -- werdykty ----------------------------------------------------------------------------
     "verdict.rank.headline": ("Najbardziej obiecująca grupa odbiorców: {label} ({profile})"),
     "verdict.none.headline": (
@@ -251,18 +250,8 @@ MESSAGES: dict[str, str] = {
     "basis.mixed": "według edycji",
     "finding.unit.per_million": "na milion odsłon edycji",
     "finding.unit.views": "odsłon/mies.",
-    "chart.views_title": "Odsłony miesięcznie: {label}",
-    "chart.edition_title": "Artykuł a cała edycja",
-    "chart.axis_index": "indeks, pierwszy rok = 100",
-    "chart.series_article": "artykuł",
-    "chart.series_edition": "cała {project}",
-    "chart.series_edition_short": "cała edycja",
     "chart.season_title": "Miesiące wobec zwykłego poziomu",
     "chart.axis_season": "% wobec zwykłego poziomu",
-    "chart.daily_title": "Odsłony dziennie, skoki zaznaczone",
-    "chart.axis_daily": "odsłon dziennie",
-    "chart.views_compare_title": "Odsłony miesięcznie według edycji",
-    "chart.axis_views_log": "odsłon miesięcznie (skala log.)",
     "report.title_topic": "{topic}: zainteresowanie w Wikipedii",
     "report.context": "Powiązane artykuły (kontekst, nieliczone)",
     "report.method_note": "O metodzie",
@@ -297,8 +286,6 @@ MESSAGES: dict[str, str] = {
     "month.short.12": "gru",
     "summary.redirects": "+{count} przekier.",
     "finding.item.season": "{label}: {peak_month} {peak}, {trough_month} {trough}",
-    "chart.axis_per_million": "na milion odsłon",
-    "chart.axis_score": "wynik (0–1)",
     "finding.no_article": (
         "{label}: w tej edycji nie ma artykułu na ten temat, więc pokazano ją jako „brak danych”, "
         "a nie zerowe zainteresowanie."
@@ -371,12 +358,6 @@ MESSAGES: dict[str, str] = {
     ),
     "report.coverage_item": "{project}: {count}",
     "summary.decision": "Co to oznacza dla decyzji",
-    "chart.share_title": "Jak widoczny jest temat w każdej Wikipedii",
-    "chart.share_single_title": "Jak widoczny jest temat w {label}",
-    "chart.share_subtitle": (
-        "Wyświetlenia artykułu na 1 mln wyświetleń całej edycji językowej: pozwala porównywać "
-        "Wikipedie różnej wielkości"
-    ),
     "finding.item.season_tentative": "{label}: {peak_month} {peak}, {trough_month} {trough}",
     "limitation.scope": (
         "Analiza mierzy czytanie jednego głównego artykułu i jego przekierowań: to pośrednia miara "
@@ -506,8 +487,6 @@ MESSAGES: dict[str, str] = {
     "col.views_growth": "Wyświetlenia artykułu: zmiana",
     "col.edition_growth": "Ruch edycji: zmiana",
     "col.trend": "Trend udziału w uwadze",
-    "chart.edition_growth_title": "Wyświetlenia artykułu i ruch edycji: zmiana, {basis}",
-    "chart.axis_growth": "zmiana, %",
     "edition.gaining": (
         "{label}: wyświetlenia artykułu {article}, ruch edycji {edition} → udział w uwadze rośnie"
     ),
@@ -638,4 +617,37 @@ MESSAGES: dict[str, str] = {
         "{months} mies. wobec tych samych miesięcy rok wcześniej wyświetlenia artykułu {article}, "
         "ruch edycji {edition}, więc udział nadal rośnie."
     ),
+    "chart.index_title": "Wyświetlenia artykułu wobec ruchu edycji",
+    "chart.index_subtitle": (
+        "Indeks: średnia pierwszych 12 miesięcy = 100, średnia z 3 miesięcy. Artykuł poniżej "
+        "edycji — temat traci udział w uwadze."
+    ),
+    "chart.axis_index": "indeks, pierwsze 12 mies. = 100",
+    "chart.series_article_months": "wyświetlenia artykułu, miesiąc",
+    "chart.series_article_smooth": "wyświetlenia artykułu",
+    "chart.series_edition_short": "ruch edycji",
+    "chart.note.event": "{month} ×{multiple}",
+    "chart.note.possible_bot": "{month} ×{multiple}, możliwe boty",
+    "chart.note.edition": "{month} edycja ×{multiple}",
+    "chart.note.unknown": "{month} ×{multiple}",
+    "chart.yoy_title": "{metric}: zmiana wobec tych samych miesięcy rok wcześniej",
+    "chart.yoy_subtitle": (
+        "Każdy punkt — ostatnie 3 miesiące wobec tych samych 3 miesięcy rok wcześniej."
+    ),
+    "chart.axis_growth": "zmiana, %",
+    "chart.dumbbell_title": "{metric}: wcześniej i teraz",
+    "chart.dumbbell_basis.yoy": "Średnia z poprzednich 12 miesięcy i z ostatnich 12 miesięcy.",
+    "chart.dumbbell_basis.halves": "Średnia z pierwszej i z drugiej połowy okresu.",
+    "chart.dumbbell_basis.mixed": "Średnia z wcześniejszych i z późniejszych miesięcy.",
+    "chart.series_before.yoy": "poprzednie 12 mies.",
+    "chart.series_after.yoy": "ostatnie 12 mies.",
+    "chart.series_before.halves": "pierwsza połowa",
+    "chart.series_after.halves": "druga połowa",
+    "chart.series_before.mixed": "wcześniej",
+    "chart.series_after.mixed": "teraz",
+    "chart.scatter_title": "{metric}: wielkość i zmiana",
+    "chart.scatter_subtitle": "Dalej w prawo — większy udział; nad linią — rośnie, pod — spada.",
+    "chart.axis_log": "{unit}, skala logarytmiczna",
+    "chart.axis_per_million": "wyświetleń artykułu na 1 mln wyświetleń edycji",
+    "chart.season_period": "Obliczono za {start} – {end}.",
 }

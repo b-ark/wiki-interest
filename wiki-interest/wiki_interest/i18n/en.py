@@ -117,7 +117,6 @@ MESSAGES: dict[str, str] = {
     "chart.axis_views": "views per month",
     "chart.footnote": "Source: {source} · Period: {period}",
     "chart.no_data": "No data for this period",
-    "chart.score_title": "Ranking score",
     # -- verdicts (composed by the summary builder) ---------------------------------------
     "verdict.rank.headline": "Most promising audience: {label} ({profile})",
     "verdict.none.headline": (
@@ -254,18 +253,8 @@ MESSAGES: dict[str, str] = {
     "basis.mixed": "per edition",
     "finding.unit.per_million": "per million edition views",
     "finding.unit.views": "views/month",
-    "chart.views_title": "Monthly views: {label}",
-    "chart.edition_title": "Article vs the whole edition",
-    "chart.axis_index": "index, first year = 100",
-    "chart.series_article": "article",
-    "chart.series_edition": "all of {project}",
-    "chart.series_edition_short": "whole edition",
     "chart.season_title": "Months against the usual level",
     "chart.axis_season": "% against the usual level",
-    "chart.daily_title": "Daily views, bursts shaded",
-    "chart.axis_daily": "views per day",
-    "chart.views_compare_title": "Monthly views by edition",
-    "chart.axis_views_log": "views per month (log scale)",
     "report.title_topic": "{topic}: interest on Wikipedia",
     "report.context": "Related articles (context, not counted)",
     "report.method_note": "About the method",
@@ -302,8 +291,6 @@ MESSAGES: dict[str, str] = {
     "month.short.12": "Dec",
     "summary.redirects": "+{count} redirects",
     "finding.item.season": "{label}: {peak_month} {peak}, {trough_month} {trough}",
-    "chart.axis_per_million": "per million views",
-    "chart.axis_score": "score (0–1)",
     "finding.no_article": (
         "{label}: there is no article on the topic in this edition, so it is reported as “no "
         "data”, not as zero interest."
@@ -377,12 +364,6 @@ MESSAGES: dict[str, str] = {
     ),
     "report.coverage_item": "{project}: {count}",
     "summary.decision": "What this means for the decision",
-    "chart.share_title": "How visible the topic is inside each Wikipedia",
-    "chart.share_single_title": "How visible the topic is inside {label}",
-    "chart.share_subtitle": (
-        "Views of the article per million views of the whole language edition: comparable across "
-        "Wikipedias of different size"
-    ),
     "finding.item.season_tentative": "{label}: {peak_month} {peak}, {trough_month} {trough}",
     "limitation.scope": (
         "The analysis measures reading of one main article and its redirects: a proxy for interest "
@@ -512,8 +493,6 @@ MESSAGES: dict[str, str] = {
     "col.views_growth": "Article views: change",
     "col.edition_growth": "Edition traffic: change",
     "col.trend": "Attention share trend",
-    "chart.edition_growth_title": "Article views and edition traffic: change, {basis}",
-    "chart.axis_growth": "change, %",
     "edition.gaining": (
         "{label}: article views {article}, edition traffic {edition} → the attention share rises"
     ),
@@ -640,4 +619,35 @@ MESSAGES: dict[str, str] = {
         "last {months} months against the same months a year earlier, article views {article} and "
         "edition traffic {edition}, so the share keeps rising."
     ),
+    "chart.index_title": "Article views against edition traffic",
+    "chart.index_subtitle": (
+        "Index: mean of the first 12 months = 100, 3-month average. The article below its edition: "
+        "the topic loses attention share."
+    ),
+    "chart.axis_index": "index, first 12 months = 100",
+    "chart.series_article_months": "article views, month",
+    "chart.series_article_smooth": "article views",
+    "chart.series_edition_short": "edition traffic",
+    "chart.note.event": "{month} ×{multiple}",
+    "chart.note.possible_bot": "{month} ×{multiple}, possibly bots",
+    "chart.note.edition": "{month} edition ×{multiple}",
+    "chart.note.unknown": "{month} ×{multiple}",
+    "chart.yoy_title": "{metric}: change against the same months a year earlier",
+    "chart.yoy_subtitle": "Each point: the last 3 months against the same 3 months a year earlier.",
+    "chart.axis_growth": "change, %",
+    "chart.dumbbell_title": "{metric}: before and now",
+    "chart.dumbbell_basis.yoy": "Mean of the previous 12 months and of the last 12 months.",
+    "chart.dumbbell_basis.halves": "Mean of the first and of the second half of the period.",
+    "chart.dumbbell_basis.mixed": "Mean of the earlier and of the later months.",
+    "chart.series_before.yoy": "previous 12 months",
+    "chart.series_after.yoy": "last 12 months",
+    "chart.series_before.halves": "first half",
+    "chart.series_after.halves": "second half",
+    "chart.series_before.mixed": "before",
+    "chart.series_after.mixed": "now",
+    "chart.scatter_title": "{metric}: size and change",
+    "chart.scatter_subtitle": "Right: a larger share; above the line: growing, below: shrinking.",
+    "chart.axis_log": "{unit}, log scale",
+    "chart.axis_per_million": "article views per million edition views",
+    "chart.season_period": "Computed on {start} – {end}.",
 }

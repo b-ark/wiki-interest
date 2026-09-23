@@ -175,17 +175,17 @@ class TestCompare:
     def test_charts_for_compare(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
         assert [(c.id, c.kind, c.size) for c in summary.charts] == [
-            ("share", "lines", "wide"),
-            ("edition-growth", "grouped_bars", "half"),
+            ("main", "panels", "wide"),
+            ("change", "lines", "wide"),
         ]
-        assert all(c.footnote is None for c in summary.charts)
-        share = summary.charts[0]
-        assert share.subtitle is not None
-        assert [s.label for s in share.series] == ["uk.wikipedia", "cs.wikipedia"]
-        assert share.series[0].x[0] == "2024-09"
-        growth = summary.charts[1]
-        assert growth.series[0].x == ["uk", "cs"]  # short category labels
-        assert growth.reference_y == 0.0
+        main = summary.charts[0]
+        assert main.subtitle is not None
+        assert main.footnote is not None
+        assert [p.title for p in main.panels] == ["uk.wikipedia", "cs.wikipedia"]
+        assert main.panels[0].series[0].x[0] == "2024-09"
+        change = summary.charts[1]
+        assert [s.label for s in change.series] == ["uk.wikipedia", "cs.wikipedia"]
+        assert change.reference_y == 0.0
 
     def test_artifacts_point_into_the_run_dir(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
@@ -215,7 +215,7 @@ class TestCompare:
         assert summary.happening[0].startswith("Article views per month, average over the period")
         assert any("without normalising" in lim for lim in summary.limitations)
         assert any("per-million" in step for step in summary.next_steps)
-        assert summary.charts[0].id == "views"
+        assert summary.charts[1].title.startswith("Article views")
 
 
 class TestAssessAndRank:
@@ -226,9 +226,9 @@ class TestAssessAndRank:
         assert summary.happening[1] == (
             "Attention share, last 12 months vs the 12 before: uk.wikipedia +21%."
         )
-        assert [c.id for c in summary.charts] == ["share-astronomy-uk", "edition-astronomy-uk"]
-        assert summary.charts[0].trend_y is not None
-        assert summary.charts[1].reference_y == 100.0
+        assert [c.id for c in summary.charts] == ["main", "change"]
+        assert [p.title for p in summary.charts[0].panels] == ["uk.wikipedia"]
+        assert (summary.charts[0].reference_y, summary.charts[1].reference_y) == (100.0, 0.0)
         assert summary.decision is not None
         assert summary.decision.lines == []  # one audience: the answer says it all
 
@@ -239,7 +239,7 @@ class TestAssessAndRank:
         assert "attention share +21%" in summary.ranking[0].rationale
         assert summary.ranking[-1].rationale == "insufficient data for ranking"
         assert any(step.startswith("Research next") for step in summary.next_steps)
-        assert summary.charts[-1].id == "ranking-score"
+        assert summary.charts[-1].id == "change"  # scores are in the ranking table
 
 
 def test_rank_headline_admits_that_every_edition_declines(tmp_path: Path) -> None:

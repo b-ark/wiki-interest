@@ -56,7 +56,7 @@ class TestSuccessfulRun:
         assert (run_dir / "report.pdf").exists()
         pngs = sorted((run_dir / "charts").glob("*.png"))
         assert {p.stem for p in pngs} == {c.id for c in outcome.summary.charts}
-        assert {"share", "edition-growth"} <= {p.stem for p in pngs}
+        assert {"main", "change"} <= {p.stem for p in pngs}
         assert len(PdfReader(run_dir / "report.pdf").pages) == 1
         payload = outcome.to_dict()
         assert payload["status"] == "ok"
@@ -98,9 +98,10 @@ class TestSuccessfulRun:
         assess = _pipeline(tmp_path).run(
             _request(question_type="assess", projects=["uk"]), _context(tmp_path, "assess")
         )
-        assert [c.kind for c in assess.summary.charts] == ["trend", "lines"]
+        assert [c.kind for c in assess.summary.charts] == ["panels", "lines"]
         rank = _pipeline(tmp_path).run(_request(question_type="rank"), _context(tmp_path, "rank"))
-        assert [c.kind for c in rank.summary.charts] == ["lines", "grouped_bars", "bars"]
+        # Two editions of one topic: the change month by month, whatever the question.
+        assert [c.kind for c in rank.summary.charts] == ["panels", "lines"]
         assert [r.rank for r in rank.summary.ranking] == [1, 2]
         assert rank.summary.ranking[0].project == "uk.wikipedia"
 

@@ -20,10 +20,11 @@ matplotlib.use("Agg")  # Must precede any pyplot/figure import: never rely on a 
 
 import numpy as np
 from matplotlib.figure import Figure
+from matplotlib.ticker import FuncFormatter
 from matplotlib.typing import RcKeyType
 
 from wiki_interest.adapters.report_theme import ReportTheme
-from wiki_interest.contracts.charts import ChartSeries, ChartSpec
+from wiki_interest.contracts.charts import ChartPanel, ChartSeries, ChartSpec
 from wiki_interest.errors import RenderError
 
 if TYPE_CHECKING:
@@ -64,9 +65,24 @@ SUBTITLE_LINE_HEIGHT = 1.3
 SUBTITLE_WIDTH_SHARE = 0.85
 """Share of the figure width the subtitle may take; the rest is the y-axis label."""
 CHAR_MM_PER_PT = 0.2
+"""Average width of a DejaVu Sans character per point of font size, in millimetres."""
 MAX_INSIDE_LEGEND = 2
 """A wide line chart with more series than this gets its legend outside the plot."""
-"""Average width of a DejaVu Sans character per point of font size, in millimetres."""
+MAX_PANEL_COLUMNS = 3
+EXTRA_ROW_HEIGHT = 0.75
+"""Each further row of panels adds this share of a one-row chart's height."""
+PT_TO_MM = 0.3528
+HEADER_GAP_MM = 2.0
+POINT_ALPHA = 0.35
+POINT_SCALE = 0.8
+DASHED_WIDTH = 0.9
+PANEL_ROW_HEIGHT = 1.4
+"""A one-row panel chart is this many times a wide chart's height: header, legend, ticks."""
+MIN_PANEL_TICKS = 3
+LEGEND_ROW_MM = 7.0
+RING_SCALE = 2.2
+DUMBBELL_LINE_WIDTH = 2.0
+LABEL_OFFSET_PT = 4
 
 
 class MatplotlibChartRenderer:
@@ -130,6 +146,8 @@ class MatplotlibChartRenderer:
 
     def _draw(self, spec: ChartSpec) -> Figure:
         chart = self._theme.chart
+        if spec.kind == "panels":
+            return self._draw_panels(spec)
         width, height = (
             (chart.half_width_mm, chart.half_height_mm)
             if spec.size == "half"
@@ -138,7 +156,11 @@ class MatplotlibChartRenderer:
         figure = Figure(figsize=(width / MM_PER_INCH, height / MM_PER_INCH), dpi=chart.dpi)
         axes = figure.add_subplot()
         self._style_axes(axes, spec)
-        if _is_empty(spec):
+        if spec.kind == "scatter":
+            self._draw_scatter(axes, spec)
+        elif spec.kind == "dumbbell":
+            self._draw_dumbbell(axes, spec)
+        elif _is_empty(spec):
             self._draw_empty(axes, spec.series[0].x)
         elif spec.kind == "bars":
             self._draw_bars(axes, spec.series[0], spec.value_suffix)
@@ -203,20 +225,42 @@ class MatplotlibChartRenderer:
             color=self._theme.muted_color,
         )
 
+    def _plot_series(self, axes: Axes, one: ChartSeries, index: int, *, markers: bool) -> None:
+        """One series in its style: a line, a dashed reference, or pale monthly points."""
+        theme = self._theme
+        color = theme.palette[(one.color if one.color is not None else index) % len(theme.palette)]
+        x = range(len(one.x))
+        y = _as_array(one.y)
+        if one.style == "points":
+            axes.plot(
+                x,
+                y,
+                linestyle="none",
+                marker="o",
+                markersize=theme.chart.marker_size * POINT_SCALE,
+                color=color,
+                alpha=POINT_ALPHA,
+                label=one.label,
+            )
+            return
+        dashed = one.style == "dashed"
+        axes.plot(
+            x,
+            y,
+            color=color,
+            linewidth=theme.chart.line_width * (DASHED_WIDTH if dashed else 1.0),
+            linestyle="--" if dashed else "-",
+            marker="o" if markers and not dashed and len(one.x) <= MAX_MARKED_POINTS else "",
+            markersize=theme.chart.marker_size,
+            label=one.label,
+        )
+
     def _draw_lines(
         self, axes: Axes, series: Sequence[ChartSeries], *, legend_outside: bool = False
     ) -> None:
         theme = self._theme
         for index, one in enumerate(series):
-            axes.plot(
-                range(len(one.x)),
-                _as_array(one.y),
-                color=theme.palette[index % len(theme.palette)],
-                linewidth=theme.chart.line_width,
-                marker="o" if len(one.x) <= MAX_MARKED_POINTS else "",
-                markersize=theme.chart.marker_size,
-                label=one.label,
-            )
+            self._plot_series(axes, one, index, markers=True)
         self._label_x(axes, _longest_x(series))
         if legend_outside:
             # Many lines leave no empty corner; the legend goes right of the plot instead.
@@ -341,13 +385,196 @@ class MatplotlibChartRenderer:
             )
         self._label_x(axes, series.x)
 
-    def _label_x(self, axes: Axes, labels: Sequence[str]) -> None:
+    # -- small multiples ----------------------------------------------------------------------
+
+    def _draw_panels(self, spec: ChartSpec) -> Figure:
+        """One panel per edition on a shared value axis, the title and subtitle above all."""
+        theme = self._theme
+        chart = theme.chart
+        count = len(spec.panels)
+        columns = 2 if count == 4 else min(MAX_PANEL_COLUMNS, count)  # noqa: PLR2004 -- 2x2
+        rows = math.ceil(count / columns)
+        height = chart.height_mm * (PANEL_ROW_HEIGHT + EXTRA_ROW_HEIGHT * (rows - 1))
+        figure = Figure(figsize=(chart.width_mm / MM_PER_INCH, height / MM_PER_INCH), dpi=chart.dpi)
+        grid = figure.subplots(rows, columns, sharey=True, squeeze=False)
+        cells = [axes for row in grid for axes in row]
+        ticks = max(MIN_PANEL_TICKS, chart.max_x_ticks // (2 * columns))
+        for axes, panel in zip(cells, spec.panels, strict=False):
+            self._draw_panel(axes, panel, spec, ticks)
+        for axes in cells[count:]:
+            axes.set_visible(False)
+        # One axis label and one legend for all panels, the legend under them.
+        figure.supylabel(spec.y_label, fontsize=chart.small_size_pt, x=0.005)
+        handles, labels = cells[0].get_legend_handles_labels()
+        legend_band = LEGEND_ROW_MM / height
+        footnote_band = FOOTNOTE_BAND if spec.footnote else 0.0
+        figure.legend(
+            handles,
+            labels,
+            loc="lower center",
+            ncol=len(labels),
+            frameon=False,
+            fontsize=chart.small_size_pt,
+            bbox_to_anchor=(0.5, footnote_band),
+        )
+        top = self._figure_header(figure, spec, height)
+        self._add_footnote(figure, spec.footnote, top=top, bottom=legend_band)
+        return figure
+
+    def _draw_panel(self, axes: Axes, panel: ChartPanel, spec: ChartSpec, ticks: int) -> None:
+        """One edition; months that stand out are ringed and listed under the panel title."""
+        theme = self._theme
+        small = theme.chart.small_size_pt
+        pad = TITLE_PAD_PT
+        if panel.notes:
+            axes.annotate(
+                " · ".join(note.text for note in panel.notes),
+                xy=(0, 1),
+                xycoords="axes fraction",
+                xytext=(0, TITLE_PAD_PT / 2),
+                textcoords="offset points",
+                fontsize=small,
+                color=theme.muted_color,
+                ha="left",
+                va="bottom",
+            )
+            pad += small * SUBTITLE_LINE_HEIGHT
+        axes.set_title(panel.title, fontsize=theme.chart.font_size_pt, loc="left", pad=pad)
+        axes.grid(True, axis="y", color=theme.grid_color, linewidth=0.6)
+        axes.set_axisbelow(True)
+        for side in ("top", "right"):
+            axes.spines[side].set_visible(False)
+        for index, one in enumerate(panel.series):
+            self._plot_series(axes, one, index, markers=False)
+        if spec.reference_y is not None:
+            axes.axhline(
+                spec.reference_y,
+                color=theme.muted_color,
+                linewidth=REFERENCE_LINE_WIDTH,
+                linestyle=":",
+            )
+        labels = _longest_x(panel.series)
+        for note in panel.notes:
+            if note.x not in labels:
+                continue
+            position = labels.index(note.x)
+            target = panel.series[min(note.series, len(panel.series) - 1)]
+            value = target.y[position] if position < len(target.y) else None
+            if value is None:
+                continue
+            axes.plot(
+                [position],
+                [value],
+                marker="o",
+                markersize=theme.chart.marker_size * RING_SCALE,
+                markerfacecolor="none",
+                markeredgecolor=theme.text_color,
+                markeredgewidth=0.8,
+                linestyle="none",
+            )
+        self._label_x(axes, labels, max_ticks=ticks)
+
+    def _figure_header(self, figure: Figure, spec: ChartSpec, height_mm: float) -> float:
+        """Title and subtitle across the whole figure; returns the top of the plotting area."""
+        theme = self._theme
+        chart = theme.chart
+        figure.text(0.01, 0.99, spec.title, fontsize=chart.title_size_pt, ha="left", va="top")
+        used_mm = chart.title_size_pt * PT_TO_MM * SUBTITLE_LINE_HEIGHT + HEADER_GAP_MM
+        if spec.subtitle:
+            char_mm = chart.small_size_pt * CHAR_MM_PER_PT
+            lines = textwrap.wrap(
+                spec.subtitle, int(chart.width_mm * SUBTITLE_WIDTH_SHARE / char_mm)
+            )
+            figure.text(
+                0.01,
+                1 - used_mm / height_mm,
+                "\n".join(lines),
+                fontsize=chart.small_size_pt,
+                color=theme.muted_color,
+                ha="left",
+                va="top",
+            )
+            used_mm += len(lines) * chart.small_size_pt * PT_TO_MM * SUBTITLE_LINE_HEIGHT
+        return 1 - (used_mm + HEADER_GAP_MM) / height_mm
+
+    # -- before and after, size and change ---------------------------------------------------
+
+    def _draw_dumbbell(self, axes: Axes, spec: ChartSpec) -> None:
+        """Per category, the earlier value and the later one joined by a line, top to bottom."""
+        theme = self._theme
+        before, after = spec.series
+        count = len(before.x)
+        positions = [count - 1 - i for i in range(count)]
+        for position, start, end in zip(positions, before.y, after.y, strict=True):
+            if start is None or end is None:
+                continue
+            axes.plot(
+                [start, end],
+                [position, position],
+                color=theme.grid_color,
+                linewidth=DUMBBELL_LINE_WIDTH,
+                zorder=1,
+            )
+        for index, one in enumerate((before, after)):
+            color = theme.palette[
+                (one.color if one.color is not None else index) % len(theme.palette)
+            ]
+            xs = [v for v in one.y if v is not None]
+            ys = [p for p, v in zip(positions, one.y, strict=True) if v is not None]
+            axes.scatter(xs, ys, color=color, zorder=2, label=one.label, s=28)
+        for position, end in zip(positions, after.y, strict=True):
+            if end is not None:
+                axes.annotate(
+                    self._value_label(end, spec.value_suffix),
+                    (end, position),
+                    xytext=(LABEL_OFFSET_PT, LABEL_OFFSET_PT),
+                    textcoords="offset points",
+                    fontsize=theme.chart.small_size_pt,
+                )
+        axes.set_yticks(positions)
+        axes.set_yticklabels(before.x, fontsize=theme.chart.small_size_pt)
+        axes.set_ylim(-0.7, count - 0.3)
+        axes.grid(True, axis="x", color=theme.grid_color, linewidth=0.6)
+        axes.grid(False, axis="y")
+        if spec.x_label:
+            axes.set_xlabel(spec.x_label, fontsize=theme.chart.small_size_pt)
+        axes.legend(frameon=False, fontsize=theme.chart.small_size_pt, loc="best")
+
+    def _draw_scatter(self, axes: Axes, spec: ChartSpec) -> None:
+        """Labelled points: size of the share (often on a log axis) against its change."""
+        theme = self._theme
+        axes.scatter(
+            [p.x for p in spec.points],
+            [p.y for p in spec.points],
+            color=theme.palette[0],
+            s=28,
+            zorder=2,
+        )
+        for point in spec.points:
+            axes.annotate(
+                point.label,
+                (point.x, point.y),
+                xytext=(LABEL_OFFSET_PT, LABEL_OFFSET_PT),
+                textcoords="offset points",
+                fontsize=theme.chart.small_size_pt,
+            )
+        if spec.log_x:
+            axes.set_xscale("log")
+            # Plain numbers ("40", "100") instead of "4 x 10^1".
+            axes.xaxis.set_major_formatter(FuncFormatter(lambda v, _: _compact_number(v)))
+            axes.xaxis.set_minor_formatter(FuncFormatter(lambda v, _: _compact_number(v)))
+            axes.tick_params(axis="x", which="both", labelsize=theme.chart.small_size_pt)
+        if spec.x_label:
+            axes.set_xlabel(spec.x_label, fontsize=theme.chart.small_size_pt)
+        axes.grid(True, axis="x", color=theme.grid_color, linewidth=0.6)
+
+    def _label_x(self, axes: Axes, labels: Sequence[str], *, max_ticks: int | None = None) -> None:
         """Show at most ``max_x_ticks`` evenly spaced labels; rotate when they would collide."""
         if not labels:
             return
-        step = max(1, math.ceil(len(labels) / self._theme.chart.max_x_ticks))
+        step = max(1, math.ceil(len(labels) / (max_ticks or self._theme.chart.max_x_ticks)))
         ticks = list(range(0, len(labels), step))
-        rotate = len(labels) > LABEL_ROTATION_THRESHOLD
+        rotate = len(ticks) > LABEL_ROTATION_THRESHOLD
         axes.set_xticks(ticks)
         axes.set_xticklabels(
             [labels[i] for i in ticks],
@@ -357,9 +584,11 @@ class MatplotlibChartRenderer:
         )
         axes.set_xlim(-HALF_BAR, len(labels) - HALF_BAR)
 
-    def _add_footnote(self, figure: Figure, footnote: str | None) -> None:
+    def _add_footnote(
+        self, figure: Figure, footnote: str | None, *, top: float = 1.0, bottom: float = 0.0
+    ) -> None:
         band = FOOTNOTE_BAND if footnote else 0.0
-        figure.tight_layout(rect=(0, band, 1, 1))
+        figure.tight_layout(rect=(0.02 if bottom else 0, band + bottom, 1, top))
         if footnote:
             figure.text(
                 0.01,

@@ -114,7 +114,6 @@ MESSAGES: dict[str, str] = {
     "chart.axis_views": "переглядів на місяць",
     "chart.footnote": "Джерело: {source} · Період: {period}",
     "chart.no_data": "Немає даних за цей період",
-    "chart.score_title": "Бал ранжування",
     # -- вердикти ----------------------------------------------------------------------------
     "verdict.rank.headline": "Найперспективніша аудиторія: {label} ({profile})",
     "verdict.none.headline": (
@@ -253,18 +252,8 @@ MESSAGES: dict[str, str] = {
     "basis.mixed": "по розділах",
     "finding.unit.per_million": "на мільйон переглядів розділу",
     "finding.unit.views": "переглядів/міс",
-    "chart.views_title": "Перегляди за місяць: {label}",
-    "chart.edition_title": "Стаття і весь розділ",
-    "chart.axis_index": "індекс, перший рік = 100",
-    "chart.series_article": "стаття",
-    "chart.series_edition": "увесь {project}",
-    "chart.series_edition_short": "весь розділ",
     "chart.season_title": "Місяці відносно звичайного рівня",
     "chart.axis_season": "% до звичайного рівня",
-    "chart.daily_title": "Перегляди за день, сплески виділено",
-    "chart.axis_daily": "переглядів за день",
-    "chart.views_compare_title": "Перегляди за місяць за розділами",
-    "chart.axis_views_log": "переглядів на місяць (лог. шкала)",
     "report.title_topic": "{topic}: інтерес у Вікіпедії",
     "report.context": "Пов’язані статті (контекст, не враховано)",
     "report.method_note": "Про метод",
@@ -299,8 +288,6 @@ MESSAGES: dict[str, str] = {
     "month.short.12": "гру",
     "summary.redirects": "+{count} перенаправл.",
     "finding.item.season": "{label}: {peak_month} {peak}, {trough_month} {trough}",
-    "chart.axis_per_million": "на мільйон переглядів",
-    "chart.axis_score": "бал (0–1)",
     "finding.no_article": (
         "{label}: у цьому розділі немає статті на тему, тому він показаний як «немає даних», а не "
         "як нульовий інтерес."
@@ -371,12 +358,6 @@ MESSAGES: dict[str, str] = {
     ),
     "report.coverage_item": "{project}: {count}",
     "summary.decision": "Що це означає для рішення",
-    "chart.share_title": "Наскільки помітна тема всередині кожної Вікіпедії",
-    "chart.share_single_title": "Наскільки помітна тема всередині {label}",
-    "chart.share_subtitle": (
-        "Перегляди статті на 1 млн переглядів усього мовного розділу: так можна порівнювати "
-        "Вікіпедії різного розміру"
-    ),
     "finding.item.season_tentative": "{label}: {peak_month} {peak}, {trough_month} {trough}",
     "limitation.scope": (
         "Аналіз вимірює читання однієї основної статті та її перенаправлень: це непрямий показник "
@@ -503,8 +484,6 @@ MESSAGES: dict[str, str] = {
     "col.views_growth": "Перегляди статті: зміна",
     "col.edition_growth": "Трафік розділу: зміна",
     "col.trend": "Тренд частки уваги",
-    "chart.edition_growth_title": "Перегляди статті й трафік розділу: зміна, {basis}",
-    "chart.axis_growth": "зміна, %",
     "edition.gaining": (
         "{label}: перегляди статті {article}, трафік розділу {edition} → частка уваги зростає"
     ),
@@ -625,4 +604,35 @@ MESSAGES: dict[str, str] = {
         "{months} міс. до тих самих місяців рік тому перегляди статті {article}, трафік розділу "
         "{edition}, тобто частка далі зростає."
     ),
+    "chart.index_title": "Перегляди статті проти трафіку розділу",
+    "chart.index_subtitle": (
+        "Індекс: середнє перших 12 місяців = 100, середнє за 3 місяці. Стаття нижче розділу — тема "
+        "втрачає частку уваги."
+    ),
+    "chart.axis_index": "індекс, перші 12 міс. = 100",
+    "chart.series_article_months": "перегляди статті, місяць",
+    "chart.series_article_smooth": "перегляди статті",
+    "chart.series_edition_short": "трафік розділу",
+    "chart.note.event": "{month} ×{multiple}",
+    "chart.note.possible_bot": "{month} ×{multiple}, можливо боти",
+    "chart.note.edition": "{month} розділ ×{multiple}",
+    "chart.note.unknown": "{month} ×{multiple}",
+    "chart.yoy_title": "{metric}: зміна до тих самих місяців рік тому",
+    "chart.yoy_subtitle": "Кожна точка — останні 3 місяці до тих самих 3 місяців рік тому.",
+    "chart.axis_growth": "зміна, %",
+    "chart.dumbbell_title": "{metric}: раніше і зараз",
+    "chart.dumbbell_basis.yoy": "Середнє за попередні 12 місяців і за останні 12 місяців.",
+    "chart.dumbbell_basis.halves": "Середнє за першу і за другу половину періоду.",
+    "chart.dumbbell_basis.mixed": "Середнє за ранні і за пізні місяці.",
+    "chart.series_before.yoy": "попередні 12 міс.",
+    "chart.series_after.yoy": "останні 12 міс.",
+    "chart.series_before.halves": "перша половина",
+    "chart.series_after.halves": "друга половина",
+    "chart.series_before.mixed": "раніше",
+    "chart.series_after.mixed": "зараз",
+    "chart.scatter_title": "{metric}: розмір і зміна",
+    "chart.scatter_subtitle": "Правіше — частка більша; вище лінії — зростає, нижче — знижується.",
+    "chart.axis_log": "{unit}, логарифмічна шкала",
+    "chart.axis_per_million": "переглядів статті на 1 млн переглядів розділу",
+    "chart.season_period": "Розраховано за {start} – {end}.",
 }

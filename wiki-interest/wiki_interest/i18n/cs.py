@@ -110,7 +110,6 @@ MESSAGES: dict[str, str] = {
     "chart.axis_views": "zobrazení měsíčně",
     "chart.footnote": "Zdroj: {source} · Období: {period}",
     "chart.no_data": "Za toto období nejsou data",
-    "chart.score_title": "Skóre řazení",
     # -- verdikty ----------------------------------------------------------------------------
     "verdict.rank.headline": "Nejslibnější publikum: {label} ({profile})",
     "verdict.none.headline": (
@@ -248,18 +247,8 @@ MESSAGES: dict[str, str] = {
     "basis.mixed": "podle edic",
     "finding.unit.per_million": "na milion zobrazení edice",
     "finding.unit.views": "zobrazení/měs.",
-    "chart.views_title": "Zobrazení za měsíc: {label}",
-    "chart.edition_title": "Článek a celá edice",
-    "chart.axis_index": "index, první rok = 100",
-    "chart.series_article": "článek",
-    "chart.series_edition": "celá {project}",
-    "chart.series_edition_short": "celá edice",
     "chart.season_title": "Měsíce oproti obvyklé úrovni",
     "chart.axis_season": "% oproti obvyklé úrovni",
-    "chart.daily_title": "Zobrazení za den, nárůsty vyznačeny",
-    "chart.axis_daily": "zobrazení za den",
-    "chart.views_compare_title": "Zobrazení za měsíc podle edic",
-    "chart.axis_views_log": "zobrazení za měsíc (log. stupnice)",
     "report.title_topic": "{topic}: zájem na Wikipedii",
     "report.context": "Související články (kontext, nezapočteno)",
     "report.method_note": "O metodě",
@@ -294,8 +283,6 @@ MESSAGES: dict[str, str] = {
     "month.short.12": "pro",
     "summary.redirects": "+{count} přesměr.",
     "finding.item.season": "{label}: {peak_month} {peak}, {trough_month} {trough}",
-    "chart.axis_per_million": "na milion zobrazení",
-    "chart.axis_score": "skóre (0–1)",
     "finding.no_article": (
         "{label}: v této edici článek na téma chybí, proto je uvedena jako „bez dat“, ne jako "
         "nulový zájem."
@@ -365,12 +352,6 @@ MESSAGES: dict[str, str] = {
     ),
     "report.coverage_item": "{project}: {count}",
     "summary.decision": "Co to znamená pro rozhodnutí",
-    "chart.share_title": "Jak viditelné je téma v každé Wikipedii",
-    "chart.share_single_title": "Jak viditelné je téma v {label}",
-    "chart.share_subtitle": (
-        "Zobrazení článku na 1 mil. zobrazení celé jazykové edice: umožňuje srovnat Wikipedie "
-        "různé velikosti"
-    ),
     "finding.item.season_tentative": "{label}: {peak_month} {peak}, {trough_month} {trough}",
     "limitation.scope": (
         "Analýza měří čtení jednoho hlavního článku a jeho přesměrování: je to nepřímý ukazatel "
@@ -493,8 +474,6 @@ MESSAGES: dict[str, str] = {
     "col.views_growth": "Zobrazení článku: změna",
     "col.edition_growth": "Provoz edice: změna",
     "col.trend": "Trend podílu pozornosti",
-    "chart.edition_growth_title": "Zobrazení článku a provoz edice: změna, {basis}",
-    "chart.axis_growth": "změna, %",
     "edition.gaining": (
         "{label}: zobrazení článku {article}, provoz edice {edition} → podíl pozornosti roste"
     ),
@@ -618,4 +597,35 @@ MESSAGES: dict[str, str] = {
         "posledních {months} měs. oproti stejným měsícům před rokem zobrazení článku {article}, "
         "provoz edice {edition}, takže podíl dál roste."
     ),
+    "chart.index_title": "Zobrazení článku proti provozu edice",
+    "chart.index_subtitle": (
+        "Index: průměr prvních 12 měsíců = 100, průměr za 3 měsíce. Článek pod edicí — téma ztrácí "
+        "podíl pozornosti."
+    ),
+    "chart.axis_index": "index, prvních 12 měs. = 100",
+    "chart.series_article_months": "zobrazení článku, měsíc",
+    "chart.series_article_smooth": "zobrazení článku",
+    "chart.series_edition_short": "provoz edice",
+    "chart.note.event": "{month} ×{multiple}",
+    "chart.note.possible_bot": "{month} ×{multiple}, možná boti",
+    "chart.note.edition": "{month} edice ×{multiple}",
+    "chart.note.unknown": "{month} ×{multiple}",
+    "chart.yoy_title": "{metric}: změna oproti stejným měsícům před rokem",
+    "chart.yoy_subtitle": "Každý bod — poslední 3 měsíce oproti stejným 3 měsícům před rokem.",
+    "chart.axis_growth": "změna, %",
+    "chart.dumbbell_title": "{metric}: dříve a nyní",
+    "chart.dumbbell_basis.yoy": "Průměr předchozích 12 měsíců a posledních 12 měsíců.",
+    "chart.dumbbell_basis.halves": "Průměr první a druhé poloviny období.",
+    "chart.dumbbell_basis.mixed": "Průměr dřívějších a pozdějších měsíců.",
+    "chart.series_before.yoy": "předchozích 12 měs.",
+    "chart.series_after.yoy": "posledních 12 měs.",
+    "chart.series_before.halves": "první polovina",
+    "chart.series_after.halves": "druhá polovina",
+    "chart.series_before.mixed": "dříve",
+    "chart.series_after.mixed": "nyní",
+    "chart.scatter_title": "{metric}: velikost a změna",
+    "chart.scatter_subtitle": "Vpravo — větší podíl; nad čarou — roste, pod ní — klesá.",
+    "chart.axis_log": "{unit}, logaritmická stupnice",
+    "chart.axis_per_million": "zobrazení článku na 1 mil. zobrazení edice",
+    "chart.season_period": "Spočteno za {start} – {end}.",
 }

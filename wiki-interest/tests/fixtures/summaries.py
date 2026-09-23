@@ -670,8 +670,8 @@ def _charts(projects: list[str], translator: Translator) -> list[ChartSpec]:
             id="intermittent-fasting-per-million",
             kind="lines",
             size="wide",
-            title=translator.t("chart.share_title"),
-            subtitle=translator.t("chart.share_subtitle"),
+            title=translator.t("chart.index_title"),
+            subtitle=translator.t("chart.index_subtitle"),
             y_label=translator.t("chart.axis_per_million"),
             series=per_million_series,
         ),
@@ -679,11 +679,11 @@ def _charts(projects: list[str], translator: Translator) -> list[ChartSpec]:
             id="intermittent-fasting-growth",
             kind="grouped_bars",
             size="half",
-            title=translator.t("chart.edition_growth_title", basis=translator.t("basis.yoy")),
+            title=translator.t("chart.yoy_title", metric=translator.t("metric.attention_share")),
             y_label=translator.t("chart.axis_growth"),
             series=[
                 ChartSeries(
-                    label=translator.t("chart.series_article"),
+                    label=translator.t("chart.series_article_smooth"),
                     x=codes,
                     y=[_GROWTH_YOY[p] * 100 for p in projects],
                 ),
@@ -700,7 +700,9 @@ def _charts(projects: list[str], translator: Translator) -> list[ChartSpec]:
             id="intermittent-fasting-uk-trend",
             kind="trend",
             size="half",
-            title=translator.t("chart.views_title", label=_TITLES["uk.wikipedia"]),
+            title=translator.t(
+                "chart.dumbbell_title", metric=translator.t("metric.attention_share")
+            ),
             y_label=translator.t("chart.axis_per_million"),
             series=[ChartSeries(label=_TITLES["uk.wikipedia"], x=MONTHS, y=uk_values)],
             trend_y=trend_y,

@@ -614,13 +614,9 @@ class SummaryBuilder:
         analysis: AnalysisResult,
         labels: _TopicLabels,
     ) -> list[ChartSpec]:
-        """The main chart and up to two smaller ones, each answering a different question.
+        """The main chart, a second one chosen by the number of audiences, and the seasons.
 
-        The main chart shows the share of attention over time (the views without
-        normalisation). Under it, for one pair: the article against its whole edition, and
-        the seasonal profile when it deserves a chart, else the daily views when there were
-        bursts. For several pairs: article-against-edition growth, and the ranking score for
-        a ranking, else the seasonal profiles that deserve a chart.
+        See :class:`~wiki_interest.application.chart_plan.ChartPlanner` for what each shows.
         """
         footnote = self._t.t(
             "chart.footnote", source="Wikimedia Pageviews API", period=_period_text(period)
@@ -637,21 +633,7 @@ class SummaryBuilder:
             return visibility is SeasonVisibility.CHART
 
         plots = ChartPlanner(self._t, labels.pair, footnote, labels.short, show_season=charted)
-        if len(with_data) == 1:
-            pair = with_data[0]
-            second = plots.season_bars(pair)
-            if second is None and pair.findings.anomalies:
-                second = plots.daily(pair)
-            candidates = [plots.main(with_data, normalised), plots.against_edition(pair), second]
-        else:
-            candidates = [
-                plots.main(with_data, normalised),
-                plots.edition_growth(with_data),
-                plots.ranking(analysis)
-                if request.question_type == "rank" and analysis.ranking
-                else plots.season_lines(with_data),
-            ]
-        return [c for c in candidates if c is not None]
+        return plots.plan(with_data, normalised=normalised, single_topic=len(request.topics) == 1)
 
     # -- prose ----------------------------------------------------------------------------
 

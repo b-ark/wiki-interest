@@ -1,18 +1,21 @@
 """Which charts a report shows, as declarative :class:`ChartSpec` objects.
 
-Every chart answers one question a reader has about the numbers. The main chart, full
-width, answers "how large is the interest and where is it heading": the topic's share of its
-edition's attention, month by month, which is comparable across Wikipedias of any size (or
-the views, when the user asked for raw numbers). The smaller charts under it answer:
+Every chart answers one question a reader has about the numbers.
 
-* does the topic grow faster or slower than its whole edition (a falling share can be the
-  edition growing, not the topic shrinking);
-* which months of the year are strong and weak, when that pattern is worth showing;
-* on which days the bursts were, for a single audience;
-* how the audiences rank, for a ranking.
+The main chart answers "is the topic gaining or losing ground in its Wikipedia": one panel
+per edition, the article's views and the whole edition's traffic as indexes on one scale
+(the mean of the first year is 100). When the article's line falls below the edition's, the
+topic loses its share of attention; months that stand out are labelled where they happen.
 
-The planner only decides content; the renderer draws. Methods return ``None`` when the data
-cannot support the chart, and the caller drops it.
+The second chart depends on how many audiences are compared:
+
+* one topic in one or two editions: the share's change against the same months a year
+  earlier, month by month, which shows whether a decline is slowing or a rise is fading;
+* up to four audiences: the share before and after, one "dumbbell" per audience;
+* five or more: size of the share against its change, one point per audience.
+
+A seasonal chart follows when the pattern deserves one. The planner only decides content;
+the renderer draws. Methods return ``None`` when the data cannot support the chart.
 """
 
 from __future__ import annotations
@@ -21,30 +24,38 @@ from collections.abc import Callable, Sequence
 from datetime import date
 from statistics import fmean
 
-from wiki_interest.application.analysis import AnalysisResult, PairAnalysis
-from wiki_interest.contracts.charts import ChartSeries, ChartSpec
+from wiki_interest.application.analysis import MonthFinding, PairAnalysis
+from wiki_interest.application.assessment import headline_growth
+from wiki_interest.contracts.charts import (
+    ChartNote,
+    ChartPanel,
+    ChartPoint,
+    ChartSeries,
+    ChartSpec,
+)
 from wiki_interest.domain.findings import SeasonalProfile
 from wiki_interest.domain.models import Series, WikiProject
-from wiki_interest.domain.trend_tests import detrend
 from wiki_interest.i18n import Translator
 
 __all__ = ["ChartPlanner"]
 
 _INDEX_BASE_MONTHS = 12
 """The index starts at the mean of the first year (100), which is steadier than one month."""
-_LOG_SCALE_RATIO = 20.0
-"""Absolute views of editions this far apart are drawn on a log axis, or the small one is flat."""
+_SMOOTH_MONTHS = 3
+_YEAR = 12
+_MAX_PANELS = 6
+_MAX_NOTES = 3
 _MAX_LINES = 6
 _MONTHS = 12
 _PERCENT = 100.0
+_FEW_FOR_LINES = 2
+_FEW_FOR_DUMBBELLS = 4
+_EDITION_SERIES = 2
+"""Position of the edition's line among a panel's series (points, article, edition)."""
 
 
 class ChartPlanner:
     """Builds chart specifications in the report language.
-
-    The main chart is full width; the others are planned half-width, for a two-column grid,
-    and without a footnote: the page footer names the source and the subtitle the period.
-    :meth:`widen` turns a half chart that ends up alone into a full-width one.
 
     Args:
         translator: Titles and axis labels.
@@ -88,97 +99,44 @@ class ChartPlanner:
     def _id(self, prefix: str, pair: PairAnalysis) -> str:
         return f"{prefix}-{pair.topic_id}-{pair.project.language}".lower()
 
+    def plan(
+        self, pairs: Sequence[PairAnalysis], *, normalised: bool, single_topic: bool
+    ) -> list[ChartSpec]:
+        """The main chart, the second chart for this many audiences, and the seasons."""
+        measured = [p for p in pairs if p.views is not None]
+        if not measured:
+            return []
+        if single_topic and len(measured) <= _FEW_FOR_LINES:
+            second = self.change_over_time(measured, normalised=normalised)
+        elif len(measured) <= _FEW_FOR_DUMBBELLS:
+            second = self.before_after(measured, normalised=normalised)
+        else:
+            second = self.size_and_change(measured, normalised=normalised)
+        season = (
+            self.season_bars(measured[0]) if len(measured) == 1 else self.season_lines(measured)
+        )
+        return [c for c in (self.main(measured), second, season) if c is not None]
+
     # -- the main chart ---------------------------------------------------------------------
 
-    def main(self, pairs: Sequence[PairAnalysis], normalised: bool) -> ChartSpec | None:
-        """The full-width chart the report leads with: share of attention over time.
-
-        One audience gets its monthly series with a fitted trend and the burst months shaded;
-        several get one line each. Without normalisation the views are drawn instead.
-        """
-        if len(pairs) == 1:
-            return self._trend(pairs[0], normalised)
-        return self._lines(pairs, normalised)
-
-    def _trend(self, pair: PairAnalysis, normalised: bool) -> ChartSpec | None:
-        """Monthly share (or views) with a fitted trend line; months with a burst are shaded."""
-        series = pair.per_million if normalised else pair.views
-        if series is None:
+    def main(self, pairs: Sequence[PairAnalysis]) -> ChartSpec | None:
+        """Article views against edition traffic, one panel per edition, as indexes."""
+        panels = [panel for p in pairs[:_MAX_PANELS] if (panel := self._panel(p)) is not None]
+        if not panels:
             return None
-        values = list(series.values)
-        residuals = detrend(values)
-        trend = [
-            None if v is None or r is None else v - r
-            for v, r in zip(values, residuals, strict=True)
-        ]
-        burst_months = {
-            _month_label(day)
-            for burst in pair.findings.anomalies
-            for day in (burst.start, burst.end)
-        }
-        if normalised:
-            title = self._t.t("chart.share_single_title", label=self._pair(pair))
-            subtitle: str | None = self._t.t("chart.share_subtitle")
-            axis = "chart.axis_per_million"
-        else:
-            title = self._t.t("chart.views_title", label=self._pair(pair))
-            subtitle = None
-            axis = "chart.axis_views"
         return ChartSpec(
-            id=self._id("share" if normalised else "views", pair),
-            kind="trend",
+            id="main",
+            kind="panels",
             size="wide",
-            title=title,
-            subtitle=subtitle,
-            y_label=self._t.t(axis),
-            series=[ChartSeries(label=self._pair(pair), x=_months(series), y=values)],
-            trend_y=trend,
-            highlight_x=sorted(burst_months),
+            title=self._t.t("chart.index_title"),
+            subtitle=self._t.t("chart.index_subtitle"),
+            y_label=self._t.t("chart.axis_index"),
+            panels=panels,
+            reference_y=_PERCENT,
+            footnote=self._footnote,
         )
 
-    def _lines(self, pairs: Sequence[PairAnalysis], normalised: bool) -> ChartSpec | None:
-        """One line per audience: the share of attention, or views on a log axis if needed."""
-        shown = pairs[:_MAX_LINES]
-        if normalised:
-            series = [
-                ChartSeries(label=self._pair(p), x=_months(s), y=list(s.values))
-                for p in shown
-                if (s := p.per_million) is not None
-            ]
-            if not series:
-                return None
-            return ChartSpec(
-                id="share",
-                kind="lines",
-                size="wide",
-                title=self._t.t("chart.share_title"),
-                subtitle=self._t.t("chart.share_subtitle"),
-                y_label=self._t.t("chart.axis_per_million"),
-                series=series,
-            )
-        observed = [p for p in shown if p.views is not None and p.views.observed]
-        if not observed:
-            return None
-        means = [fmean(p.views.observed) for p in observed if p.views is not None]
-        log_y = min(means) > 0 and max(means) / min(means) > _LOG_SCALE_RATIO
-        return ChartSpec(
-            id="views",
-            kind="lines",
-            size="wide",
-            title=self._t.t("chart.views_compare_title"),
-            y_label=self._t.t("chart.axis_views_log" if log_y else "chart.axis_views"),
-            series=[
-                ChartSeries(label=self._pair(p), x=_months(p.views), y=list(p.views.values))
-                for p in observed
-                if p.views is not None
-            ],
-            log_y=log_y,
-        )
-
-    # -- one pair ---------------------------------------------------------------------------
-
-    def against_edition(self, pair: PairAnalysis) -> ChartSpec | None:
-        """The article and its whole edition on one scale: both start at 100."""
+    def _panel(self, pair: PairAnalysis) -> ChartPanel | None:
         views = pair.views
         if views is None:
             return None
@@ -186,22 +144,154 @@ class ChartPlanner:
         edition = _index(pair.edition_total)
         if article is None or edition is None:
             return None
-        return ChartSpec(
-            id=self._id("edition", pair),
-            kind="lines",
-            size="half",
-            title=self._t.t("chart.edition_title"),
-            y_label=self._t.t("chart.axis_index"),
+        months = _months(views)
+        return ChartPanel(
+            title=self._pair(pair),
             series=[
-                ChartSeries(label=self._t.t("chart.series_article"), x=_months(views), y=article),
                 ChartSeries(
-                    label=self._t.t("chart.series_edition", project=pair.project.domain),
-                    x=_months(views),
-                    y=edition,
+                    label=self._t.t("chart.series_article_months"),
+                    x=months,
+                    y=article,
+                    style="points",
+                    color=0,
+                ),
+                ChartSeries(
+                    label=self._t.t("chart.series_article_smooth"),
+                    x=months,
+                    y=_rolling(article),
+                    color=0,
+                ),
+                ChartSeries(
+                    label=self._t.t("chart.series_edition_short"),
+                    x=months,
+                    y=_rolling(edition),
+                    style="dashed",
+                    color=1,
                 ),
             ],
-            reference_y=100.0,
+            notes=[self._note(m) for m in pair.findings.months[:_MAX_NOTES]],
         )
+
+    def _note(self, month: MonthFinding) -> ChartNote:
+        """``2024-05 ×1.9 possibly bots``: the largest multiple among the series."""
+        multiple = max((m for _, m in month.multiples), key=lambda m: abs(m - 1))
+        text = self._t.t(
+            f"chart.note.{month.nature}",
+            month=_month_label(month.month),
+            multiple=self._t.number(multiple, 1),
+        )
+        # A month in which only the edition moved is ringed on the edition's line.
+        on = _EDITION_SERIES if month.nature == "edition" else 0
+        return ChartNote(x=_month_label(month.month), text=text, series=on)
+
+    # -- the second chart -------------------------------------------------------------------
+
+    def change_over_time(
+        self, pairs: Sequence[PairAnalysis], *, normalised: bool
+    ) -> ChartSpec | None:
+        """Each month's last three months against the same three months a year earlier."""
+        series: list[ChartSeries] = []
+        for pair in pairs:
+            source = pair.per_million if normalised else pair.views
+            if source is None:
+                continue
+            x, y = _rolling_yoy(source)
+            if any(v is not None for v in y):
+                series.append(ChartSeries(label=self._pair(pair), x=x, y=y))
+        if not series:
+            return None
+        return ChartSpec(
+            id="change",
+            kind="lines",
+            size="wide",
+            title=self._t.t("chart.yoy_title", metric=self._metric(normalised)),
+            subtitle=self._t.t("chart.yoy_subtitle"),
+            y_label=self._t.t("chart.axis_growth"),
+            series=series,
+            reference_y=0.0,
+            value_suffix="%",
+        )
+
+    def before_after(self, pairs: Sequence[PairAnalysis], *, normalised: bool) -> ChartSpec | None:
+        """Mean share of the year before and of the last year, per audience."""
+        rows: list[tuple[str, float, float]] = []
+        bases: set[str] = set()
+        for pair in pairs:
+            source = pair.per_million if normalised else pair.views
+            if source is None:
+                continue
+            compared = _before_after(source)
+            if compared is None:
+                continue
+            before, after, basis = compared
+            rows.append((self._short(pair.topic_id, pair.project), before, after))
+            bases.add(basis)
+        if not rows:
+            return None
+        basis = bases.pop() if len(bases) == 1 else "mixed"
+        labels = [label for label, _, _ in rows]
+        unit = "chart.axis_per_million" if normalised else "chart.axis_views"
+        return ChartSpec(
+            id="before-after",
+            kind="dumbbell",
+            size="wide",
+            title=self._t.t("chart.dumbbell_title", metric=self._metric(normalised)),
+            subtitle=self._t.t(f"chart.dumbbell_basis.{basis}"),
+            y_label="",
+            x_label=self._t.t(unit),
+            series=[
+                ChartSeries(
+                    label=self._t.t(f"chart.series_before.{basis}"),
+                    x=labels,
+                    y=[round(b, 2) for _, b, _ in rows],
+                    style="points",
+                    color=1,
+                ),
+                ChartSeries(
+                    label=self._t.t(f"chart.series_after.{basis}"),
+                    x=labels,
+                    y=[round(a, 2) for _, _, a in rows],
+                    color=0,
+                ),
+            ],
+        )
+
+    def size_and_change(
+        self, pairs: Sequence[PairAnalysis], *, normalised: bool
+    ) -> ChartSpec | None:
+        """Size of the share (log axis) against its change, one point per audience."""
+        points: list[ChartPoint] = []
+        for pair in pairs:
+            metrics = pair.metrics
+            if metrics is None or not pair.measures_topic:
+                continue
+            size = metrics.per_million_avg if normalised else metrics.views_avg
+            change, _ = headline_growth(metrics)
+            if size is None or size <= 0 or change is None:
+                continue
+            label = self._short(pair.topic_id, pair.project)
+            points.append(ChartPoint(label=label, x=size, y=round(change * _PERCENT, 1)))
+        if not points:
+            return None
+        unit = "chart.axis_per_million" if normalised else "chart.axis_views"
+        return ChartSpec(
+            id="size-change",
+            kind="scatter",
+            size="wide",
+            title=self._t.t("chart.scatter_title", metric=self._metric(normalised)),
+            subtitle=self._t.t("chart.scatter_subtitle"),
+            y_label=self._t.t("chart.axis_growth"),
+            x_label=self._t.t("chart.axis_log", unit=self._t.t(unit)),
+            points=points,
+            log_x=True,
+            reference_y=0.0,
+            value_suffix="%",
+        )
+
+    def _metric(self, normalised: bool) -> str:
+        return self._t.t("metric.attention_share" if normalised else "metric.article_views")
+
+    # -- seasons ----------------------------------------------------------------------------
 
     def season_bars(self, pair: PairAnalysis) -> ChartSpec | None:
         """Each calendar month against the usual level, in percent."""
@@ -213,6 +303,7 @@ class ChartPlanner:
             kind="bars",
             size="half",
             title=self._t.t("chart.season_title"),
+            subtitle=self._season_period(pair),
             y_label=self._t.t("chart.axis_season"),
             series=[
                 ChartSeries(
@@ -220,64 +311,6 @@ class ChartPlanner:
                     x=[self._t.t(f"month.short.{m}") for m in range(1, _MONTHS + 1)],
                     y=[None if e is None else round(e * _PERCENT, 1) for e in profile.effects],
                 )
-            ],
-            reference_y=0.0,
-            value_suffix="%",
-        )
-
-    def daily(self, pair: PairAnalysis) -> ChartSpec | None:
-        """Daily views with the named bursts shaded, so their dates can be read off."""
-        daily = pair.daily
-        if daily is None or not daily.observed:
-            return None
-        burst_days = {
-            day.isoformat()
-            for burst in pair.findings.anomalies
-            for day in _days_between(burst.start, burst.end)
-        }
-        return ChartSpec(
-            id=self._id("daily", pair),
-            kind="trend",
-            size="half",
-            title=self._t.t("chart.daily_title"),
-            y_label=self._t.t("chart.axis_daily"),
-            series=[
-                ChartSeries(
-                    label=self._pair(pair),
-                    x=[p.period.isoformat() for p in daily.points],
-                    y=list(daily.values),
-                )
-            ],
-            highlight_x=sorted(burst_days),
-        )
-
-    # -- several pairs ----------------------------------------------------------------------
-
-    def edition_growth(self, pairs: Sequence[PairAnalysis]) -> ChartSpec | None:
-        """Per edition, the article's growth next to its whole edition's, same months."""
-        compared = [(p, p.findings.edition) for p in pairs if p.findings.edition is not None]
-        if not compared:
-            return None
-        bases = {edition.basis for _, edition in compared if edition is not None}
-        basis = bases.pop() if len(bases) == 1 else "mixed"
-        labels = [self._short(p.topic_id, p.project) for p, _ in compared]
-        return ChartSpec(
-            id="edition-growth",
-            kind="grouped_bars",
-            size="half",
-            title=self._t.t("chart.edition_growth_title", basis=self._t.t(f"basis.{basis}")),
-            y_label=self._t.t("chart.axis_growth"),
-            series=[
-                ChartSeries(
-                    label=self._t.t("chart.series_article"),
-                    x=labels,
-                    y=[round(e.article_change * _PERCENT, 1) for _, e in compared if e],
-                ),
-                ChartSeries(
-                    label=self._t.t("chart.series_edition_short"),
-                    x=labels,
-                    y=[round(e.edition_change * _PERCENT, 1) for _, e in compared if e],
-                ),
             ],
             reference_y=0.0,
             value_suffix="%",
@@ -294,6 +327,7 @@ class ChartPlanner:
             kind="lines",
             size="half",
             title=self._t.t("chart.season_title"),
+            subtitle=self._season_period(profiled[0][0]),
             y_label=self._t.t("chart.axis_season"),
             series=[
                 ChartSeries(
@@ -307,23 +341,14 @@ class ChartPlanner:
             reference_y=0.0,
         )
 
-    def ranking(self, analysis: AnalysisResult) -> ChartSpec | None:
-        """Ranking score per audience, best first."""
-        if not analysis.ranking:
+    def _season_period(self, pair: PairAnalysis) -> str | None:
+        season = pair.findings.season
+        if season is None or season.start is None or season.end is None:
             return None
-        return ChartSpec(
-            id="ranking-score",
-            kind="bars",
-            size="half",
-            title=self._t.t("chart.score_title"),
-            y_label=self._t.t("chart.axis_score"),
-            series=[
-                ChartSeries(
-                    label=self._t.t("chart.score_title"),
-                    x=[self._short(r.topic_id, r.project) for r in analysis.ranking],
-                    y=[round(r.score, 4) for r in analysis.ranking],
-                )
-            ],
+        return self._t.t(
+            "chart.season_period",
+            start=_month_label(season.start),
+            end=_month_label(season.end),
         )
 
 
@@ -336,9 +361,9 @@ def _month_label(day: date) -> str:
 
 
 def _index(series: Series) -> list[float | None] | None:
-    """The series as an index: the mean of its first year (or first third) is 100."""
+    """The series as an index: the mean of its first year (or first half) is 100."""
     values = series.values
-    span = min(_INDEX_BASE_MONTHS, max(1, len(values) // 3))
+    span = min(_INDEX_BASE_MONTHS, max(1, len(values) // 2))
     base_values = [v for v in values[:span] if v is not None]
     if not base_values or fmean(base_values) <= 0:
         return None
@@ -346,8 +371,49 @@ def _index(series: Series) -> list[float | None] | None:
     return [None if v is None else round(v / base * _PERCENT, 1) for v in values]
 
 
-def _days_between(start: date, end: date) -> list[date]:
-    return [date.fromordinal(o) for o in range(start.toordinal(), end.toordinal() + 1)]
+def _rolling(values: Sequence[float | None]) -> list[float | None]:
+    """Trailing mean of three months; ``None`` until three observed months are available."""
+    out: list[float | None] = []
+    for i in range(len(values)):
+        window = [v for v in values[max(0, i - _SMOOTH_MONTHS + 1) : i + 1] if v is not None]
+        out.append(round(fmean(window), 1) if len(window) == _SMOOTH_MONTHS else None)
+    return out
+
+
+def _rolling_yoy(series: Series) -> tuple[list[str], list[float | None]]:
+    """Each month's last three months over the same three a year earlier, in percent.
+
+    Summing three months steadies the line; comparing with the same months cancels seasons.
+    """
+    values = series.values
+    x: list[str] = []
+    y: list[float | None] = []
+    for i in range(_YEAR + _SMOOTH_MONTHS - 1, len(values)):
+        now = values[i - _SMOOTH_MONTHS + 1 : i + 1]
+        then = values[i - _YEAR - _SMOOTH_MONTHS + 1 : i - _YEAR + 1]
+        x.append(_month_label(series.points[i].period))
+        if any(v is None for v in (*now, *then)):
+            y.append(None)
+            continue
+        base = sum(v for v in then if v is not None)
+        current = sum(v for v in now if v is not None)
+        y.append(round((current / base - 1) * _PERCENT, 1) if base > 0 else None)
+    return x, y
+
+
+def _before_after(series: Series) -> tuple[float, float, str] | None:
+    """Mean of the 12 months before the last 12 and of the last 12; halves when shorter."""
+    values = series.values
+    if len(values) >= 2 * _YEAR:
+        before, after, basis = values[-2 * _YEAR : -_YEAR], values[-_YEAR:], "yoy"
+    else:
+        half = len(values) // 2
+        before, after, basis = values[:half], values[len(values) - half :], "halves"
+    seen_before = [v for v in before if v is not None]
+    seen_after = [v for v in after if v is not None]
+    if not seen_before or not seen_after:
+        return None
+    return fmean(seen_before), fmean(seen_after), basis
 
 
 def _profile(pair: PairAnalysis) -> SeasonalProfile | None:
