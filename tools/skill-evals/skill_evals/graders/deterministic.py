@@ -41,8 +41,12 @@ _NON_HIGH = {"medium", "low"}
 _CAVEAT_STATUSES = {"warn", "fail"}
 _CHAT_BRIEF = "chat_brief.md"
 """Written next to ``summary.json`` when the skill accepts the agent's report text."""
-_STATUS_RE = re.compile(r'"status"\s*:\s*"(\w+)"')
-_RUN_DIR_RE = re.compile(r'"run_dir"\s*:\s*"((?:[^"\\]|\\.)*)"')
+_STATUS_RE = re.compile(r'"status"\s*:\s*"(\w+)"|^\s*status\s*:\s*(\w+)', re.MULTILINE)
+"""The status of a render: JSON as printed, or the list PowerShell makes of it when the agent
+pipes the output through ``ConvertFrom-Json`` (verified 2026-09-23)."""
+_RUN_ID_RE = re.compile(r"\d{8}-\d{6}-[0-9a-f]{4}")
+"""A run directory's name (``20260923-171010-345b``). Taken from the command first: PowerShell
+wraps long paths in its output, so a path read back from there may be split."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -353,8 +357,8 @@ def _narrative_accepted(a: NarrativeAccepted, ctx: GradeContext) -> GradeOutcome
         status = _STATUS_RE.search(output)
         if status is None:  # a crash or malformed file: nothing was decided about the text
             continue
-        run_dir = _RUN_DIR_RE.search(output)
-        final[run_dir.group(1) if run_dir else command] = status.group(1)
+        run_id = _RUN_ID_RE.search(command) or _RUN_ID_RE.search(output)
+        final[run_id.group(0) if run_id else command] = status.group(1) or status.group(2)
     if not final:
         return _outcome(a, False, "no render with the agent's text")
     accepted = sum(1 for status in final.values() if status == "accepted")

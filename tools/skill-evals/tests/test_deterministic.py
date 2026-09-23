@@ -282,6 +282,21 @@ def test_narrative_accepted_counts_the_last_status_of_each_run(tmp_path: Path) -
     assert "fallback" in outcome.evidence
 
 
+def test_narrative_accepted_reads_the_powershell_listing_of_the_output(tmp_path: Path) -> None:
+    command = "uv run scripts/render.py runs\\s\\20260923-171010-345b --narrative n.json"
+    listing = (
+        "status      : accepted\nexit_code   : 0\nrun_dir     : runs\\s\\20260923-17101\n  0-345b"
+    )
+    rejected = '{"status": "rejected", "run_dir": "runs/s/20260923-171010-345b"}'
+    calls = [
+        ToolCall(name="PowerShell", input={}, command=command, result=rejected),
+        ToolCall(name="PowerShell", input={}, command=command, result=listing),
+    ]
+    outcome = grade(NarrativeAccepted(type="narrative_accepted"), _ctx(tmp_path, tool_calls=calls))
+    assert outcome.passed, outcome.evidence
+    assert outcome.evidence == "1/1 rendered run(s) accepted"
+
+
 def test_narrative_accepted_needs_a_render_with_the_agents_text(tmp_path: Path) -> None:
     check = NarrativeAccepted(type="narrative_accepted")
     assert not grade(check, _ctx(tmp_path)).passed
