@@ -30,7 +30,7 @@ so a failure points at its cause.
 - when the analysis flagged reliability problems, the answer relays at least one of the
   reasons;
 - the request the agent built matches what the user asked (question type, period, language,
-  editions, normalisation, bundle mode);
+  editions, normalisation);
 - the ambiguous topic ends with a question and no report;
 - the number of model turns stays within budget.
 

@@ -1,4 +1,4 @@
-"""Analysis step: pairs, normalisation switch, context articles, findings, ranking."""
+"""Analysis step: pairs, normalisation switch, findings, ranking."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from datetime import date
 import pytest
 
 from wiki_interest.application.analysis import AnalysisSettings, analyse
-from wiki_interest.application.loading import ContextSeries, LoadedSeries
+from wiki_interest.application.loading import LoadedSeries
 from wiki_interest.application.resolution import ResolvedTopic
 from wiki_interest.domain.models import (
     ArticleRef,
@@ -55,14 +55,9 @@ def _total(n: int = 24, level: float = 1e6) -> Series:
     return _series([level] * n)
 
 
-def _bundle(project: WikiProject, *, related: bool = True) -> TopicBundle:
+def _bundle(project: WikiProject) -> TopicBundle:
     main = ArticleRef(project, "Main", ArticleRole.MAIN, ResolutionSource.SITELINK, qid="Q1")
-    articles: list[ArticleRef] = [main]
-    if related:
-        articles.append(
-            ArticleRef(project, "Related", ArticleRole.RELATED, ResolutionSource.LEAD_LINK)
-        )
-    return TopicBundle("topic", project, BundleStatus.FOUND, tuple(articles))
+    return TopicBundle("topic", project, BundleStatus.FOUND, (main,))
 
 
 def _topic(*bundles: TopicBundle) -> ResolvedTopic:
@@ -74,12 +69,9 @@ def _loaded(
     main_views: Series | None,
     total: Series | None = None,
     *,
-    context: tuple[ContextSeries, ...] = (),
     daily: Series | None = None,
 ) -> LoadedSeries:
-    return LoadedSeries(
-        "topic", project, main_views, total or _total(), daily, None, context=context
-    )
+    return LoadedSeries("topic", project, main_views, total or _total(), daily, None)
 
 
 class TestPairs:
@@ -126,22 +118,6 @@ class TestPairs:
         assert pair.per_million is None
         assert pair.metrics is not None
         assert pair.metrics.per_million_avg is None
-
-    def test_related_articles_are_context_with_their_own_numbers(self) -> None:
-        related = ArticleRef(UK, "Related", ArticleRole.RELATED, ResolutionSource.LEAD_LINK)
-        context = (ContextSeries(related, _rising(base=5000.0)),)
-        result = analyse(
-            [_topic(_bundle(UK))], [_loaded(UK, _flat(), context=context)], weights=WEIGHTS
-        )
-        pair = result.pair("topic", UK)
-        assert pair.metrics is not None
-        # A rising neighbour never leaks into the topic's own numbers.
-        assert pair.metrics.views_avg == pytest.approx(1000.0)
-        (item,) = pair.context
-        assert item.title == "Related"
-        assert item.views_avg == pytest.approx(5000.0 + 50.0 * 23 / 2)
-        assert item.growth is not None
-        assert item.growth > 0
 
     def test_findings_compare_the_article_with_its_edition(self) -> None:
         shrinking_edition = _series([1e6 - 10_000.0 * i for i in range(24)])

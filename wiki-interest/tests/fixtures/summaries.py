@@ -24,7 +24,6 @@ from wiki_interest.contracts.summary import (
     CheckOut,
     Clarification,
     ComparisonRow,
-    ContextArticleOut,
     DecisionOut,
     EvidenceOut,
     FindingOut,
@@ -231,16 +230,6 @@ def example_summary(
             )
             for index, text in enumerate(prose["bullets"])
         ],
-        context=[
-            ContextArticleOut(
-                topic_id=TOPIC_ID,
-                project="uk.wikipedia",
-                title="Голодування",
-                role=ArticleRole.RELATED,
-                views_avg=3200.0,
-                growth=0.04,
-            )
-        ],
         limitations=prose["limitations"][1:],
         general_limitations=prose["limitations"][:1],
         next_steps=prose["next_steps"],
@@ -248,7 +237,6 @@ def example_summary(
             run_dir=RUN_DIR,
             summary_json=f"{RUN_DIR}/summary.json",
             summary_md=f"{RUN_DIR}/summary.md",
-            report_md=f"{RUN_DIR}/report.md",
             report_pdf=f"{RUN_DIR}/report.pdf",
             charts=[f"{RUN_DIR}/charts/{c.id}.png" for c in _charts(analysed, translator)],
         ),
@@ -343,15 +331,6 @@ def _resolution(projects: list[str]) -> TopicResolutionOut:
                 redirects=["Інтервальний піст"] if project == "uk.wikipedia" else [],
             )
         ]
-        if project == "uk.wikipedia":
-            articles.append(
-                ArticleOut(
-                    title="Голодування",
-                    role=ArticleRole.RELATED,
-                    source=ResolutionSource.WIKIDATA_RELATION,
-                    qid="Q1201325",
-                )
-            )
         bundles.append(
             BundleOut(
                 topic_id=TOPIC_ID,
@@ -359,7 +338,6 @@ def _resolution(projects: list[str]) -> TopicResolutionOut:
                 status=BundleStatus.FOUND,
                 articles=articles,
                 article_count=len(articles),
-                related_count=len(articles) - 1,
                 redirect_count=len(articles[0].redirects),
             )
         )

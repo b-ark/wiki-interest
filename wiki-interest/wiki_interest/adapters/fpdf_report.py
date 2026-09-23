@@ -30,12 +30,13 @@ from fpdf import FPDF, XPos, YPos
 from fpdf.errors import FPDFException
 from PIL import Image
 
-from wiki_interest.adapters.markdown_report import GENERATED_AT_FORMAT, report_title
 from wiki_interest.adapters.method_report import method_markdown
 from wiki_interest.adapters.report_blocks import (
+    GENERATED_AT_FORMAT,
     decision_lines,
     kpi_table,
     ordered_assessments,
+    report_title,
     robustness_lines,
     short_label,
 )

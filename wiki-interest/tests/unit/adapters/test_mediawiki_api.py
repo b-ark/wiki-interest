@@ -13,7 +13,6 @@ from wiki_interest.adapters.mediawiki import (
     MAX_TITLES_PER_REQUEST,
     ActionApiError,
     MediaWikiApi,
-    prose_link_titles,
 )
 from wiki_interest.domain.models import WikiProject
 from wiki_interest.errors import UpstreamError
@@ -180,84 +179,6 @@ class TestRedirectsTo:
         assert mediawiki.redirects_to(UK, "Nope") == ()
 
 
-LEAD_HTML = (
-    '<div class="mw-parser-output">'
-    '<table class="infobox"><tr><td><a href="/wiki/ISSN" title="ISSN">ISSN</a></td></tr></table>'
-    '<p><b>Астрономія</b> вивчає <a href="/wiki/A" title="Астероїд">астероїди</a>, '
-    '<a href="/w/index.php?title=X&amp;action=edit" class="new" title="Червона стаття">x</a> '
-    'та <a href="/wiki/B" title="Астрофізика">астрофізику</a>.'
-    '<sup class="reference"><a href="/wiki/ISSN" title="ISSN">[1]</a></sup></p>'
-    '<ol class="references"><li><a href="/wiki/ISSN" title="ISSN">ISSN</a></li></ol>'
-    "</div>"
-)
-
-
-class TestProseLinkTitles:
-    def test_keeps_paragraph_links_and_drops_footnotes_tables_and_red_links(self) -> None:
-        assert prose_link_titles(LEAD_HTML) == {"Астероїд", "Астрофізика"}
-
-    def test_empty_or_link_free_html(self) -> None:
-        assert prose_link_titles("") == frozenset()
-        assert prose_link_titles("<p>plain text</p>") == frozenset()
-
-    def test_external_links_are_ignored(self) -> None:
-        html = '<p><a href="https://example.org" title="Example">x</a></p>'
-        assert prose_link_titles(html) == frozenset()
-
-
-class TestLeadLinks:
-    def test_keeps_only_existing_main_namespace_links(
-        self, respx_mock: respx.MockRouter, mediawiki: MediaWikiApi
-    ) -> None:
-        route = respx_mock.get(API).mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "parse": {
-                        "title": "Астрономія",
-                        "links": [
-                            {"ns": 0, "title": "Астероїд", "exists": True},
-                            {"ns": 0, "title": "Червона стаття"},
-                            {"ns": 14, "title": "Категорія:Астрономія", "exists": True},
-                            {"ns": 0, "title": "Астрофізика", "exists": True},
-                            {"ns": 0, "title": "ISSN", "exists": True},
-                        ],
-                        "text": LEAD_HTML,
-                    }
-                },
-            )
-        )
-        assert mediawiki.lead_links(UK, "Астрономія") == ("Астероїд", "Астрофізика")
-        params = route.calls.last.request.url.params
-        assert params["action"] == "parse"
-        assert params["prop"] == "links|text"
-        assert params["section"] == "0"
-        assert params["redirects"] == "1"
-
-    def test_missing_page_yields_empty_list(
-        self, respx_mock: respx.MockRouter, mediawiki: MediaWikiApi
-    ) -> None:
-        respx_mock.get(API).mock(
-            return_value=httpx.Response(
-                200, json={"error": {"code": "missingtitle", "info": "The page doesn't exist."}}
-            )
-        )
-        assert mediawiki.lead_links(UK, "Nonexistent") == ()
-
-    def test_other_api_error_is_raised(
-        self, respx_mock: respx.MockRouter, mediawiki: MediaWikiApi
-    ) -> None:
-        respx_mock.get(API).mock(
-            return_value=httpx.Response(
-                200, json={"error": {"code": "invalidtitle", "info": "Bad"}}
-            )
-        )
-        with pytest.raises(ActionApiError) as info:
-            mediawiki.lead_links(UK, "|")
-        assert info.value.code == "invalidtitle"
-        assert isinstance(info.value, UpstreamError)
-
-
 class TestSearch:
     def test_returns_titles_in_result_order(
         self, respx_mock: respx.MockRouter, mediawiki: MediaWikiApi
@@ -287,6 +208,19 @@ class TestSearch:
         respx_mock.get(API).mock(return_value=httpx.Response(200, json={"query": []}))
         with pytest.raises(UpstreamError):
             mediawiki.search(UK, "x")
+
+    def test_api_error_envelope_is_raised_as_action_api_error(
+        self, respx_mock: respx.MockRouter, mediawiki: MediaWikiApi
+    ) -> None:
+        respx_mock.get(API).mock(
+            return_value=httpx.Response(
+                200, json={"error": {"code": "invalidtitle", "info": "Bad"}}
+            )
+        )
+        with pytest.raises(ActionApiError) as info:
+            mediawiki.search(UK, "|")
+        assert info.value.code == "invalidtitle"
+        assert isinstance(info.value, UpstreamError)
 
 
 class TestRedirectTargets:

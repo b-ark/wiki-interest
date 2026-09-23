@@ -117,27 +117,11 @@ class TestRun:
 
 
 class TestOtherCommands:
-    def test_resolve_lists_bundles(self, tmp_path: Path, fakes: Container) -> None:
-        code, payload = _invoke("resolve", str(_write_request(tmp_path, REQUEST)))
-        assert code == 0
-        topics = payload["topics"]
-        assert isinstance(topics, list)
-        assert topics[0]["qid"] == "Q333"
-        assert {b["project"] for b in topics[0]["bundles"]} == {"uk.wikipedia", "cs.wikipedia"}
-
-    def test_runs_diff_and_render_work_on_saved_runs(
-        self, tmp_path: Path, fakes: Container
-    ) -> None:
+    def test_diff_and_render_work_on_saved_runs(self, tmp_path: Path, fakes: Container) -> None:
         request = _write_request(tmp_path, REQUEST)
         _, first = _invoke("run", str(request))
         longer = {**REQUEST, "period": {"start": "2025-03", "end": "2026-08"}}
         _, second = _invoke("run", str(_write_request(tmp_path, longer, "second.json")))
-
-        code, listing = _invoke("runs", "astro")
-        assert code == 0
-        runs = listing["runs"]
-        assert isinstance(runs, list)
-        assert len(runs) == 2
 
         code, diff = _invoke("diff", str(first["run_dir"]), str(second["run_dir"]))
         assert code == 0

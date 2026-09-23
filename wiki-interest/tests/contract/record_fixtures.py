@@ -83,7 +83,6 @@ CASES: dict[str, Case] = {
         UK, ["астрономія", "Astronomy", "Nonexistent page xyz 123"]
     ),
     "mediawiki-redirects-to-uk-astronomy": lambda g: g.mediawiki.redirects_to(UK, "Астрономія"),
-    "mediawiki-lead-links-uk-astronomy": lambda g: g.mediawiki.lead_links(UK, "Астрономія"),
     "mediawiki-search-uk-fasting": lambda g: g.mediawiki.search(
         UK, "інтервальне голодування", limit=5
     ),

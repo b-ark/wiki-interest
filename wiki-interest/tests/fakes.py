@@ -161,7 +161,6 @@ class FakePage:
     title: str
     qid: str | None = None
     redirects: list[str] = field(default_factory=list)
-    lead_links: list[str] = field(default_factory=list)
     redirect_sections: dict[str, str] = field(default_factory=dict)
     """Redirect title -> section of this page it points into."""
 
@@ -221,11 +220,6 @@ class FakeMediaWiki:
         self.calls.append(("redirects_to", (project, title)))
         page = self.pages.get(project, {}).get(title)
         return list(page.redirects) if page else []
-
-    def lead_links(self, project: WikiProject, title: str) -> Sequence[str]:
-        self.calls.append(("lead_links", (project, title)))
-        page = self.pages.get(project, {}).get(title)
-        return list(page.lead_links) if page else []
 
     def search(self, project: WikiProject, query: str, *, limit: int = 5) -> Sequence[str]:
         self.calls.append(("search", (project, query, limit)))
@@ -352,13 +346,10 @@ def astronomy_world(*, start: date = date(2024, 9, 1), months: int = 24) -> Astr
         ]
     )
     mediawiki = FakeMediaWiki()
-    mediawiki.add_page(
-        uk,
-        FakePage("Астрономія", qid="Q333", redirects=["Astronomy"], lead_links=["Телескоп"]),
-    )
+    mediawiki.add_page(uk, FakePage("Астрономія", qid="Q333", redirects=["Astronomy"]))
     mediawiki.add_page(uk, FakePage("Телескоп", qid="Q4213"))
     mediawiki.add_page(uk, FakePage("Астрологія", qid="Q999"))
-    mediawiki.add_page(cs, FakePage("Astronomie", qid="Q333", lead_links=["Dalekohled"]))
+    mediawiki.add_page(cs, FakePage("Astronomie", qid="Q333"))
     mediawiki.add_page(cs, FakePage("Dalekohled", qid="Q4213"))
 
     periods = tuple(_add_months(start, i) for i in range(months))

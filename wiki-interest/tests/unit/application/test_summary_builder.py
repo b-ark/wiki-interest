@@ -107,11 +107,8 @@ class TestCompare:
         assert uk.index is not None
         assert 0 < uk.index < 100
 
-    def test_related_articles_are_reported_as_context(self, tmp_path: Path) -> None:
+    def test_only_the_main_article_is_measured(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
-        uk = [c for c in summary.context if c.project == "uk.wikipedia"]
-        assert [c.title for c in uk] == ["Телескоп"]
-        assert uk[0].views_avg is not None
         assert any("one main article" in lim for lim in summary.general_limitations)
 
     def test_headline_does_not_call_a_decline_growth(self, tmp_path: Path) -> None:
@@ -130,7 +127,7 @@ class TestCompare:
             world=world,
             topics=[
                 {"query": "astronomy", "id": "astronomy"},
-                {"query": "telescope", "id": "telescope", "bundle": "main"},
+                {"query": "telescope", "id": "telescope"},
             ],
         )
         headline = summary.verdict.headline
@@ -146,13 +143,13 @@ class TestCompare:
         assert pl.views_avg is None
         assert pl.note == "no article in this edition"
         assert any("pl.wikipedia" in lim and "no article" in lim for lim in summary.limitations)
-        assert any("extra_titles" in step and "pl.wikipedia" in step for step in summary.next_steps)
+        assert any("substitutes" in step and "pl.wikipedia" in step for step in summary.next_steps)
 
-    def test_reliability_messages_are_localised(self, tmp_path: Path) -> None:
+    def test_reliability_messages_keep_their_keys_without_a_catalog(self, tmp_path: Path) -> None:
         summary = _build(tmp_path, language="uk")
         uk = next(r for r in summary.reliability if r.project == "uk.wikipedia")
         messages = [c.message for c in uk.checks]
-        assert any("місяців" in m for m in messages)
+        assert any("months" in m for m in messages)
         assert all(c.reason_key for c in uk.checks)
 
     def test_series_and_metrics_cover_each_measured_edition_once(self, tmp_path: Path) -> None:
@@ -167,10 +164,10 @@ class TestCompare:
     def test_bundles_state_their_article_counts(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
         uk = next(b for b in summary.resolution[0].bundles if b.project == "uk.wikipedia")
-        assert uk.article_count == len(uk.articles)
-        assert uk.related_count == len(uk.articles) - 1
+        assert uk.article_count == len(uk.articles) == 1
+        assert uk.redirect_count == len(uk.articles[0].redirects)
         pl = next(b for b in summary.resolution[0].bundles if b.project == "pl.wikipedia")
-        assert (pl.article_count, pl.related_count) == (0, 0)
+        assert pl.article_count == 0
 
     def test_charts_for_compare(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)

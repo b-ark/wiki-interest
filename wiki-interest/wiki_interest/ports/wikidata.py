@@ -34,7 +34,7 @@ class WikidataGateway(Protocol):
 
     Wikidata is the bridge between a topic phrased in one language and article titles in
     others: search finds the entity, sitelinks give the title per edition, claims give
-    related entities for building topic bundles.
+    broader entities to offer when an edition has no article.
     """
 
     def search_entities(

@@ -47,9 +47,6 @@ Unknown keys are rejected on purpose: a misspelled field would otherwise be sile
 | `qid` | `"Q…"` | none | Pin a Wikidata item and skip the search. Use it after `ambiguous_topic` (exit code 3), or when the "Topic:" line shows the wrong entity and the right one is among the other meanings. |
 | `meaning` | string | none | What the user means, in a few English words ("the chemical element Hg"), decided from the conversation. Not interpreted by the code; recorded so the analysed entity can be checked against it. |
 | `article_url` | `https://pl.wikipedia.org/wiki/…` | none | A Wikipedia article about the topic, given by the user after `topic_not_found`. Its Wikidata item replaces the search; an article without an item is analysed on its own in its edition. |
-| `bundle` | `main` / `auto` / `manual` | `auto` | Which related articles are shown next to the topic as context. Only the main article (with its redirects) is ever measured; context articles get their own views and are never added in. `auto`: related articles found through Wikidata and lead-section links. `main`: none. `manual`: exactly the titles in `extra_titles`. |
-| `extra_titles` | `{"uk.wikipedia": ["Телескоп"]}` | `{}` | Additional context articles per project (role `manual`). With no Wikidata match at all, the first one becomes the measured article. |
-| `exclude_titles` | same shape | `{}` | Related articles to drop from the context (use when the user says "that one is not what I mean"). |
 | `local_terms` | `{"pl.wikipedia": "post przerywany"}` | `{}` | How the topic is called in an edition's language. Optional; used only for editions without an article, to find a redirect or articles that mention the topic. Add it when the output says the local name is unknown. |
 | `substitutes` | `{"pl.wikipedia": {"title": "Post", "kind": "broader"}}` or `{"pl.wikipedia": "skip"}` | `{}` | The user's decision for an edition without an article, copied from the `choose` value of the option they picked (exit code 3, `missing_article`). `kind` is `redirect`, `broader` or `mention`; `"skip"` leaves the edition out. |
 
@@ -57,10 +54,9 @@ Unknown keys are rejected on purpose: a misspelled field would otherwise be sile
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `language` | language code (`ru`, `de`, `es`...) | `en` | The language the user writes in: you write the report text in it. `en`, `uk`, `ru`, `pl`, `cs` have built-in interface labels; for any other language `facts.json` lists the labels (`ui_strings`) for you to translate in `narrative.json`. |
+| `language` | language code (`ru`, `de`, `es`...) | `en` | The language the user writes in: you write the report text in it. Only `en` has built-in interface labels; for any other language `facts.json` lists the labels (`ui_strings`) for you to translate in `narrative.json` (once per session: later runs reuse them). |
 | `title` | string | derived | Report title. |
 | `audience_note` | string | none | One line of context that goes into the report ("educational app considering an astronomy course"). |
-| `formats` | list of `pdf` / `md` | both | Which report files to write. `summary.md` and `summary.json` are always written. |
 | `seasonality` | `auto` / `show` | `auto` | `show` when the user asks about timing (which months, seasons, when to launch): the seasonal pattern is then always reported and charted, with a caveat if it is not solid. `auto` states it only when it is solid on the article's whole history (5+ full years, repeated in 80 % of years, material). |
 | `appendix` | `true` / `false` | `false` | `true` adds a second PDF page with the method and data checks (the content of `method.md`, which every run writes next to the report). The report is one page otherwise. |
 
@@ -99,7 +95,7 @@ Keep the same `session` and change only what the user changed:
 
 - a longer or different period -> edit `period`;
 - another edition -> append to `projects`;
-- "that article is not what I meant" -> `exclude_titles`, or pin `qid` after a clarification;
+- "that article is not what I meant" -> pin `qid` from the other meanings the run lists, or `article_url`;
 - "compare raw numbers" -> `normalization: "absolute"`;
 - different priorities -> `ranking_weights`.
 

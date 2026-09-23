@@ -1,4 +1,4 @@
-"""English message catalog: the reference key set every other catalog must match.
+"""English message catalog, the only one: other languages come from the agent's translations.
 
 Keys are namespaced (``reliability reason``, ``label``, ``report section``, ``table column``,
 ``agent summary``, ``chart``) so a missing translation is easy to locate. Templates use
@@ -39,10 +39,6 @@ MESSAGES: dict[str, str] = {
     "level.high": "high",
     "level.medium": "medium",
     "level.low": "low",
-    "status.pass": "pass",
-    "status.warn": "warning",
-    "status.fail": "fail",
-    "status.info": "info",
     "direction.rising": "rising",
     "direction.falling": "falling",
     "direction.flat": "flat",
@@ -51,34 +47,18 @@ MESSAGES: dict[str, str] = {
     "bundle_status.found": "found",
     "bundle_status.found_via_search": "found via search",
     "bundle_status.not_found": "not found",
-    "source.sitelink": "Wikidata sitelink",
-    "source.wikidata_relation": "Wikidata relation",
-    "source.lead_link": "lead section link",
-    "source.search_fallback": "search fallback",
-    "source.manual": "manual",
-    "role.main": "main",
-    "role.related": "related",
-    "role.manual": "manual",
     "value.na": "n/a",
     # -- question line ---------------------------------------------------------------------
     "question.compare": "Compare interest in {topics} across {projects}",
     "question.rank": "Rank {projects} by interest in {topics}",
     # -- report sections -------------------------------------------------------------------
     "report.title_default": "Wikipedia interest analysis",
-    "report.question": "Question",
-    "report.audience": "Context",
-    "report.key_numbers": "Key numbers",
-    "report.chart": "Chart",
-    "report.charts": "Charts",
-    "report.limitations": "Assumptions and limitations",
-    "report.next_steps": "What can be refined",
     "report.sources": "Sources",
     "report.period": "Period",
     "report.generated": "Generated",
     "report.version": "Skill version",
     "report.data_through": "Data through",
     "report.ranking_table": "Ranking",
-    "report.notes": "Notes",
     "report.see_summary": "… the full list is in summary.md",
     # -- table columns ---------------------------------------------------------------------
     "col.topic": "Topic",
@@ -87,9 +67,6 @@ MESSAGES: dict[str, str] = {
     "col.rank": "#",
     "col.score": "Score",
     "col.profile": "Profile",
-    "col.article": "Article",
-    "col.role": "Role",
-    "col.source": "Source",
     "col.rationale": "Why",
     # -- agent summary ---------------------------------------------------------------------
     "summary.answer": "Answer",
@@ -145,7 +122,10 @@ MESSAGES: dict[str, str] = {
         "Compare raw views (normalization: absolute) to see audience size rather than share."
     ),
     "next.per_million": "Compare per-million shares to remove the effect of edition size.",
-    "next.pin_title": "Provide the exact article title for {projects} via extra_titles.",
+    "next.pin_title": (
+        'To measure {projects} after all, drop its "skip" from topics[].substitutes and pick '
+        "one of the pages the run offers for it."
+    ),
     "next.research": "Research next: {label} ({profile}).",
     # -- editions without an article: the question and the substitutes ------------------
     "resolution.substitute_redirect": (
@@ -161,7 +141,6 @@ MESSAGES: dict[str, str] = {
         "describe that article, not the topic"
     ),
     "bundle_status.substitute": "substitute",
-    "source.substitute": "substitute chosen by the user",
     "summary.missing_needed": "Decision needed: no article",
     "summary.apply_choice": "For the agent: value to put into topics[].substitutes",
     "gap.headline": (
@@ -246,14 +225,7 @@ MESSAGES: dict[str, str] = {
     "chart.season_title": "Months against the usual level",
     "chart.axis_season": "% against the usual level",
     "report.title_topic": "{topic}: interest on Wikipedia",
-    "report.context": "Related articles (context, not counted)",
-    "report.method_note": "About the method",
     "report.sources_names": "Wikimedia Pageviews API, Wikidata, MediaWiki API",
-    "summary.context": "Related articles (context, not counted)",
-    "summary.context_item": "{title} — {views} views/month",
-    "summary.bundle_count": (
-        "measured: the main article; related articles shown as context: {related}"
-    ),
     "month.1": "January",
     "month.short.1": "Jan",
     "month.2": "February",
@@ -288,7 +260,6 @@ MESSAGES: dict[str, str] = {
         "{label}: no article on the topic; the numbers come from {what} and describe a wider "
         "subject, so they are not compared with the other editions."
     ),
-    "report.bundle_composition": "Articles analysed",
     "summary.missing_hint": (
         "Stop here: show these options to the user and ask which one to use for each edition, and "
         "end your answer with that question. Do not choose for the user and do not run again until "
@@ -342,16 +313,9 @@ MESSAGES: dict[str, str] = {
     "evidence.spikes_high": "bursts are {share} of views",
     "card.no_article": "no article",
     "value.per_million": "{value} per million",
-    "report.answer": "Answer",
     "report.vs_edition": "Is the topic growing faster or slower than its Wikipedia?",
     "report.vs_edition_basis": "Compared: {basis}",
     "report.decision": "What this means for the decision",
-    "report.other_findings": "Also worth knowing",
-    "report.coverage": (
-        "Coverage check: related articles found — {items}. They are context and not part of the "
-        "measured metric."
-    ),
-    "report.coverage_item": "{project}: {count}",
     "summary.decision": "What this means for the decision",
     "finding.item.season_tentative": "{label}: {peak_month} {peak}, {trough_month} {trough}",
     "limitation.scope": (
@@ -368,7 +332,6 @@ MESSAGES: dict[str, str] = {
     "report.recent_basis": "last {months} months vs the same months a year earlier",
     "report.data_line": "Data: {items}.",
     "report.data_concerns": "{label}: {items}.",
-    "report.reliability": "Data checks",
     "evidence.spikes_ok": "bursts do not drive the result",
     "outcome.recent.confirmed": "; recent months confirm it",
     "outcome.recent.mixed": "; recent months do not confirm it yet",
@@ -476,12 +439,6 @@ MESSAGES: dict[str, str] = {
     "card.momentum": "Attention share: change",
     "card.momentum_absolute": "Article views: change",
     "card.robustness": "Do recent months confirm the trend?",
-    "col.views_avg": "Article views/month",
-    "col.per_million_avg": "Attention share, per 1M edition views",
-    "col.share_growth": "Attention share: change",
-    "col.views_growth": "Article views: change",
-    "col.edition_growth": "Edition traffic: change",
-    "col.trend": "Attention share trend",
     "edition.gaining": (
         "{label}: article views {article}, edition traffic {edition} → the attention share rises"
     ),

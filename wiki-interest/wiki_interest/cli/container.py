@@ -16,7 +16,6 @@ from wiki_interest.adapters.agent_summary import AgentSummaryRenderer
 from wiki_interest.adapters.clock import SystemClock
 from wiki_interest.adapters.fpdf_report import FpdfReportRenderer
 from wiki_interest.adapters.http import HttpJsonClient
-from wiki_interest.adapters.markdown_report import MarkdownReportRenderer
 from wiki_interest.adapters.matplotlib_charts import MatplotlibChartRenderer
 from wiki_interest.adapters.mediawiki import MediaWikiApi
 from wiki_interest.adapters.memory_cache import InMemoryCache
@@ -123,7 +122,6 @@ class Container:
                 thousands_sep=translator.number_style.thousands_sep,
             ),
             agent_summary=AgentSummaryRenderer(translator),
-            report_markdown=MarkdownReportRenderer(translator),
             report_pdf=FpdfReportRenderer(translator),
             method=MethodReportRenderer(),
         )

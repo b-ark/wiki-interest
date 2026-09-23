@@ -2,9 +2,8 @@
 
 A topic phrased by the user ("інтервальне голодування") becomes, for every requested edition,
 a :class:`~wiki_interest.domain.models.TopicBundle`: the main article with the redirects that
-feed views into it (this is what gets measured), plus related articles and manual additions
-reported next to it as context. Wikidata is the bridge between languages; MediaWiki supplies
-edition-specific facts (redirects, lead-section links, search).
+feed views into it (this is what gets measured). Wikidata is the bridge between languages;
+MediaWiki supplies edition-specific facts (redirects, search).
 
 The resolver never guesses when the entity is ambiguous: it raises
 :class:`~wiki_interest.errors.ClarificationNeededError` so the agent asks the user. Nor does it
@@ -20,7 +19,6 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 
 from wiki_interest.contracts.request import AnalysisRequest, SubstituteSpec, TopicSpec
-from wiki_interest.domain.bundle import BundleSettings, rank_related_concepts
 from wiki_interest.domain.entity_choice import CandidateEvidence, ChoiceSettings, choose_by_meaning
 from wiki_interest.domain.models import (
     ArticleRef,
@@ -44,21 +42,16 @@ class ResolutionSettings:
     """Tunables of the resolution step.
 
     Attributes:
-        related_properties: Wikidata properties followed from the main item to find related
-            concepts (subclass of, part of, has part, facet of).
         candidate_limit: How many Wikidata search hits to consider.
         search_limit: How many full-text hits to consider in the search fallback.
         max_redirects_per_article: Cap on redirects whose views are added to the main article;
             each redirect costs one pageview request, and beyond a few dozen the tail is noise.
-        bundle: Relevance scores and cap for automatically found related concepts.
         choice: Weights and thresholds for picking among homonyms by the stated meaning.
     """
 
-    related_properties: tuple[str, ...] = ("P279", "P361", "P527", "P1269")
     candidate_limit: int = 5
     search_limit: int = 3
     max_redirects_per_article: int = 20
-    bundle: BundleSettings = field(default_factory=BundleSettings)
     choice: ChoiceSettings = field(default_factory=ChoiceSettings)
 
 
@@ -85,8 +78,8 @@ class ResolvedTopic:
         alternatives: Other items the search returned, so a wrong pick can be corrected by
             ``qid`` without another search.
         bundles: One bundle per requested edition, in request order.
-        missing_titles: ``(project, title)`` pairs from ``extra_titles`` that do not exist; the
-            report lists them so a typo never silently shrinks the bundle.
+        missing_titles: ``(project, title)`` pairs of chosen substitutes that do not exist; the
+            report lists them so a typo never silently drops an edition.
         method: How the item was chosen: ``pinned`` (``qid`` given), ``link`` (the user's
             article), ``unique`` (one match), ``auto`` (picked among homonyms by the stated
             meaning), ``default`` (no meaning stated; coverage and ranking agreed), ``none``.
@@ -188,13 +181,7 @@ class TopicResolver:
         mains = self._main_articles(topic, qid, projects, missing)
         if entity.linked_article is not None:
             mains[entity.linked_article.project] = entity.linked_article
-        related: Mapping[WikiProject, tuple[ArticleRef, ...]] = {}
-        if topic.bundle == "auto" and qid is not None:
-            related = self._related_articles(qid, mains, projects)
-        bundles = tuple(
-            self._bundle(topic, project, mains[project], related.get(project, ()), missing)
-            for project in projects
-        )
+        bundles = tuple(self._bundle(topic, project, mains[project]) for project in projects)
         if _nothing_found(topic, qid, bundles):
             raise TopicNotFoundError(
                 f"Nothing matches topic {topic.query!r}",
@@ -498,94 +485,31 @@ class TopicResolver:
                     )
         return None
 
-    # -- related articles -----------------------------------------------------------------
-
-    def _related_articles(
-        self,
-        qid: str,
-        mains: Mapping[WikiProject, ArticleRef | None],
-        projects: Sequence[WikiProject],
-    ) -> dict[WikiProject, tuple[ArticleRef, ...]]:
-        """Build the cross-edition concept bundle and map it to titles per edition."""
-        lead_qids: dict[WikiProject, list[str]] = {}
-        for project, main in mains.items():
-            if main is None or main.source is ResolutionSource.SUBSTITUTE:
-                # A substitute describes another subject; its lead would pull that
-                # subject's neighbourhood into the topic.
-                continue
-            titles = self._mediawiki.lead_links(project, main.title)
-            infos = self._mediawiki.page_info(project, titles) if titles else {}
-            lead_qids[project] = [info.qid for info in infos.values() if info and info.qid]
-        wikidata_related = self._wikidata.related_entities(qid, self._settings.related_properties)
-        concepts = rank_related_concepts(
-            qid, lead_qids, wikidata_related, settings=self._settings.bundle
-        )
-        if not concepts:
-            return {}
-        links = self._wikidata.sitelinks([c.qid for c in concepts], projects)
-        result: dict[WikiProject, tuple[ArticleRef, ...]] = {}
-        for project in projects:
-            refs = [
-                ArticleRef(
-                    project,
-                    links[c.qid][project],
-                    ArticleRole.RELATED,
-                    c.source,
-                    qid=c.qid,
-                )
-                for c in concepts
-                if project in links.get(c.qid, {})
-            ]
-            result[project] = tuple(refs)
-        return result
-
     # -- assembling a bundle --------------------------------------------------------------
 
     def _bundle(
-        self,
-        topic: TopicSpec,
-        project: WikiProject,
-        main: ArticleRef | None,
-        related: Sequence[ArticleRef],
-        missing: list[tuple[WikiProject, str]],
+        self, topic: TopicSpec, project: WikiProject, main: ArticleRef | None
     ) -> TopicBundle:
-        """Assemble main + related + manual articles, apply exclusions, attach redirects.
-
-        Only the main article gets its redirects: it is the one measured. Context articles
-        are shown by their own title's views, which keeps the request count down.
-        """
+        """The main article with the redirects whose views belong to it, or ``NOT_FOUND``."""
         assert topic.id is not None
-        if main is not None and main.source is ResolutionSource.SUBSTITUTE:
-            return self._substitute_bundle(topic, project, main)
-        articles: list[ArticleRef] = [main] if main is not None else []
-        if topic.bundle == "auto" and main is not None:
-            # Related concepts describe the neighbourhood of the main article; without it
-            # they would stand in for a topic the edition does not cover at all.
-            articles.extend(related)
-        if topic.bundle != "main":
-            articles.extend(self._manual_articles(topic, project, articles, missing))
-        articles = self._without_excluded(topic, project, articles)
-        if not articles:
+        if main is None:
             return TopicBundle(topic.id, project, BundleStatus.NOT_FOUND)
-        if main is None or articles[0].role is not ArticleRole.MAIN:
-            # Nothing came from Wikidata, so the user's first title stands in as the main one.
-            articles[0] = replace(articles[0], role=ArticleRole.MAIN)
+        if main.source is ResolutionSource.SUBSTITUTE:
+            return self._substitute_bundle(topic, project, main)
         status = (
             BundleStatus.FOUND_VIA_SEARCH
-            if articles[0].source is ResolutionSource.SEARCH_FALLBACK
+            if main.source is ResolutionSource.SEARCH_FALLBACK
             else BundleStatus.FOUND
         )
-        measured = (self._with_redirects(project, articles[0]), *articles[1:])
-        return TopicBundle(topic.id, project, status, measured)
+        return TopicBundle(topic.id, project, status, (self._with_redirects(project, main),))
 
     def _substitute_bundle(
         self, topic: TopicSpec, project: WikiProject, main: ArticleRef
     ) -> TopicBundle:
         """A bundle of the substitute page alone.
 
-        Related or manual articles would blur what the user agreed to measure. Redirects to
-        a broader or mentioning article are its own traffic and are kept; a redirect chosen
-        as the substitute is measured alone by definition.
+        Redirects to a broader or mentioning article are its own traffic and are kept; a
+        redirect chosen as the substitute is measured alone by definition.
         """
         assert topic.id is not None
         choice = topic.substitutes[project.domain]
@@ -595,53 +519,6 @@ class TopicResolver:
         return TopicBundle(
             topic.id, project, BundleStatus.SUBSTITUTE, (article,), substitute_kind=kind
         )
-
-    def _manual_articles(
-        self,
-        topic: TopicSpec,
-        project: WikiProject,
-        existing: Sequence[ArticleRef],
-        missing: list[tuple[WikiProject, str]],
-    ) -> list[ArticleRef]:
-        """Validate user-supplied titles and add the existing ones as context."""
-        titles = topic.extra_titles.get(project.domain, [])
-        if not titles:
-            return []
-        infos = self._mediawiki.page_info(project, titles)
-        known = {a.title for a in existing}
-        added: list[ArticleRef] = []
-        for title in titles:
-            info = infos.get(title)
-            if info is None:
-                missing.append((project, title))
-                continue
-            if info.title in known:
-                continue
-            known.add(info.title)
-            added.append(
-                ArticleRef(
-                    project,
-                    info.title,
-                    ArticleRole.MANUAL,
-                    ResolutionSource.MANUAL,
-                    qid=info.qid,
-                )
-            )
-        return added
-
-    def _without_excluded(
-        self, topic: TopicSpec, project: WikiProject, articles: list[ArticleRef]
-    ) -> list[ArticleRef]:
-        """Drop articles the user excluded, matching raw and normalised spellings."""
-        raw = topic.exclude_titles.get(project.domain, [])
-        if not raw or not articles:
-            return articles
-        excluded = set(raw)
-        for requested, info in self._mediawiki.page_info(project, raw).items():
-            excluded.add(requested)
-            if info is not None:
-                excluded.add(info.title)
-        return [a for a in articles if a.title not in excluded]
 
     def _with_redirects(self, project: WikiProject, article: ArticleRef) -> ArticleRef:
         """Attach the (capped) list of redirect titles whose views belong to the article."""
@@ -661,9 +538,9 @@ def _same_subject(found_qid: str | None, topic_qid: str | None) -> bool:
 def _nothing_found(topic: TopicSpec, qid: str | None, bundles: Sequence[TopicBundle]) -> bool:
     """No entity, no article anywhere, and nothing the user supplied to measure instead.
 
-    Titles or decisions from the user mean they know what they are after; only a topic that
-    matched nothing at all, with nothing to fall back on, is reported as not found.
+    Decisions from the user mean they know what they are after; only a topic that matched
+    nothing at all, with nothing to fall back on, is reported as not found.
     """
     if qid is not None or any(b.status is not BundleStatus.NOT_FOUND for b in bundles):
         return False
-    return not topic.substitutes and not any(topic.extra_titles.values())
+    return not topic.substitutes

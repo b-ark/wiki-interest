@@ -55,7 +55,6 @@ from wiki_interest.contracts.summary import (
     CheckOut,
     Clarification,
     ComparisonRow,
-    ContextArticleOut,
     CoverageGapOut,
     CoverageOptionOut,
     DataQualityOut,
@@ -80,7 +79,6 @@ from wiki_interest.domain.assessment import (
     divergence,
 )
 from wiki_interest.domain.models import (
-    ArticleRole,
     AudienceProfile,
     BundleStatus,
     CheckStatus,
@@ -99,8 +97,6 @@ __all__ = ["ProvenanceInput", "RunContext", "SummaryBuilder"]
 _CHARTS_DIR = "charts"
 _MAX_RANK_BULLETS = 3
 _MAX_ALTERNATIVES = 4
-_MAX_CONTEXT = 4
-"""Related articles shown per edition: the most read ones."""
 _SMALL_SHARE = 0.1
 """Shares below this are shown with one decimal (``0.8 %``), larger ones as whole percent."""
 _SMALL_VALUE = 100.0
@@ -215,11 +211,10 @@ class SummaryBuilder:
             decision=self._decision_out(conclusion, assessments, labels),
             data_note=self._data_note(analysis, assessments, labels),
             findings=findings,
-            context=self._context_out(analysis),
             limitations=self._limitations(request, period, resolved, labels),
             general_limitations=self._general_limitations(),
             next_steps=self._next_steps(request, period, resolved, analysis, labels),
-            artifacts=_artifacts(context, request, [c.id for c in charts]),
+            artifacts=_artifacts(context, [c.id for c in charts]),
             provenance=self._provenance(period),
         )
 
@@ -423,11 +418,6 @@ class SummaryBuilder:
     # -- resolution -----------------------------------------------------------------------
 
     @staticmethod
-    def resolution_out(topic: ResolvedTopic) -> TopicResolutionOut:
-        """Contract view of a resolved topic (also used by the ``resolve`` command)."""
-        return SummaryBuilder._resolution_out(topic)
-
-    @staticmethod
     def _resolution_out(topic: ResolvedTopic) -> TopicResolutionOut:
         return TopicResolutionOut(
             topic_id=topic.topic_id,
@@ -449,7 +439,6 @@ class SummaryBuilder:
                     project=bundle.project.domain,
                     status=bundle.status,
                     article_count=len(bundle.articles),
-                    related_count=sum(1 for a in bundle.articles if a.role is not ArticleRole.MAIN),
                     redirect_count=len(bundle.main.redirects) if bundle.main else 0,
                     substitute_kind=bundle.substitute_kind,
                     articles=[
@@ -584,27 +573,6 @@ class SummaryBuilder:
             views=self._t.number(metrics.views_avg),
             level=self._t.label("level", item.reliability),
         )
-
-    def _context_out(self, analysis: AnalysisResult) -> list[ContextArticleOut]:
-        """Related articles per pair, most read first, capped for readability."""
-        out: list[ContextArticleOut] = []
-        for pair in analysis.pairs:
-            ranked = sorted(
-                (c for c in pair.context if c.views_avg is not None),
-                key=lambda c: -(c.views_avg or 0.0),
-            )
-            out.extend(
-                ContextArticleOut(
-                    topic_id=pair.topic_id,
-                    project=pair.project.domain,
-                    title=c.title,
-                    role=c.role,
-                    views_avg=c.views_avg,
-                    growth=c.growth,
-                )
-                for c in ranked[:_MAX_CONTEXT]
-            )
-        return out
 
     # -- charts ---------------------------------------------------------------------------
 
@@ -1358,16 +1326,12 @@ def _question_artifacts(context: RunContext) -> Artifacts:
     )
 
 
-def _artifacts(
-    context: RunContext, request: AnalysisRequest, chart_ids: Sequence[str]
-) -> Artifacts:
+def _artifacts(context: RunContext, chart_ids: Sequence[str]) -> Artifacts:
     run_dir = context.run_dir
-    formats = request.report.formats
     return Artifacts(
         run_dir=str(run_dir),
         summary_json=str(run_dir / "summary.json"),
         summary_md=str(run_dir / "summary.md"),
-        report_md=str(run_dir / "report.md") if "md" in formats else None,
-        report_pdf=str(run_dir / "report.pdf") if "pdf" in formats else None,
+        report_pdf=str(run_dir / "report.pdf"),
         charts=[str(run_dir / _CHARTS_DIR / f"{chart_id}.png") for chart_id in chart_ids],
     )

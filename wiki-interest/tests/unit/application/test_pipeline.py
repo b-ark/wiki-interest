@@ -52,7 +52,6 @@ class TestSuccessfulRun:
         run_dir = tmp_path / "runs" / "astro" / "run-1"
         assert (run_dir / "summary.json").exists()
         assert (run_dir / "summary.md").exists()
-        assert (run_dir / "report.md").exists()
         assert (run_dir / "report.pdf").exists()
         pngs = sorted((run_dir / "charts").glob("*.png"))
         assert {p.stem for p in pngs} == {c.id for c in outcome.summary.charts}
@@ -72,12 +71,18 @@ class TestSuccessfulRun:
         assert saved.provenance.data_through == "2026-08"
         assert {m.project for m in saved.metrics} == {"uk.wikipedia", "cs.wikipedia"}
 
-    def test_summary_md_is_in_the_report_language_with_numbers(self, tmp_path: Path) -> None:
+    def test_a_language_without_a_catalog_asks_the_agent_for_its_labels(
+        self, tmp_path: Path
+    ) -> None:
         outcome = _pipeline(tmp_path).run(_request(), _context(tmp_path))
         text = Path(outcome.summary.artifacts.summary_md).read_text(encoding="utf-8")
-        assert "Відповідь" in text or "відповідь" in text.lower()
+        # The template stays English until the agent's narrative brings the translations.
+        assert "**Answer:**" in text
         assert "uk.wikipedia" in text
         assert "report.pdf" in text
+        facts = json.loads((Path(outcome.summary.artifacts.run_dir) / "facts.json").read_text())
+        assert facts["language"] == "uk"
+        assert "report.happening" in facts["ui_strings"]
 
     def test_default_period_is_the_last_24_full_months(self, tmp_path: Path) -> None:
         outcome = _pipeline(tmp_path).run(_request(period=None), _context(tmp_path))
@@ -85,14 +90,6 @@ class TestSuccessfulRun:
             "start": "2024-09",
             "end": "2026-08",
         }
-
-    def test_formats_restrict_which_reports_are_written(self, tmp_path: Path) -> None:
-        request = _request(report={"language": "en", "formats": ["md"]})
-        outcome = _pipeline(tmp_path).run(request, _context(tmp_path))
-        run_dir = Path(outcome.summary.artifacts.run_dir)
-        assert not (run_dir / "report.pdf").exists()
-        assert (run_dir / "report.md").exists()
-        assert outcome.summary.artifacts.report_pdf is None
 
     def test_assess_and_rank_produce_their_own_charts(self, tmp_path: Path) -> None:
         assess = _pipeline(tmp_path).run(

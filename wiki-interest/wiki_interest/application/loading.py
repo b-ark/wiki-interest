@@ -7,9 +7,8 @@ comparison), daily views of the main article (for bursts) and, when the analysis
 human traffic, the main article's automated traffic (for bot suspicion). For the main
 article's own title it also fetches its whole monthly history since 2015-07 (seasons are read
 on it, whatever the analysed period) and, when all access methods are analysed, the monthly
-split by access method (the cause of an anomalous month is read from it). Related articles are
-fetched too, each on its own, as context: they are reported next to the topic, never added
-into its numbers. Requests are independent, so they run on a thread pool; the adapter is
+split by access method (the cause of an anomalous month is read from it). Requests are
+independent, so they run on a thread pool; the adapter is
 responsible for caching and rate limiting.
 """
 
@@ -36,7 +35,7 @@ from wiki_interest.domain.models import (
 from wiki_interest.domain.series import combine
 from wiki_interest.ports.pageviews import PageviewsSource
 
-__all__ = ["ContextSeries", "LoadSettings", "LoadedSeries", "SeriesLoader"]
+__all__ = ["LoadSettings", "LoadedSeries", "SeriesLoader"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,14 +66,6 @@ _SPLIT = (Access.DESKTOP, Access.MOBILE_WEB, Access.MOBILE_APP)
 
 
 @dataclass(frozen=True, slots=True)
-class ContextSeries:
-    """Monthly views of one related article, shown next to the topic as context."""
-
-    article: ArticleRef
-    views: Series
-
-
-@dataclass(frozen=True, slots=True)
 class LoadedSeries:
     """All series fetched for one (topic, edition) pair, aligned to the analysis window.
 
@@ -90,8 +81,6 @@ class LoadedSeries:
     main_automated: Series | None
     main_user_for_automated: Series | None = None
     """Canonical main-title user traffic, excluding redirects, matching ``main_automated``."""
-    context: tuple[ContextSeries, ...] = ()
-    """Related articles in the edition, each with its own views, in bundle order."""
     main_history: Series | None = None
     """Monthly views of the main title (without redirects) since 2015-07."""
     main_by_access: tuple[tuple[Access, Series], ...] = ()
@@ -236,11 +225,6 @@ class SeriesLoader:
             return combine(parts)
 
         main_views = article_views(main)
-        context = tuple(
-            ContextSeries(article, article_views(article))
-            for article in bundle.articles
-            if article is not main
-        )
         main_daily = results.get(("daily", project.domain, main.title))
         main_automated = results.get(("automated", project.domain, main.title))
         main_user = (
@@ -260,7 +244,6 @@ class SeriesLoader:
             main_daily,
             main_automated,
             main_user,
-            context,
             main_history=results.get(("history", project.domain, main.title)),
             main_by_access=by_access,
         )

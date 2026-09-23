@@ -46,9 +46,12 @@ class TestWikiProject:
         ]
 
 
-def _article(title: str = "Astronomy", role: ArticleRole = ArticleRole.MAIN) -> ArticleRef:
+def _article(title: str = "Astronomy") -> ArticleRef:
     return ArticleRef(
-        project=WikiProject("uk"), title=title, role=role, source=ResolutionSource.SITELINK
+        project=WikiProject("uk"),
+        title=title,
+        role=ArticleRole.MAIN,
+        source=ResolutionSource.SITELINK,
     )
 
 
@@ -59,12 +62,12 @@ class TestArticleRef:
 
 
 class TestTopicBundle:
-    def test_main_is_the_single_main_article(self) -> None:
+    def test_main_is_the_bundled_article(self) -> None:
         bundle = TopicBundle(
             topic_id="astronomy",
             project=WikiProject("uk"),
             status=BundleStatus.FOUND,
-            articles=(_article(), _article("Telescope", ArticleRole.RELATED)),
+            articles=(_article(),),
         )
         assert bundle.main is not None
         assert bundle.main.title == "Astronomy"

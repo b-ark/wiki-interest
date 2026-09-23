@@ -5,7 +5,6 @@ series. Thresholds and other tunables are passed in explicitly, never read from 
 environment.
 """
 
-from wiki_interest.domain.bundle import BundleSettings, RelatedConcept, rank_related_concepts
 from wiki_interest.domain.metrics import MetricsSettings, compute_metrics
 from wiki_interest.domain.models import (
     Access,
@@ -54,7 +53,6 @@ __all__ = [
     "ArticleRef",
     "ArticleRole",
     "AudienceProfile",
-    "BundleSettings",
     "BundleStatus",
     "Check",
     "CheckStatus",
@@ -67,7 +65,6 @@ __all__ = [
     "RankedAudience",
     "RankingInput",
     "RankingWeights",
-    "RelatedConcept",
     "Reliability",
     "ReliabilityLevel",
     "ReliabilityThresholds",
@@ -89,7 +86,6 @@ __all__ = [
     "pairwise_median_slope",
     "per_million",
     "rank_audiences",
-    "rank_related_concepts",
     "seasonal_strength",
     "sorted_by_score",
     "theil_sen_slope",

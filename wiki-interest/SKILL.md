@@ -104,8 +104,7 @@ which may be read-only.
    |---|---|
    | "over five years", "since 2020" | `period` (`{"start": "2021-09", "end": "2026-08"}`) |
    | "add German", "also Slovak" | append to `projects` |
-   | "only the main article", "without related articles" | `topics[].bundle: "main"` |
-   | "that article is not what I meant" | `topics[].exclude_titles` |
+   | "that article is not what I meant" | `topics[].qid` of the right meaning from `topics[]` |
    | "raw numbers", "without normalisation" | `normalization: "absolute"` |
    | "which months are strongest", "when to launch" | `report.seasonality: "show"` |
    | "growth matters most" | `ranking_weights` |

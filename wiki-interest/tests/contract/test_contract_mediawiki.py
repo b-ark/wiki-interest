@@ -20,16 +20,6 @@ def test_redirects_to_lists_main_namespace_redirects(replay: Replay) -> None:
     assert all(isinstance(title, str) and title for title in redirects)
 
 
-def test_lead_links_are_existing_articles(replay: Replay) -> None:
-    links = replay("mediawiki-lead-links-uk-astronomy")
-    assert len(links) >= 30, (
-        "the lead of uk 'Астрономія' linked 36 existing articles in prose when recorded"
-    )
-    assert "Астрофізика" in links
-    assert not any(":" in title for title in links), "no category or file links"
-    assert "Туманність Орла" not in links, "image captions are not prose"
-
-
 def test_search_ranks_the_article_first(replay: Replay) -> None:
     titles = replay("mediawiki-search-uk-fasting")
     assert titles[0] == "Інтервальне голодування"

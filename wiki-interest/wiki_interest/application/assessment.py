@@ -57,7 +57,7 @@ class Evidence:
     Only what a reader can check without statistics: how many months, whether any are
     missing, how much of the traffic fell on burst days, and the concerns the reliability
     rules raised (a tiny audience, bots, a doubtful article). Test statistics stay in the
-    detailed reliability section of ``report.md``.
+    reliability section of ``method.md``.
 
     Attributes:
         key: Message key: ``evidence.<name>`` for the short statements, or a reliability

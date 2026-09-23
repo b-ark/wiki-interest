@@ -28,9 +28,15 @@ def chart_paths(tmp_path_factory: pytest.TempPathFactory) -> list[Path]:
     return [renderer.render(spec, out)[0] for spec in example_summary().charts]
 
 
-def _render(summary: AnalysisSummary, charts: list[Path], target: Path) -> PdfReader:
-    renderer = FpdfReportRenderer(Translator(summary.request.report.language))
-    return PdfReader(renderer.render(summary, charts, target))
+def _render(
+    summary: AnalysisSummary,
+    charts: list[Path],
+    target: Path,
+    ui: dict[str, str] | None = None,
+) -> PdfReader:
+    translator = Translator(summary.request.report.language)
+    translator.override(ui or {})
+    return PdfReader(FpdfReportRenderer(translator).render(summary, charts, target))
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "pl", "cs", "ru"])
@@ -83,21 +89,25 @@ def test_the_data_line_and_the_robustness_lines(tmp_path: Path, chart_paths: lis
 
 
 @pytest.mark.parametrize(
-    ("language", "expected"),
+    ("language", "ui"),
     [
-        ("uk", ["Інтерес до інтервального голодування", "Що відбувається", "Наскільки стійкий"]),
-        ("pl", ["Co się dzieje", "edycja językowa to nie kraj"]),
-        ("cs", ["Co se děje", "jazyková edice není země"]),
-        ("ru", ["Что происходит", "языковой раздел — не страна"]),
+        ("uk", {"report.happening": "Що відбувається", "report.robustness": "Наскільки стійкий"}),
+        (
+            "pl",
+            {"report.happening": "Co się dzieje", "report.robustness": "Jak pewny jest wniosek"},
+        ),
+        ("cs", {"report.happening": "Co se děje", "report.robustness": "Jak pevný je závěr"}),
+        ("ru", {"report.happening": "Что происходит", "report.robustness": "Насколько устойчив"}),
     ],
 )
-def test_every_language_keeps_its_script_and_labels(
-    tmp_path: Path, chart_paths: list[Path], language: str, expected: list[str]
+def test_every_language_keeps_its_script_and_the_agent_labels(
+    tmp_path: Path, chart_paths: list[Path], language: str, ui: dict[str, str]
 ) -> None:
     summary = example_summary(language=language)
-    text = _text(_render(summary, chart_paths, tmp_path / f"{language}.pdf"))
-    for part in expected:
+    text = _text(_render(summary, chart_paths, tmp_path / f"{language}.pdf", ui))
+    for part in ui.values():
         assert part in text, part
+    assert summary.verdict.headline.split()[0] in text
     assert "What happened" not in text
 
 

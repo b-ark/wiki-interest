@@ -37,7 +37,6 @@ __all__ = [
     "CheckOut",
     "Clarification",
     "ComparisonRow",
-    "ContextArticleOut",
     "CoverageGapOut",
     "CoverageOptionOut",
     "DataQualityOut",
@@ -62,7 +61,7 @@ class _Model(BaseModel):
 
 
 class ArticleOut(_Model):
-    """One article of a topic in an edition: the measured ``main`` one or context."""
+    """The measured article of a topic in an edition."""
 
     title: str
     role: ArticleRole
@@ -74,7 +73,7 @@ class ArticleOut(_Model):
 class BundleOut(_Model):
     """Resolution result for one topic in one project.
 
-    ``article_count`` and ``related_count`` are stated explicitly (rather than left for the
+    ``article_count`` and ``redirect_count`` are stated explicitly (rather than left for the
     reader to count) because agents that counted the list themselves were the most common
     source of numbers not backed by the summary in the first Haiku evaluation.
     """
@@ -84,7 +83,6 @@ class BundleOut(_Model):
     status: BundleStatus
     articles: list[ArticleOut] = Field(default_factory=list)
     article_count: int = 0
-    related_count: int = 0
     redirect_count: int = 0
     """Redirects whose views were added to the measured (main) article."""
     substitute_kind: SubstituteKind | None = None
@@ -411,17 +409,6 @@ class FindingOut(_Model):
     params: dict[str, float | int | str] = Field(default_factory=dict)
 
 
-class ContextArticleOut(_Model):
-    """A related article reported next to a topic with its own numbers (never summed in)."""
-
-    topic_id: str
-    project: str
-    title: str
-    role: ArticleRole
-    views_avg: float | None
-    growth: float | None = None
-
-
 class CandidateOut(_Model):
     """A Wikidata entity the user may have meant."""
 
@@ -501,7 +488,6 @@ class Artifacts(_Model):
     run_dir: str
     summary_json: str
     summary_md: str
-    report_md: str | None = None
     report_pdf: str | None = None
     method_md: str | None = None
     """How every number was computed for this run, the data checks and the thresholds."""
@@ -550,7 +536,6 @@ class AnalysisSummary(_Model):
     """The state of the data in one line when every audience is clean, else a line per
     audience with its concerns."""
     findings: list[FindingOut] = Field(default_factory=list)
-    context: list[ContextArticleOut] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     """Limitations specific to this run (missing articles, substitutes, short period...)."""
     general_limitations: list[str] = Field(default_factory=list)

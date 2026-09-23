@@ -174,19 +174,15 @@ class WikiProject:
 
 
 class ArticleRole(StrEnum):
-    """Why an article is part of a topic bundle."""
+    """Why an article is part of a topic bundle: only the measured main article is."""
 
     MAIN = "main"
-    RELATED = "related"
-    MANUAL = "manual"
 
 
 class ResolutionSource(StrEnum):
     """How an article title was obtained; lower-confidence sources lower reliability."""
 
     SITELINK = "sitelink"
-    WIKIDATA_RELATION = "wikidata_relation"
-    LEAD_LINK = "lead_link"
     SEARCH_FALLBACK = "search_fallback"
     MANUAL = "manual"
     SUBSTITUTE = "substitute"
@@ -214,12 +210,12 @@ class SubstituteKind(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class ArticleRef:
-    """One Wikipedia article of a topic in one project: the measured one or context.
+    """One Wikipedia article of a topic in one project.
 
     Attributes:
         project: The language edition the article lives in.
         title: Canonical page title with spaces (adapters convert to underscores for URLs).
-        role: ``MAIN`` is measured; ``RELATED`` and ``MANUAL`` are reported as context.
+        role: Always ``MAIN``: the article that is measured.
         source: How the title was found.
         qid: Wikidata item id (``"Q333"``) when known.
         redirects: Titles that redirect to this article; their views are added to the
@@ -250,10 +246,9 @@ class BundleStatus(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class TopicBundle:
-    """The articles of a topic in one project: the main one, measured, and context.
+    """The article of a topic in one project: the main one, measured with its redirects.
 
-    Only the main article (with its redirects) is measured; related and manual articles are
-    reported next to it with their own numbers, never summed in. A bundle with status
+    A bundle with status
     ``NOT_FOUND`` has no articles and is reported honestly as "no article in this edition"
     rather than as zero interest. A ``SUBSTITUTE`` bundle holds the one page
     the user chose to stand in for the missing article; ``substitute_kind`` says what it is.

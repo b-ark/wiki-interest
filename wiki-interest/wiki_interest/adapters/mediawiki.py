@@ -19,7 +19,6 @@ from __future__ import annotations
 import html
 import re
 from collections.abc import Iterator, Mapping, Sequence
-from html.parser import HTMLParser
 from itertools import batched
 from typing import Any
 
@@ -32,7 +31,6 @@ __all__ = [
     "ActionApiError",
     "MediaWikiApi",
     "action_api_error",
-    "prose_link_titles",
     "raise_for_action_api_error",
 ]
 
@@ -40,10 +38,8 @@ MAX_TITLES_PER_REQUEST = 50
 """Batch limit of the Action API for users without the ``apihighlimits`` right."""
 
 _MAIN_NAMESPACE = 0
-_LEAD_SECTION = 0
 _MAX_REDIRECT_HOPS = 5
 """Guards the redirect chain walk; MediaWiki itself only follows one hop, so this is generous."""
-_MISSING_TITLE_CODE = "missingtitle"
 _TAG_RE = re.compile(r"<[^>]+>")
 _INVISIBLE = str.maketrans("", "", "\ufeff\u200b\u200e\u200f")
 """Zero-width characters that editors paste into prose and search snippets carry along."""
@@ -132,43 +128,6 @@ class MediaWikiApi:
                 for raw_redirect in as_array(page.get("redirects", []), "pages[].redirects"):
                     found.append(str(as_object(raw_redirect, "redirects[]")["title"]))
         return tuple(found)
-
-    def lead_links(self, project: WikiProject, title: str) -> Sequence[str]:
-        """Existing articles linked from the prose of section 0 of ``title``.
-
-        ``prop=links`` alone lists every link in the section, including those inside
-        citation templates (ISSN, DOI, publishers) and maintenance boxes, which verified on
-        2026-09-22 dragged "International Standard Serial Number" into a fasting bundle. The
-        rendered ``text`` tells where a link sits: only links inside paragraph prose, outside
-        footnotes and tables, are kept. ``links`` still supplies namespace and existence, so
-        the result is the intersection of both. Empty if the page is missing.
-
-        ``redirects=1`` makes a redirect title parse its target rather than the one-line
-        redirect page, so callers may pass whatever title the user gave.
-        """
-        params: dict[str, str | int] = {
-            "action": "parse",
-            "page": title,
-            "prop": "links|text",
-            "section": _LEAD_SECTION,
-            "redirects": 1,
-        }
-        try:
-            parsed = self._request(project, params)
-        except ActionApiError as exc:
-            if exc.code == _MISSING_TITLE_CODE:
-                return ()
-            raise
-        parse = as_object(parsed.get("parse"), "parse")
-        links = as_array(parse.get("links"), "parse.links")
-        prose = prose_link_titles(str(parse.get("text", "")))
-        return tuple(
-            str(link["title"])
-            for link in (as_object(raw, "parse.links[]") for raw in links)
-            if link.get("ns") == _MAIN_NAMESPACE
-            and link.get("exists")
-            and str(link["title"]) in prose
-        )
 
     def search(self, project: WikiProject, query: str, *, limit: int = 5) -> Sequence[str]:
         """Full-text search restricted to articles; titles in relevance order."""
@@ -306,59 +265,3 @@ def _follow_redirects(title: str, redirects: Mapping[str, str]) -> str:
             return current
         current = target
     return current
-
-
-_EXCLUDED_CONTAINERS = frozenset({"sup", "table", "style", "script", "figure"})
-"""Elements whose links are not prose: footnote markers, infoboxes, embedded CSS/JS, images."""
-
-
-class _ProseLinkCollector(HTMLParser):
-    """Collects ``title`` attributes of article links that sit inside paragraph prose.
-
-    Tracks how deep the parser is inside ``<p>`` and inside excluded containers; a link
-    counts only when it is in at least one paragraph and in no excluded container. Links to
-    missing pages (``class="new"``) and external links (no ``/wiki/`` href) are ignored.
-    """
-
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.titles: set[str] = set()
-        self._paragraph_depth = 0
-        self._excluded_depth = 0
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag == "p":
-            self._paragraph_depth += 1
-        elif tag in _EXCLUDED_CONTAINERS:
-            self._excluded_depth += 1
-        elif tag == "a" and self._paragraph_depth and not self._excluded_depth:
-            self._collect(dict(attrs))
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "p":
-            self._paragraph_depth = max(0, self._paragraph_depth - 1)
-        elif tag in _EXCLUDED_CONTAINERS:
-            self._excluded_depth = max(0, self._excluded_depth - 1)
-
-    def _collect(self, attrs: Mapping[str, str | None]) -> None:
-        href = attrs.get("href") or ""
-        title = attrs.get("title")
-        classes = (attrs.get("class") or "").split()
-        if title and href.startswith("/wiki/") and "new" not in classes:
-            self.titles.add(title)
-
-
-def prose_link_titles(html: str) -> frozenset[str]:
-    """Return the titles linked from paragraph prose of rendered MediaWiki HTML.
-
-    Args:
-        html: ``parse.text`` of an Action API ``action=parse`` response.
-
-    Returns:
-        Link targets exactly as MediaWiki writes them in ``title`` attributes, which match
-        the ``title`` field of ``prop=links`` entries.
-    """
-    collector = _ProseLinkCollector()
-    collector.feed(html)
-    collector.close()
-    return frozenset(collector.titles)

@@ -1,15 +1,13 @@
-"""Use-cases over past runs: list a session's runs and explain what changed between two.
+"""Use-case over past runs: explain what changed between two.
 
 Follow-up questions are the normal case, not the exception: a user changes the period, adds
-an edition or excludes an article and wants to know what that did to the conclusion. Both
-operations work purely on saved ``summary.json`` files, so they need no network.
+an edition or excludes an article and wants to know what that did to the conclusion. It
+works purely on saved ``summary.json`` files, so they need no network.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
 
 from wiki_interest.contracts.summary import AnalysisSummary, MetricsOut
@@ -19,9 +17,7 @@ __all__ = [
     "MetricDelta",
     "PairDiff",
     "RunDiff",
-    "RunRecord",
     "diff_runs",
-    "list_runs",
     "load_summary",
 ]
 
@@ -39,35 +35,6 @@ _COMPARED_METRICS: tuple[str, ...] = (
 )
 
 
-@dataclass(frozen=True, slots=True)
-class RunRecord:
-    """One past run, as much as a listing needs."""
-
-    run_id: str
-    session: str | None
-    run_dir: Path
-    generated_at: datetime
-    status: str
-    question_type: str
-    topics: tuple[str, ...]
-    projects: tuple[str, ...]
-    period: str
-
-    def to_dict(self) -> dict[str, object]:
-        """JSON-ready representation."""
-        return {
-            "run_id": self.run_id,
-            "session": self.session,
-            "run_dir": str(self.run_dir),
-            "generated_at": self.generated_at.isoformat(),
-            "status": self.status,
-            "question_type": self.question_type,
-            "topics": list(self.topics),
-            "projects": list(self.projects),
-            "period": self.period,
-        }
-
-
 def load_summary(run_dir: Path) -> AnalysisSummary:
     """Read and validate the summary of a run directory.
 
@@ -77,47 +44,6 @@ def load_summary(run_dir: Path) -> AnalysisSummary:
     """
     path = run_dir / SUMMARY_FILENAME
     return AnalysisSummary.model_validate_json(path.read_text(encoding="utf-8"))
-
-
-def list_runs(runs_root: Path, session: str | None = None) -> tuple[RunRecord, ...]:
-    """List runs under ``runs_root`` (optionally one session), newest first.
-
-    Directories without a readable summary are skipped: a crashed run must not break the
-    listing of the successful ones.
-    """
-    session_dirs = [runs_root / session] if session else sorted(_subdirs(runs_root))
-    records: list[RunRecord] = []
-    for session_dir in session_dirs:
-        for run_dir in _subdirs(session_dir):
-            record = _record(run_dir)
-            if record is not None:
-                records.append(record)
-    return tuple(sorted(records, key=lambda r: r.generated_at, reverse=True))
-
-
-def _subdirs(path: Path) -> Iterable[Path]:
-    if not path.is_dir():
-        return ()
-    return sorted(p for p in path.iterdir() if p.is_dir())
-
-
-def _record(run_dir: Path) -> RunRecord | None:
-    try:
-        summary = load_summary(run_dir)
-    except (OSError, ValueError):
-        return None
-    period = summary.period
-    return RunRecord(
-        run_id=summary.run_id,
-        session=summary.session,
-        run_dir=run_dir,
-        generated_at=summary.provenance.generated_at,
-        status=summary.status,
-        question_type=summary.request.question_type,
-        topics=tuple(t.id or t.query for t in summary.request.topics),
-        projects=tuple(summary.request.projects),
-        period=f"{period.start:%Y-%m}..{period.end:%Y-%m}",
-    )
 
 
 # ---------------------------------------------------------------------------

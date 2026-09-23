@@ -143,7 +143,7 @@ runs/<name>/
     events.jsonl        raw provider events (stream-json lines, or OpenRouter request/response bodies)
     trajectory.json     parsed Trajectory: turns, tool calls with commands/results, usage, cost, model
     grades.json         every assertion and rubric verdict with evidence
-    artifacts/          files copied from the sandbox: **/summary.json, summary.md, report.md,
+    artifacts/          files copied from the sandbox: **/summary.json, summary.md,
                         report.pdf, request.json, manifest.json, charts/*, *.png, *.svg
   sandboxes/<scenario-id>-rep-<k>/     the agent's cwd, kept as evidence (--delete-sandboxes to drop)
     .claude/skills/<skill-name>/       private copy of the skill (.venv, .cache, runs, evals excluded)

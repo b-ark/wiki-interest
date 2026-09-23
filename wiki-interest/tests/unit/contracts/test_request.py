@@ -38,8 +38,6 @@ class TestDefaultsAndNormalisation:
         assert request.agent == "user"
         assert request.normalization == "per_million"
         assert request.report.language == "en"
-        assert request.report.formats == ["pdf", "md"]
-        assert request.topics[0].bundle == "auto"
 
     def test_projects_are_normalised_and_deduplicated(self) -> None:
         request = AnalysisRequest.model_validate(
@@ -63,11 +61,11 @@ class TestDefaultsAndNormalisation:
         request = AnalysisRequest.model_validate(_minimal(topics=[TopicSpec(query="Astronomy")]))
         assert request.topics[0].id == "astronomy"
 
-    def test_extra_title_project_keys_are_normalised(self) -> None:
+    def test_per_project_keys_are_normalised(self) -> None:
         request = AnalysisRequest.model_validate(
-            _minimal(topics=[{"query": "astronomy", "extra_titles": {"ukwiki": ["Телескоп"]}}])
+            _minimal(topics=[{"query": "astronomy", "local_terms": {"ukwiki": "астрономія"}}])
         )
-        assert request.topics[0].extra_titles == {"uk.wikipedia": ["Телескоп"]}
+        assert request.topics[0].local_terms == {"uk.wikipedia": "астрономія"}
 
     def test_request_is_immutable(self) -> None:
         request = AnalysisRequest.model_validate(_minimal())
@@ -86,10 +84,10 @@ class TestRejections:
                 _minimal(topics=[{"query": "a", "id": "x"}, {"query": "b", "id": "x"}])
             )
 
-    def test_titles_for_unlisted_project_are_rejected(self) -> None:
+    def test_terms_for_unlisted_project_are_rejected(self) -> None:
         with pytest.raises(ValidationError, match="not in the request"):
             AnalysisRequest.model_validate(
-                _minimal(topics=[{"query": "a", "extra_titles": {"pl": ["X"]}}])
+                _minimal(topics=[{"query": "a", "local_terms": {"pl": "x"}}])
             )
 
     def test_compare_needs_two_combinations(self) -> None:
@@ -97,9 +95,10 @@ class TestRejections:
             AnalysisRequest.model_validate(_minimal(question_type="compare"))
         AnalysisRequest.model_validate(_minimal(question_type="compare", projects=["uk", "pl"]))
 
-    def test_manual_bundle_needs_titles(self) -> None:
-        with pytest.raises(ValidationError, match="manual"):
-            AnalysisRequest.model_validate(_minimal(topics=[{"query": "a", "bundle": "manual"}]))
+    def test_removed_bundle_fields_are_rejected(self) -> None:
+        for field in ({"bundle": "main"}, {"extra_titles": {"uk": ["X"]}}):
+            with pytest.raises(ValidationError, match="extra"):
+                AnalysisRequest.model_validate(_minimal(topics=[{"query": "a", **field}]))
 
     def test_invalid_project_is_reported(self) -> None:
         with pytest.raises(ValidationError, match="Invalid Wikipedia language code"):

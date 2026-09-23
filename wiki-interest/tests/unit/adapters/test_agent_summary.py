@@ -36,7 +36,6 @@ def test_english_summary_has_its_sections_in_order(compare_summary: AnalysisSumm
             "## How robust is this conclusion?",
             "## What this means for the decision",
             "## Also worth knowing",
-            "## Related articles (context, not counted)",
             "## Caveats",
             "## What can be refined",
             "## Articles analysed",
@@ -65,43 +64,37 @@ def test_artifacts_are_listed_with_absolute_paths(compare_summary: AnalysisSumma
     assert "- intermittent-fasting-uk-trend.png: `/runs/fasting-uk-cs/" in text
 
 
-def test_bundles_name_the_measured_article_and_count_the_context(
+def test_bundles_name_the_measured_article_and_its_redirects(
     compare_summary: AnalysisSummary,
 ) -> None:
     text = _build(compare_summary)
-    assert (
-        "- **uk.wikipedia**: found — Інтервальне голодування (+1 redirects); "
-        "measured: the main article; related articles shown as context: 1" in text
-    )
+    assert "- **uk.wikipedia**: found — Інтервальне голодування (+1 redirects)\n" in text
 
 
-def test_findings_context_and_general_caveats_are_listed(
+def test_findings_and_general_caveats_are_listed(
     compare_summary: AnalysisSummary,
 ) -> None:
     text = _build(compare_summary)
     assert "- Czech views per million rose +32% year over year; Ukrainian +12%" in text
-    assert "- uk.wikipedia: Голодування — 3,200 views/month" in text
     # General limitations close the caveats, after the ones specific to the run.
     caveats = text[text.index("## Caveats") :]
     assert caveats.index("Two Czech months") < caveats.index("Wikipedia interest is a signal")
 
 
-def test_ukrainian_summary_is_localised() -> None:
-    text = _build(example_summary(language="uk"))
+def test_labels_come_from_the_agent_translations_without_a_catalog() -> None:
+    translator = Translator("uk")
+    translator.override({"summary.answer": "Відповідь", "summary.caveats": "Застереження"})
+    text = AgentSummaryRenderer(translator).build(example_summary(language="uk"))
     assert "**Відповідь:**" in text
-    assert "## Наскільки стійкий цей висновок?" in text
     assert "## Застереження" in text
-    assert "## Що можна уточнити" in text
-    assert "## Файли" in text
-    assert "стійке зростання" in text
-    assert "Answer" not in text
+    assert "**Answer:**" not in text
 
 
 def test_rank_summary_includes_ranking_table() -> None:
     text = _build(example_summary(question_type="rank"))
     assert "| # | Topic | Edition | Score | Profile | Reliability | Why |" in text
     assert "| 3 | Post przerywany | pl.wikipedia | 0.22 | insufficient data | low |" in text
-    assert "- **pl.wikipedia**: found via search — Post przerywany; measured" in text
+    assert "- **pl.wikipedia**: found via search — Post przerywany" in text
 
 
 def test_clarification_branch_shows_question_and_candidates_only() -> None:
@@ -132,7 +125,6 @@ def test_empty_optional_sections_are_skipped() -> None:
             "reliability": [],
             "assessments": [],
             "decision": None,
-            "context": [],
             "verdict": example_summary().verdict.model_copy(update={"bullets": []}),
         }
     )
@@ -145,7 +137,6 @@ def test_empty_optional_sections_are_skipped() -> None:
         "## Also worth knowing",
         "## What this means",
         "## Is the topic growing",
-        "## Related articles",
     ):
         assert heading not in text
 

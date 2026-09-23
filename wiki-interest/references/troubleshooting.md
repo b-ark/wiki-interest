@@ -20,8 +20,7 @@ The `error` field names the offending field. Common causes:
 - an unknown key (typo such as `"project"` instead of `"projects"`): keys are checked strictly;
 - `period.start` before `2015-07` (no data exists earlier) or `end` before `start`;
 - `question_type: "compare"` with a single topic and a single project;
-- `bundle: "manual"` without `extra_titles`;
-- `extra_titles` for a project that is not in `projects`.
+- `local_terms` or `substitutes` for a project that is not in `projects`.
 
 Fix the field and rerun. `references/request-schema.md` lists every field.
 
@@ -47,12 +46,11 @@ module, the environment was not synced: run `scripts/setup.sh` (or `uv sync`).
 ## Symptoms
 
 **"No article" for an edition the user knows has one.** Wikidata has no sitelink for that
-edition, and the full-text search found nothing. Add the exact title under
-`extra_titles` for that project; it becomes the main article for that edition.
+edition, and the full-text search found nothing. Add the article's name in that language to
+`local_terms` and rerun: the missing-article question then lists it among the pages to choose.
 
-**The bundle contains an unrelated article.** Add it to `exclude_titles` for that project, or
-set `bundle: "main"` to analyse the main article alone, or `bundle: "manual"` with the exact
-titles the user wants.
+**The measured article is not what the user meant.** Pin the right item with `qid` (the run
+lists the other meanings of the name), or ask for a link and set `article_url`.
 
 **Trust level is low.** Read the reasons in `summary.md`; they are the answer. Typical: window
 shorter than 12 months (choose a longer `period`), traffic dominated by a news spike (the
@@ -81,7 +79,7 @@ next run refetches everything (a few seconds per topic and edition).
 
 | What | Where |
 |---|---|
-| Run outputs | `./wiki-interest-runs/<session>/<run-id>/` in the working directory (`summary.md`, `summary.json`, `report.pdf`, `report.md`, `charts/`) |
+| Run outputs | `./wiki-interest-runs/<session>/<run-id>/` in the working directory (`summary.md`, `summary.json`, `facts.json`, `report.pdf`, `method.md`, `charts/`) |
 | HTTP cache | `.cache/http.sqlite` |
 | Request examples | `assets/examples/` |
 | Settings via environment | `WIKI_INTEREST_*` (see `wiki_interest/config.py`) |

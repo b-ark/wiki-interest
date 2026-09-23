@@ -74,11 +74,10 @@ def combine(parts: Sequence[tuple[Series, float]]) -> Series:
     """Weighted sum of aligned series with identical granularity, unit and periods.
 
     A bucket is ``None`` only when *every* part is ``None`` there; otherwise it is the weighted
-    sum of the parts that have data. This is deliberate: a bundle is "main article plus
-    redirects plus related articles", and a redirect or a young related article missing a
-    month must not erase the main article's data for that month. The price is that such a
-    month is slightly under-counted, which is why completeness of the parts is reported
-    separately rather than hidden here.
+    sum of the parts that have data. This is deliberate: an article's views are "main title
+    plus its redirects", and a redirect missing a month must not erase the main article's
+    data for that month. The price is that such a month is slightly under-counted, which is
+    why completeness of the parts is reported separately rather than hidden here.
 
     Args:
         parts: ``(series, weight)`` pairs; weights are applied as given (not normalised).

@@ -5,9 +5,7 @@ result is a set of domain values that a later step turns into localised text, ta
 charts.
 
 What is measured is the topic's main article (with the redirects that lead to it), the same
-Wikidata item in every edition, so editions are compared on the same thing. Related articles
-are measured one by one as context and never summed into the topic: a weighted sum of
-different article sets per edition would compare compositions, not interest.
+Wikidata item in every edition, so editions are compared on the same thing.
 """
 
 from __future__ import annotations
@@ -16,7 +14,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
 
-from wiki_interest.application.loading import ContextSeries, LoadedSeries
+from wiki_interest.application.loading import LoadedSeries
 from wiki_interest.application.resolution import ResolvedTopic
 from wiki_interest.domain.findings import (
     Anomaly,
@@ -31,18 +29,15 @@ from wiki_interest.domain.findings import (
 )
 from wiki_interest.domain.metrics import (
     MetricsSettings,
-    comparable_growth,
     compute_automated_share,
     compute_metrics,
 )
 from wiki_interest.domain.models import (
-    ArticleRole,
     BundleStatus,
     RankedAudience,
     RankingWeights,
     Reliability,
     ReliabilityThresholds,
-    ResolutionSource,
     Series,
     SubstituteKind,
     TopicBundle,
@@ -66,7 +61,6 @@ from wiki_interest.domain.series import per_million
 __all__ = [
     "AnalysisResult",
     "AnalysisSettings",
-    "ContextArticle",
     "MonthFinding",
     "PairAnalysis",
     "PairFindings",
@@ -125,25 +119,6 @@ class AnalysisSettings:
 
 
 _DEFAULT_SETTINGS = AnalysisSettings()
-
-
-@dataclass(frozen=True, slots=True)
-class ContextArticle:
-    """A related article reported next to the topic, with its own numbers.
-
-    Attributes:
-        title: Article title in the edition.
-        role: ``related`` (found automatically) or ``manual`` (added by the user).
-        source: Which signal linked it to the topic.
-        views_avg: Mean monthly views over the period, ``None`` without data.
-        growth: Growth of its views by the headline rule, ``None`` when not computable.
-    """
-
-    title: str
-    role: ArticleRole
-    source: ResolutionSource
-    views_avg: float | None
-    growth: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,7 +193,6 @@ class PairAnalysis:
     metrics: TrendMetrics | None
     reliability: Reliability
     findings: PairFindings = field(default_factory=PairFindings)
-    context: tuple[ContextArticle, ...] = ()
 
     @property
     def measures_topic(self) -> bool:
@@ -262,7 +236,7 @@ def analyse(
     """Compute metrics, findings, reliability and ranking for every loaded pair.
 
     Args:
-        resolved: Topics as resolved; supply the bundles (main article, context, status).
+        resolved: Topics as resolved; supply the bundles (main article, status).
         loaded: Series fetched for those topics, in the same order.
         weights: Ranking weights from the request.
         settings: Thresholds and switches.
@@ -335,7 +309,6 @@ def _analyse_pair(
         metrics=metrics,
         reliability=reliability,
         findings=_findings(views, share, item, settings),
-        context=tuple(_context_article(c, settings.metrics) for c in item.context),
     )
 
 
@@ -429,15 +402,3 @@ def _months(  # noqa: PLR0913 -- every series of the pair takes part
             )
         )
     return tuple(out)
-
-
-def _context_article(context: ContextSeries, settings: MetricsSettings) -> ContextArticle:
-    observed = context.views.observed
-    growth, _ = comparable_growth(context.views.values, settings)
-    return ContextArticle(
-        title=context.article.title,
-        role=context.article.role,
-        source=context.article.source,
-        views_avg=sum(observed) / len(observed) if observed else None,
-        growth=growth,
-    )

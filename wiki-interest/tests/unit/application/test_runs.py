@@ -6,7 +6,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from wiki_interest.application.runs import diff_runs, list_runs, load_summary
+from wiki_interest.application.runs import diff_runs, load_summary
 from wiki_interest.contracts.request import AnalysisRequest, Period
 from wiki_interest.contracts.summary import (
     AnalysisSummary,
@@ -56,7 +56,7 @@ def _summary(
     generated_at: datetime,
     period: tuple[str, str] = ("2024-09", "2026-08"),
     growth: float | None = 0.1,
-    articles: tuple[str, ...] = ("Астрономія", "Телескоп"),
+    article: str = "Астрономія",
     level: ReliabilityLevel = ReliabilityLevel.HIGH,
     session: str | None = "astro",
 ) -> AnalysisSummary:
@@ -88,11 +88,10 @@ def _summary(
                         status=BundleStatus.FOUND,
                         articles=[
                             ArticleOut(
-                                title=t,
-                                role=ArticleRole.MAIN if i == 0 else ArticleRole.RELATED,
+                                title=article,
+                                role=ArticleRole.MAIN,
                                 source=ResolutionSource.SITELINK,
                             )
-                            for i, t in enumerate(articles)
                         ],
                     )
                     for p in projects
@@ -127,30 +126,7 @@ T1 = datetime(2026, 9, 22, 10, 0, tzinfo=UTC)
 T2 = datetime(2026, 9, 22, 11, 0, tzinfo=UTC)
 
 
-class TestListRuns:
-    def test_lists_newest_first_and_skips_broken_directories(self, tmp_path: Path) -> None:
-        first = _write(tmp_path, _summary("run-1", projects=["uk"], generated_at=T1))
-        _write(tmp_path, _summary("run-2", projects=["uk", "cs"], generated_at=T2))
-        broken = tmp_path / "astro" / "run-3"
-        broken.mkdir()
-        (broken / "summary.json").write_text("{not json", encoding="utf-8")
-        (tmp_path / "astro" / "stray-file.txt").write_text("x", encoding="utf-8")
-
-        records = list_runs(tmp_path, "astro")
-        assert [r.run_id for r in records] == ["run-2", "run-1"]
-        assert records[1].run_dir == first
-        assert records[0].projects == ("uk.wikipedia", "cs.wikipedia")
-        assert records[0].period == "2024-09..2026-08"
-        assert records[0].to_dict()["question_type"] == "compare"
-
-    def test_lists_all_sessions_when_none_given(self, tmp_path: Path) -> None:
-        _write(tmp_path, _summary("a", projects=["uk"], generated_at=T1, session="s1"))
-        _write(tmp_path, _summary("b", projects=["uk"], generated_at=T2, session="s2"))
-        assert [r.session for r in list_runs(tmp_path)] == ["s2", "s1"]
-
-    def test_missing_root_is_empty(self, tmp_path: Path) -> None:
-        assert list_runs(tmp_path / "nope") == ()
-
+class TestLoadSummary:
     def test_load_summary_round_trips(self, tmp_path: Path) -> None:
         summary = _summary("run-1", projects=["uk"], generated_at=T1)
         run_dir = _write(tmp_path, summary)
@@ -166,7 +142,7 @@ class TestDiffRuns:
             generated_at=T2,
             period=("2021-09", "2026-08"),
             growth=0.25,
-            articles=("Астрономія", "Галактика"),
+            article="Астрономія (наука)",
             level=ReliabilityLevel.MEDIUM,
         )
         diff = diff_runs(before, after)
@@ -185,8 +161,8 @@ class TestDiffRuns:
         assert growth.delta is not None
         assert growth.delta == 0.15
         assert (pair.reliability_before, pair.reliability_after) == ("high", "medium")
-        assert pair.articles_added == ("Галактика",)
-        assert pair.articles_removed == ("Телескоп",)
+        assert pair.articles_added == ("Астрономія (наука)",)
+        assert pair.articles_removed == ("Астрономія",)
         payload = json.loads(json.dumps(diff.to_dict()))
         assert payload["pairs"][0]["metrics"][2]["name"] == "growth_yoy"
 

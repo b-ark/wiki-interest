@@ -63,7 +63,7 @@ def test_wikidata_resolves_intermittent_fasting_to_uk_and_cs_but_not_pl(
     assert "Q14632398" in wikidata.related_entities("Q333", ["P279"])["P279"]
 
 
-def test_mediawiki_resolves_redirect_and_lead_links(http: HttpJsonClient) -> None:
+def test_mediawiki_resolves_redirects_and_search(http: HttpJsonClient) -> None:
     mediawiki = MediaWikiApi(http, http.settings.resolution_ttl_s)
     info = mediawiki.page_info(UK, ["Astronomy", "Nonexistent page xyz 123"])
     assert info["Astronomy"] is not None
@@ -71,5 +71,4 @@ def test_mediawiki_resolves_redirect_and_lead_links(http: HttpJsonClient) -> Non
     assert info["Astronomy"].qid == "Q333"
     assert info["Nonexistent page xyz 123"] is None
     assert "Astronomy" in mediawiki.redirects_to(UK, "Астрономія")
-    assert len(mediawiki.lead_links(UK, "Астрономія")) >= 20
     assert mediawiki.search(UK, "інтервальне голодування")[0] == "Інтервальне голодування"

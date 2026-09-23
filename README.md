@@ -28,7 +28,7 @@ uv run scripts/run.py assets/examples/assess-astronomy-uk.json
 ```
 
 The last command writes `wiki-interest-runs/<session>/<run-id>/` with `summary.md`,
-`summary.json`, a one-page `report.pdf`, `report.md` and charts. To use it as a skill, place
+`summary.json`, `facts.json`, a one-page `report.pdf`, `method.md` and charts. To use it as a skill, place
 the `wiki-interest/` directory where your agent loads skills (for Claude Code:
 `~/.claude/skills/` or `<project>/.claude/skills/`).
 

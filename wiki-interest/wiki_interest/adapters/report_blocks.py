@@ -1,31 +1,37 @@
 """Blocks of the answer that every document shows the same way.
 
-``report.pdf``, ``report.md`` and ``summary.md`` all lead with the same answer: three cards
+``report.pdf`` and ``summary.md`` both lead with the same answer: three cards
 (size of interest, its change, whether recent months confirm it), the topic against its
 edition, what it means for the decision and the next step, and how robust the conclusion
-is. The wording comes from the summary; this module only arranges it, so the three documents
+is. The wording comes from the summary; this module only arranges it, so the documents
 cannot drift apart.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from wiki_interest.contracts.summary import AnalysisSummary, AssessmentOut
 from wiki_interest.i18n import Translator
 
 __all__ = [
+    "GENERATED_AT_FORMAT",
     "Card",
     "cards",
-    "coverage_line",
     "decision_lines",
     "edition_basis",
     "edition_lines",
     "kpi_table",
+    "markdown_table",
     "momentum_text",
     "ordered_assessments",
     "per_million_text",
+    "period_text",
+    "project_label",
+    "question_line",
+    "ranking_table",
+    "report_title",
     "robustness_lines",
     "robustness_value",
     "short_label",
@@ -38,6 +44,11 @@ ARROWS = {"growing": "↑", "declining": "↓", "flat": "→"}
 MAX_CARD_ROWS = 3
 SHORT_LABEL_MAX_CHARS = 14
 ELLIPSIS = "…"
+SCORE_DECIMALS = 2
+RANGE_DASH = " – "
+GENERATED_AT_FORMAT = "%Y-%m-%d %H:%M UTC"
+MAX_TITLE_DESCRIPTION = 60
+"""Longer Wikidata descriptions stay in the "Topic:" line and out of the title."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,23 +226,93 @@ def decision_lines(summary: AnalysisSummary) -> list[str]:
     return [*first, *decision.lines, decision.next_step]
 
 
-def coverage_line(summary: AnalysisSummary, t: Translator) -> str | None:
-    """How many related articles were found and that they are not in the metric."""
-    counts = [
-        (bundle.project.replace(".wikipedia", ""), bundle.related_count)
-        for topic in summary.resolution
-        for bundle in topic.bundles
-        if bundle.related_count
-    ]
-    if not counts:
-        return None
-    items = ", ".join(
-        t.t("report.coverage_item", count=count, project=code) for code, count in counts
-    )
-    return t.t("report.coverage", items=items)
-
-
 def _shorten(text: str) -> str:
     if len(text) <= SHORT_LABEL_MAX_CHARS:
         return text
     return text[: SHORT_LABEL_MAX_CHARS - 1].rstrip() + ELLIPSIS
+
+
+# -- labels and tables shared by summary.md and the PDF ------------------------------
+
+
+def report_title(summary: AnalysisSummary, t: Translator) -> str:
+    """The user's title if given, else the topic's name, else the localised default.
+
+    A single topic with a short Wikidata description carries it in the title ("Python — general-
+    purpose programming language"), so the meaning analysed is stated where nobody skips it.
+    """
+    if summary.request.report.title:
+        return summary.request.report.title
+    names = [topic.label or topic.query for topic in summary.resolution]
+    if not names:
+        return t.t("report.title_default")
+    if len(summary.resolution) == 1:
+        description = summary.resolution[0].description
+        if description and len(description) <= MAX_TITLE_DESCRIPTION:
+            names = [f"{names[0]} — {description}"]
+    title = t.t("report.title_topic", topic=", ".join(names))
+    # Wikidata labels are lower case in many languages ("шахматы"); a title is not.
+    return title[:1].upper() + title[1:]
+
+
+def question_line(summary: AnalysisSummary, t: Translator) -> str:
+    """One sentence restating the request, so the reader knows what was asked."""
+    topics = ", ".join(topic.query for topic in summary.request.topics)
+    projects = ", ".join(summary.request.projects)
+    return t.t(f"question.{summary.request.question_type}", topics=topics, projects=projects)
+
+
+def period_text(summary: AnalysisSummary) -> str:
+    """The period as ``start – end`` (en dash), e.g. ``2024-09`` to ``2026-08``."""
+    return f"{summary.period.start:%Y-%m}{RANGE_DASH}{summary.period.end:%Y-%m}"
+
+
+def markdown_table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> list[str]:
+    """Render a GitHub-flavoured Markdown table; pipes inside cells are escaped."""
+    escaped = [[cell.replace("|", "\\|") for cell in row] for row in rows]
+    lines = [
+        "| " + " | ".join(headers) + " |",
+        "|" + "|".join(" --- " for _ in headers) + "|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in escaped]
+    return lines
+
+
+def ranking_table(summary: AnalysisSummary, t: Translator) -> list[str]:
+    """Ranking table, best first, with the localised profile and the rationale."""
+    headers = [
+        t.t("col.rank"),
+        t.t("col.topic"),
+        t.t("col.project"),
+        t.t("col.score"),
+        t.t("col.profile"),
+        t.t("col.reliability"),
+        t.t("col.rationale"),
+    ]
+    rows = [
+        [
+            str(row.rank),
+            row.label,
+            project_label(summary, row.topic_id, row.project),
+            t.number(row.score, SCORE_DECIMALS),
+            t.label("profile", row.profile),
+            t.label("level", row.reliability),
+            row.rationale,
+        ]
+        for row in sorted(summary.ranking, key=lambda r: r.rank)
+    ]
+    return markdown_table(headers, rows)
+
+
+def project_label(summary: AnalysisSummary, topic_id: str, project: str) -> str:
+    """Edition as shown to readers: ``pl.wikipedia (Post)`` when a substitute was measured.
+
+    The edition code alone would present the substitute's numbers as the topic's own.
+    """
+    for topic in summary.resolution:
+        if topic.topic_id != topic_id:
+            continue
+        for bundle in topic.bundles:
+            if bundle.project == project and bundle.substitute_kind and bundle.articles:
+                return f"{project} ({bundle.articles[0].title})"
+    return project

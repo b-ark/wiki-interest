@@ -8,7 +8,6 @@ receives from the composition root, so the whole thing runs against in-memory fa
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol
@@ -18,7 +17,7 @@ from wiki_interest.application.coverage import CoverageAdvisor
 from wiki_interest.application.facts import apply_narrative, build_facts, template_narrative
 from wiki_interest.application.loading import SeriesLoader
 from wiki_interest.application.narrative_check import check_narrative
-from wiki_interest.application.resolution import ResolvedTopic, TopicResolver
+from wiki_interest.application.resolution import TopicResolver
 from wiki_interest.application.summary_builder import (
     ProvenanceInput,
     RunContext,
@@ -45,7 +44,6 @@ __all__ = [
 CHARTS_DIRNAME = "charts"
 SUMMARY_JSON = "summary.json"
 SUMMARY_MD = "summary.md"
-REPORT_MD = "report.md"
 REPORT_PDF = "report.pdf"
 METHOD_MD = "method.md"
 FACTS_JSON = "facts.json"
@@ -65,7 +63,6 @@ class Renderers:
 
     charts: ChartRenderer
     agent_summary: ReportRenderer
-    report_markdown: ReportRenderer
     report_pdf: ReportRenderer
     method: ReportRenderer | None = None
     """Writes ``method.md``: how the run's numbers were computed."""
@@ -117,7 +114,6 @@ class PipelineOutcome:
             "run_dir": artifacts.run_dir,
             "summary_md": artifacts.summary_md,
             "summary_json": artifacts.summary_json,
-            "report_md": artifacts.report_md,
             "report_pdf": artifacts.report_pdf,
             "charts": list(artifacts.charts),
             "headline": self.summary.verdict.headline,
@@ -202,7 +198,6 @@ class NarrationOutcome:
             "exit_code": self.exit_code,
             "run_dir": artifacts.run_dir,
             "report_pdf": artifacts.report_pdf,
-            "report_md": artifacts.report_md,
             "summary_md": artifacts.summary_md,
         }
         if self.problems:
@@ -279,10 +274,6 @@ class Pipeline:
         rendered = self._render(summary, context.run_dir, services.renderers, services.translator)
         return PipelineOutcome(rendered, EXIT_OK)
 
-    def resolve(self, request: AnalysisRequest) -> Sequence[ResolvedTopic]:
-        """Only resolve topics (for inspection and clarification loops)."""
-        return self._factory.services_for(request).resolver.resolve_request(request)
-
     def render(self, summary: AnalysisSummary, run_dir: Path) -> AnalysisSummary:
         """Re-render charts and reports of a saved summary into ``run_dir``."""
         translator, renderers = self._factory.renderers_for(summary.request.report.language)
@@ -341,13 +332,11 @@ class Pipeline:
         if not translator.has_catalog:
             translator.override(_read_ui(_ui_cache_path(run_dir, translator.requested)))
         charts_dir = run_dir / CHARTS_DIRNAME
-        formats = summary.request.report.formats
         artifacts = Artifacts(
             run_dir=str(run_dir),
             summary_json=str(run_dir / SUMMARY_JSON),
             summary_md=str(run_dir / SUMMARY_MD),
-            report_md=str(run_dir / REPORT_MD) if "md" in formats else None,
-            report_pdf=str(run_dir / REPORT_PDF) if "pdf" in formats else None,
+            report_pdf=str(run_dir / REPORT_PDF),
             method_md=str(run_dir / METHOD_MD) if renderers.method is not None else None,
         )
         png_files: list[Path] = []
@@ -357,10 +346,7 @@ class Pipeline:
                 png_files.extend(p for p in written if p.suffix == ".png")
             artifacts = artifacts.model_copy(update={"charts": [str(p) for p in png_files]})
             final = summary.model_copy(update={"artifacts": artifacts})
-            if artifacts.report_md is not None:
-                renderers.report_markdown.render(final, png_files, Path(artifacts.report_md))
-            if artifacts.report_pdf is not None:
-                renderers.report_pdf.render(final, png_files, Path(artifacts.report_pdf))
+            renderers.report_pdf.render(final, png_files, run_dir / REPORT_PDF)
         renderers.agent_summary.render(final, png_files, run_dir / SUMMARY_MD)
         if renderers.method is not None:
             renderers.method.render(final, png_files, run_dir / METHOD_MD)

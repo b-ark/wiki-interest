@@ -1,4 +1,4 @@
-"""Series loading: fetch planning, deduplication, the measured article and its context."""
+"""Series loading: fetch planning, deduplication, the measured article and its redirects."""
 
 from __future__ import annotations
 
@@ -39,8 +39,7 @@ def _bundle() -> TopicBundle:
         qid="Q333",
         redirects=("Astronomy",),
     )
-    related = ArticleRef(UK, "Телескоп", ArticleRole.RELATED, ResolutionSource.LEAD_LINK)
-    return TopicBundle("astronomy", UK, BundleStatus.FOUND, (main, related))
+    return TopicBundle("astronomy", UK, BundleStatus.FOUND, (main,))
 
 
 def _topic(bundle: TopicBundle) -> ResolvedTopic:
@@ -51,7 +50,6 @@ def _source() -> FakePageviews:
     source = FakePageviews()
     source.set_article(UK, "Астрономія", dict(zip(MONTHS, [100.0, 200.0, 300.0], strict=True)))
     source.set_article(UK, "Astronomy", dict(zip(MONTHS, [10.0, 20.0, 30.0], strict=True)))
-    source.set_article(UK, "Телескоп", dict(zip(MONTHS, [50.0, 50.0, 50.0], strict=True)))
     source.set_aggregate(UK, dict(zip(MONTHS, [1e6, 1e6, 2e6], strict=True)))
     source.set_article(
         UK,
@@ -64,16 +62,13 @@ def _source() -> FakePageviews:
 
 
 class TestAssembly:
-    def test_main_article_is_summed_with_its_redirects_and_related_ones_stay_apart(self) -> None:
+    def test_main_article_is_summed_with_its_redirects(self) -> None:
         loaded = SeriesLoader(_source()).load([_topic(_bundle())], PERIOD)
         assert len(loaded) == 1
         item = loaded[0]
         assert item.main_views is not None
         assert item.main_views.values == (110.0, 220.0, 330.0)
         assert item.project_total.values == (1e6, 1e6, 2e6)
-        (context,) = item.context
-        assert context.article.title == "Телескоп"
-        assert context.views.values == (50.0, 50.0, 50.0)
 
     def test_daily_window_covers_the_whole_last_month(self) -> None:
         source = _source()
@@ -99,18 +94,16 @@ class TestAssembly:
         empty = TopicBundle("astronomy", UK, BundleStatus.NOT_FOUND)
         item = SeriesLoader(_source()).load([_topic(empty)], PERIOD)[0]
         assert item.main_views is None
-        assert item.context == ()
         assert item.main_daily is None
         assert item.project_total.values == (1e6, 1e6, 2e6)
 
     def test_unknown_article_becomes_gaps_not_errors(self) -> None:
         source = _source()
-        source.articles.pop((UK.domain, "Телескоп", Granularity.MONTHLY, Agent.USER, Access.ALL))
+        source.articles.pop((UK.domain, "Astronomy", Granularity.MONTHLY, Agent.USER, Access.ALL))
         item = SeriesLoader(source).load([_topic(_bundle())], PERIOD)[0]
+        # The redirect has no views at all: its gaps do not erase the article's own months.
         assert item.main_views is not None
-        assert item.main_views.values == (110.0, 220.0, 330.0)
-        # The related article is missing entirely: its context series is all gaps.
-        assert item.context[0].views.values == (None, None, None)
+        assert item.main_views.values == (100.0, 200.0, 300.0)
 
 
 def _window(call: tuple[str, tuple[object, ...]]) -> Window:
@@ -136,7 +129,7 @@ class TestPlanning:
         in_period = [
             c for c in monthly if _window(c).start == PERIOD.start and c[1][3] is Access.ALL
         ]
-        assert len(in_period) == 3  # Астрономія, Astronomy, Телескоп
+        assert len(in_period) == 2  # Астрономія, Astronomy
         history = [c for c in monthly if _window(c).start == EARLIEST_MONTH]
         assert [c[1][1] for c in history] == ["Астрономія"]  # the main title, once
         split = {c[1][3] for c in monthly if c[1][3] is not Access.ALL}

@@ -20,8 +20,8 @@ from typing import Annotated
 import typer
 from pydantic import ValidationError
 
-from wiki_interest.application.runs import diff_runs, list_runs, load_summary
-from wiki_interest.application.summary_builder import RunContext, SummaryBuilder
+from wiki_interest.application.runs import diff_runs, load_summary
+from wiki_interest.application.summary_builder import RunContext
 from wiki_interest.cli.container import Container
 from wiki_interest.cli.doctor import run_doctor
 from wiki_interest.contracts.narrative import Narrative
@@ -178,23 +178,6 @@ def run(
 
 
 @app.command()
-def resolve(
-    request_file: Annotated[Path, typer.Argument(help="Path to request.json.")],
-) -> None:
-    """Resolve topics to article bundles without fetching pageviews."""
-    with _guarded(), build_container() as container:
-        request = load_request(request_file)
-        resolved = container.pipeline().resolve(request)
-        _emit(
-            {
-                "status": "ok",
-                "exit_code": 0,
-                "topics": [SummaryBuilder.resolution_out(t).model_dump() for t in resolved],
-            }
-        )
-
-
-@app.command()
 def render(
     run_dir: Annotated[Path, typer.Argument(help="A run directory containing summary.json.")],
     narrative: Annotated[
@@ -219,24 +202,10 @@ def render(
                 "exit_code": 0,
                 "run_dir": artifacts.run_dir,
                 "summary_md": artifacts.summary_md,
-                "report_md": artifacts.report_md,
                 "report_pdf": artifacts.report_pdf,
                 "charts": list(artifacts.charts),
             }
         )
-
-
-@app.command()
-def runs(
-    session: Annotated[
-        str | None, typer.Argument(help="Session slug; all sessions when omitted.")
-    ] = None,
-    runs_dir: RunsDirOption = None,
-) -> None:
-    """List past runs, newest first."""
-    with _guarded(), build_container() as container:
-        records = list_runs(runs_dir or container.settings.runs_dir, session)
-        _emit({"status": "ok", "exit_code": 0, "runs": [r.to_dict() for r in records]})
 
 
 @app.command()

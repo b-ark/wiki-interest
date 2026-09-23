@@ -2,7 +2,9 @@
 
 Runs use the fake world (no network): ``astronomy`` in uk.wikipedia (37.9 per million,
 +21 %) and cs.wikipedia. The template text the code writes must pass its own checks in every
-language; each broken variant must be rejected with a problem the agent can act on.
+language; each broken variant must be rejected with a problem the agent can act on. Only
+English has a catalog: in any other language the template is English with that language's
+numbers, and the agent must also translate the interface labels (``facts.ui_strings``).
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from wiki_interest.application.summary_builder import RunContext
 from wiki_interest.contracts.narrative import Facts, Narrative, PairText
 from wiki_interest.contracts.request import AnalysisRequest
 from wiki_interest.domain.models import Access, Agent, Granularity, WikiProject
+from wiki_interest.i18n import CATALOGS
 
 TOPIC = {"query": "astronomy", "query_language": "en", "id": "astronomy"}
 
@@ -64,18 +67,15 @@ def _messages(facts: Facts, narrative: Narrative) -> list[str]:
     return [f"{p.block}: {p.message}" for p in check_narrative(facts, narrative)]
 
 
-def _russian(template: Narrative) -> Narrative:
-    """A text in the agent's own words, with its own term for the share."""
+def _with_ui(facts: Facts, narrative: Narrative) -> Narrative:
+    """``narrative`` with every label of ``facts.ui_strings`` answered (kept in English)."""
+    return narrative.model_copy(update={"ui": dict(facts.ui_strings)})
 
-    def reworded(text: str) -> str:
-        return text.replace("внимания", "просмотров")
 
-    return template.model_copy(
+def _russian(facts: Facts, template: Narrative) -> Narrative:
+    """A text in the agent's own words, with its own term for the share and the labels."""
+    return _with_ui(facts, template).model_copy(
         update={
-            "chat_answer": reworded(template.chat_answer),
-            "robustness": [
-                r.model_copy(update={"text": reworded(r.text)}) for r in template.robustness
-            ],
             "glossary": {
                 "attention_share": "доля просмотров",
                 "article_views": "просмотры статьи",
@@ -105,13 +105,21 @@ class TestFacts:
         assert change.display.startswith("+21")
         assert uk.states["momentum"] == "growing"
         assert {c.id for c in facts.caveats} >= {"curiosity_not_demand", "coverage_differs"}
-        assert facts.ui_strings == {}  # Russian has a catalog
+        assert facts.ui_strings  # no Russian catalog: the agent translates the labels
         assert Path(facts.template_file).name == "narrative.template.json"
 
-    def test_language_without_a_catalog_asks_for_the_interface_labels(self, tmp_path: Path) -> None:
-        _, run_dir = _run(tmp_path, "de")
+    def test_english_needs_no_interface_labels(self, tmp_path: Path) -> None:
+        _, run_dir = _run(tmp_path, "en")
+        assert _facts(run_dir).ui_strings == {}
+
+    @pytest.mark.parametrize("language", ["ru", "de"])
+    def test_language_without_a_catalog_asks_for_the_interface_labels(
+        self, tmp_path: Path, language: str
+    ) -> None:
+        _, run_dir = _run(tmp_path, language)
         ui = _facts(run_dir).ui_strings
-        assert ui["report.decision"]  # a section heading of the PDF, in English
+        # A section heading of the PDF, as the English template the agent translates.
+        assert ui["report.decision"] == CATALOGS["en"]["report.decision"]
         assert "chart.no_data" not in ui or ui["chart.no_data"]
 
 
@@ -200,7 +208,10 @@ class TestChatBrief:
 
 
 class TestTemplatePassesItsOwnChecks:
-    @pytest.mark.parametrize("language", ["en", "ru", "uk", "pl", "cs"])
+    """Once the agent answered the labels, the template must pass: the code's own text never
+    trips the checks, whatever the language of the numbers and the word lists."""
+
+    @pytest.mark.parametrize("language", ["en", "ru", "uk", "de"])
     @pytest.mark.parametrize(
         "overrides",
         [
@@ -213,19 +224,22 @@ class TestTemplatePassesItsOwnChecks:
     )
     def test_template(self, tmp_path: Path, language: str, overrides: dict[str, object]) -> None:
         _, run_dir = _run(tmp_path, language, overrides)
-        assert _messages(_facts(run_dir), _template(run_dir)) == []
+        facts = _facts(run_dir)
+        assert _messages(facts, _with_ui(facts, _template(run_dir))) == []
 
     def test_template_of_two_topics(self, tmp_path: Path) -> None:
         topics = [TOPIC, {"query": "telescope", "query_language": "en", "id": "telescope"}]
         _, run_dir = _run(tmp_path, "uk", {"topics": topics})
-        assert _messages(_facts(run_dir), _template(run_dir)) == []
+        facts = _facts(run_dir)
+        assert _messages(facts, _with_ui(facts, _template(run_dir))) == []
 
 
 class TestRejections:
     @pytest.fixture
     def ru(self, tmp_path: Path) -> tuple[Facts, Narrative]:
         _, run_dir = _run(tmp_path, "ru")
-        return _facts(run_dir), _russian(_template(run_dir))
+        facts = _facts(run_dir)
+        return facts, _russian(facts, _template(run_dir))
 
     def test_own_words_and_own_glossary_pass(self, ru: tuple[Facts, Narrative]) -> None:
         facts, narrative = ru
@@ -302,12 +316,12 @@ class TestRejections:
 class TestNarrate:
     def test_accepted_text_goes_into_the_reports_and_the_chat_brief(self, tmp_path: Path) -> None:
         pipeline, run_dir = _run(tmp_path, "ru")
-        narrative = _russian(_template(run_dir))
+        narrative = _russian(_facts(run_dir), _template(run_dir))
         outcome = pipeline.narrate(run_dir, narrative)
         assert outcome.status == "accepted"
         assert outcome.exit_code == 0
         assert outcome.summary.narrative_source == "agent"
-        report = (run_dir / "report.md").read_text(encoding="utf-8")
+        report = (run_dir / "summary.md").read_text(encoding="utf-8")
         assert narrative.headline in report
         assert "37,9 на миллион" in report
         assert "21\u202f%" in report  # the typed space before % no longer breaks the line
@@ -322,7 +336,7 @@ class TestNarrate:
 
     def test_one_rejection_then_the_template_stays(self, tmp_path: Path) -> None:
         pipeline, run_dir = _run(tmp_path, "ru")
-        template_report = (run_dir / "report.md").read_text(encoding="utf-8")
+        template_report = (run_dir / "summary.md").read_text(encoding="utf-8")
         broken = _template(run_dir).model_copy(update={"headline": "Рост 21 %."})
         first = pipeline.narrate(run_dir, broken)
         assert (first.status, first.exit_code) == ("rejected", 2)
@@ -330,7 +344,7 @@ class TestNarrate:
         second = pipeline.narrate(run_dir, broken)
         assert (second.status, second.exit_code) == ("fallback", 0)
         assert "summary_md" in str(second.to_dict()["hint"])
-        assert (run_dir / "report.md").read_text(encoding="utf-8") == template_report
+        assert (run_dir / "summary.md").read_text(encoding="utf-8") == template_report
 
     def test_interface_translations_are_kept_for_the_session(self, tmp_path: Path) -> None:
         pipeline, run_dir = _run(tmp_path, "de")
@@ -338,10 +352,10 @@ class TestNarrate:
         ui = {key: f"DE {text}" for key, text in facts.ui_strings.items()}
         narrative = _template(run_dir).model_copy(update={"ui": ui})
         assert pipeline.narrate(run_dir, narrative).status == "accepted"
-        assert "DE " in (run_dir / "report.md").read_text(encoding="utf-8")
+        assert "DE " in (run_dir / "summary.md").read_text(encoding="utf-8")
         cache = run_dir.parent / "ui-de.json"
         assert json.loads(cache.read_text(encoding="utf-8")) == ui
         # The next run of the session renders with them and asks only for new labels.
         _, next_dir = _run(tmp_path, "de", run_id="r2")
-        assert "DE " in (next_dir / "report.md").read_text(encoding="utf-8")
+        assert "DE " in (next_dir / "summary.md").read_text(encoding="utf-8")
         assert not set(_facts(next_dir).ui_strings) & set(ui)

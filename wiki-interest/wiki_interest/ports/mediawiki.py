@@ -67,14 +67,6 @@ class MediaWikiGateway(Protocol):
         """Return titles of main-namespace pages that redirect to ``title``."""
         ...
 
-    def lead_links(self, project: WikiProject, title: str) -> Sequence[str]:
-        """Return existing main-namespace articles linked from the lead section of ``title``.
-
-        The lead section is the part before the first heading; its links are the concepts an
-        editor chose to introduce the topic with, which makes them good bundle candidates.
-        """
-        ...
-
     def search(self, project: WikiProject, query: str, *, limit: int = 5) -> Sequence[str]:
         """Full-text search fallback when no sitelink exists; titles best match first."""
         ...

@@ -15,20 +15,16 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
-from wiki_interest.adapters.markdown_report import (
-    context_lines,
+from wiki_interest.adapters.report_blocks import (
+    decision_lines,
+    edition_basis,
+    edition_lines,
+    kpi_table,
     markdown_table,
     period_text,
     question_line,
     ranking_table,
     report_title,
-)
-from wiki_interest.adapters.report_blocks import (
-    coverage_line,
-    decision_lines,
-    edition_basis,
-    edition_lines,
-    kpi_table,
     robustness_lines,
 )
 from wiki_interest.contracts.summary import (
@@ -83,7 +79,6 @@ class AgentSummaryRenderer:
                 self._list_section("summary.decision", decision_lines(summary)),
                 self._list_section("summary.findings", summary.verdict.bullets),
                 self._key_numbers(summary),
-                self._list_section("summary.context", context_lines(summary, self._t)),
                 self._list_section(
                     "summary.caveats", [*summary.limitations, *summary.general_limitations]
                 ),
@@ -239,9 +234,6 @@ class AgentSummaryRenderer:
         lines = [f"## {self._t.t('report.robustness')}", "", *[f"- {i}" for i in items]]
         if summary.data_note:
             lines += ["", *summary.data_note]
-        coverage = coverage_line(summary, self._t)
-        if coverage:
-            lines += ["", coverage]
         return lines
 
     def _list_section(self, key: str, items: Sequence[str]) -> list[str]:
@@ -271,14 +263,12 @@ class AgentSummaryRenderer:
             if bundle.redirect_count
             else ""
         )
-        count = t.t("summary.bundle_count", related=bundle.related_count)
-        return f"**{bundle.project}**: {status} — {main.title}{redirects}; {count}"
+        return f"**{bundle.project}**: {status} — {main.title}{redirects}"
 
     def _artifacts(self, summary: AnalysisSummary) -> list[str]:
         artifacts = summary.artifacts
         named = [
             ("report.pdf", artifacts.report_pdf),
-            ("report.md", artifacts.report_md),
             ("summary.md", artifacts.summary_md),
             ("summary.json", artifacts.summary_json),
         ]

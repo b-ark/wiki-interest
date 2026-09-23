@@ -1,4 +1,8 @@
-"""Catalog completeness and Translator behaviour."""
+"""English catalog completeness and Translator behaviour.
+
+Only English has a catalog. Any other report language gets the English templates with its own
+number style, and the labels the agent translated are applied through ``Translator.override``.
+"""
 
 from datetime import date
 
@@ -35,48 +39,29 @@ REASON_KEYS = [
 
 LABEL_KEYS = [
     *[f"level.{v}" for v in ("high", "medium", "low")],
-    *[f"status.{v}" for v in ("pass", "warn", "fail", "info")],
     *[f"direction.{v}" for v in ("rising", "falling", "flat", "unknown")],
     *[
         f"profile.{v}"
         for v in ("early_niche", "growth_market", "mature_market", "declining", "insufficient_data")
     ],
     *[f"bundle_status.{v}" for v in ("found", "found_via_search", "not_found")],
-    *[
-        f"source.{v}"
-        for v in ("sitelink", "wikidata_relation", "lead_link", "search_fallback", "manual")
-    ],
-    *[f"role.{v}" for v in ("main", "related", "manual")],
 ]
 
 SECTION_KEYS = [
     "report.title_default",
-    "report.question",
-    "report.key_numbers",
-    "report.chart",
-    "report.reliability",
-    "report.limitations",
-    "report.next_steps",
     "report.sources",
     "report.period",
     "report.generated",
-    "report.bundle_composition",
     "report.ranking_table",
     *[
         f"col.{v}"
         for v in (
             "topic",
             "project",
-            "views_avg",
-            "per_million_avg",
-            "share_growth",
-            "trend",
             "reliability",
             "rank",
             "score",
             "profile",
-            "article",
-            "source",
         )
     ],
     *[
@@ -95,10 +80,8 @@ SECTION_KEYS = [
     "chart.index_title",
     "chart.yoy_title",
     "chart.season_title",
-    "report.answer",
     "report.vs_edition",
     "report.decision",
-    "report.other_findings",
     "summary.decision",
     "report.robustness",
     "card.robustness",
@@ -106,13 +89,13 @@ SECTION_KEYS = [
 ]
 
 
-@pytest.mark.parametrize("language", SUPPORTED_LANGUAGES)
-def test_every_catalog_has_exactly_the_english_keys(language: str) -> None:
-    english = set(CATALOGS["en"])
-    other = set(CATALOGS[language])
-    assert other == english, (
-        f"{language}: missing {sorted(english - other)}, extra {sorted(other - english)}"
-    )
+NO_CATALOG = "uk"
+"""A report language without a catalog: English templates, Ukrainian number style."""
+
+
+def test_only_english_has_a_catalog() -> None:
+    assert SUPPORTED_LANGUAGES == ("en",)
+    assert set(CATALOGS) == {"en"}
 
 
 @pytest.mark.parametrize("key", REASON_KEYS + LABEL_KEYS + SECTION_KEYS)
@@ -120,20 +103,12 @@ def test_required_key_exists_in_english(key: str) -> None:
     assert key in CATALOGS["en"]
 
 
-@pytest.mark.parametrize("language", SUPPORTED_LANGUAGES)
-def test_catalog_values_are_non_empty_and_translated(language: str) -> None:
-    for key, value in CATALOGS[language].items():
-        assert value.strip(), f"{language}: empty value for {key}"
+def test_catalog_values_are_non_empty() -> None:
+    for key, value in CATALOGS["en"].items():
+        assert value.strip(), f"empty value for {key}"
 
 
-@pytest.mark.parametrize("language", ["uk", "ru", "pl", "cs"])
-def test_translations_differ_from_english_for_prose_keys(language: str) -> None:
-    prose = [k for k in REASON_KEYS if k != "resolution.manual"] + ["report.title_default"]
-    same = [k for k in prose if CATALOGS[language][k] == CATALOGS["en"][k]]
-    assert not same, f"{language}: untranslated {same}"
-
-
-@pytest.mark.parametrize("language", SUPPORTED_LANGUAGES)
+@pytest.mark.parametrize("language", ["en", NO_CATALOG])
 @pytest.mark.parametrize("key", REASON_KEYS)
 def test_reason_templates_format_with_their_parameters(language: str, key: str) -> None:
     params = {
@@ -159,8 +134,10 @@ def test_p_value_has_three_decimals() -> None:
     assert "p = 0.046" in text
 
 
-def test_direction_parameter_is_localised() -> None:
-    text = Translator("uk").t("trend.significant", p_value=0.01, direction="rising")
+def test_direction_parameter_is_replaced_by_its_label() -> None:
+    translator = Translator(NO_CATALOG)
+    translator.override({"direction.rising": "зростає"})
+    text = translator.t("trend.significant", p_value=0.01, direction="rising")
     assert "зростає" in text
     assert "rising" not in text
 
@@ -217,7 +194,7 @@ FINDING_PARAMS = {
 }
 
 
-@pytest.mark.parametrize("language", SUPPORTED_LANGUAGES)
+@pytest.mark.parametrize("language", ["en", NO_CATALOG])
 def test_answer_and_finding_templates_format(language: str) -> None:
     translator = Translator(language)
     prefixes = (
@@ -240,24 +217,37 @@ def test_answer_and_finding_templates_format(language: str) -> None:
         assert "{" not in text, (key, text)
 
 
-@pytest.mark.parametrize(
-    ("language", "day", "month"),
-    [("en", "2025-03-14", "2025-03"), ("uk", "14.03.2025", "03.2025")],
-)
-def test_dates_follow_the_report_convention(language: str, day: str, month: str) -> None:
+@pytest.mark.parametrize("language", ["en", NO_CATALOG])
+def test_dates_default_to_the_english_convention(language: str) -> None:
     translator = Translator(language)
-    assert translator.date(date(2025, 3, 14)) == day
-    assert translator.month_year(date(2025, 3, 1)) == month
+    assert translator.date(date(2025, 3, 14)) == "2025-03-14"
+    assert translator.month_year(date(2025, 3, 1)) == "2025-03"
+
+
+def test_dates_follow_the_convention_the_agent_gave() -> None:
+    translator = Translator(NO_CATALOG)
+    translator.override(
+        {
+            "format.date": "{day:02d}.{month:02d}.{year}",
+            "format.month_year": "{month:02d}.{year}",
+        }
+    )
+    assert translator.date(date(2025, 3, 14)) == "14.03.2025"
+    assert translator.month_year(date(2025, 3, 1)) == "03.2025"
 
 
 def test_month_names_are_nominative() -> None:
-    assert Translator("uk").month_name(9) == "вересень"
     assert Translator("en").month_name(1) == "January"
+    assert Translator(NO_CATALOG).month_name(9) == "September"
+    translator = Translator(NO_CATALOG)
+    translator.override({"month.9": "вересень"})
+    assert translator.month_name(9) == "вересень"
 
 
 def test_thousands_separator_follows_report_locale() -> None:
     assert "12,346" in Translator("en").t("volume.ok", views_avg=12345.6)
-    assert f"12{NARROW_NO_BREAK_SPACE}346" in Translator("uk").t("volume.ok", views_avg=12345.6)
+    uk = Translator(NO_CATALOG).t("volume.ok", views_avg=12345.6)
+    assert f"12{NARROW_NO_BREAK_SPACE}346" in uk
 
 
 def test_string_in_numeric_slot_does_not_crash() -> None:
@@ -281,17 +271,49 @@ def test_unsupported_language_falls_back_to_english() -> None:
     assert translator.t("level.high") == "high"
 
 
-def test_key_missing_in_language_falls_back_to_english(monkeypatch: pytest.MonkeyPatch) -> None:
-    translator = Translator("uk")
-    monkeypatch.setattr(translator, "_catalog", {})
+def test_language_without_a_catalog_uses_english_templates_and_its_own_numbers() -> None:
+    translator = Translator(NO_CATALOG)
+    assert (translator.requested, translator.language) == (NO_CATALOG, "en")
+    assert not translator.has_catalog
+    assert Translator("en").has_catalog
     assert translator.t("level.high") == "high"
     assert translator.has("level.high")
+    assert translator.number(37.9, 1) == "37,9"
+
+
+def test_override_takes_the_agent_translations_before_english() -> None:
+    translator = Translator(NO_CATALOG)
+    translator.override({"level.high": "висока", "no.such.key": "зайвий"})
+    assert translator.t("level.high") == "висока"
+    assert translator.t("level.low") == "low"
+    assert translator.english("level.high") == "high"
+    with pytest.raises(KeyError):  # an unknown key cannot be introduced through a translation
+        translator.t("no.such.key")
+
+
+def test_override_keeps_formatting_the_parameters() -> None:
+    translator = Translator(NO_CATALOG)
+    translator.override({"volume.ok": "Близько {views_avg:,.0f} переглядів на місяць"})
+    text = translator.t("volume.ok", views_avg=12345.6)
+    assert text == f"Близько 12{NARROW_NO_BREAK_SPACE}346 переглядів на місяць"
+
+
+def test_recording_collects_the_keys_looked_up() -> None:
+    translator = Translator(NO_CATALOG)
+    with translator.recording() as used:
+        translator.label("level", "high")
+        translator.t("volume.ok", views_avg=1.0)
+    translator.t("level.low")  # outside the block: not recorded
+    assert used == {"level.high", "volume.ok"}
 
 
 def test_label_accepts_enum_members_and_strings() -> None:
-    translator = Translator("pl")
-    assert translator.label("level", ReliabilityLevel.HIGH) == "wysoka"
-    assert translator.label("level", "high") == "wysoka"
+    translator = Translator("en")
+    assert translator.label("level", ReliabilityLevel.HIGH) == "high"
+    assert translator.label("level", "high") == "high"
+    translator = Translator(NO_CATALOG)
+    translator.override({"level.high": "висока"})
+    assert translator.label("level", ReliabilityLevel.HIGH) == "висока"
 
 
 def test_number_and_percent_helpers_handle_none() -> None:

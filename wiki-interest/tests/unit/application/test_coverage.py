@@ -63,12 +63,7 @@ class _World:
 
 
 def _request(**topic: object) -> AnalysisRequest:
-    spec: dict[str, object] = {
-        "id": "if",
-        "query": "intermittent fasting",
-        "query_language": "en",
-        "bundle": "main",
-    }
+    spec: dict[str, object] = {"id": "if", "query": "intermittent fasting", "query_language": "en"}
     spec.update(topic)
     return AnalysisRequest.model_validate(
         {"question_type": "compare", "topics": [spec], "projects": ["pl", "cs"]}

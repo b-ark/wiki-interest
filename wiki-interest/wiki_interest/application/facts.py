@@ -420,15 +420,6 @@ def _follow_ups(summary: AnalysisSummary) -> list[FollowUpFact]:
                 cached=True,
             )
         )
-    if any(t.bundle == "auto" for t in request.topics):
-        out.append(
-            FollowUpFact(
-                id="main_only",
-                what="without the related articles listed as context",
-                change='topics[].bundle: "main"',
-                cached=True,
-            )
-        )
     if not request.report.appendix:
         out.append(
             FollowUpFact(

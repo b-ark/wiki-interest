@@ -17,7 +17,6 @@ is at fault.
 | Related entities | `...?action=wbgetclaims&entity=Q333&property=P279` (one call per property) | `WikidataApi.related_entities` |
 | Page identity | `GET https://{lang}.wikipedia.org/w/api.php?action=query&titles=&redirects=1&prop=pageprops&ppprop=wikibase_item` | `MediaWikiApi.page_info` |
 | Redirects to a page | `...?action=query&titles=&prop=redirects&rdnamespace=0&rdlimit=max` (+ `continue`) | `MediaWikiApi.redirects_to` |
-| Lead-section links | `...?action=parse&page=&prop=links&section=0&redirects=1` | `MediaWikiApi.lead_links` |
 | Search fallback | `...?action=query&list=search&srsearch=&srnamespace=0&srlimit=` | `MediaWikiApi.search` |
 
 All MediaWiki/Wikidata calls add `format=json`; Wikipedia calls also add `formatversion=2`

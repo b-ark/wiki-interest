@@ -26,7 +26,6 @@ from wiki_interest.domain.models import RankingWeights, WikiProject
 __all__ = [
     "EARLIEST_MONTH",
     "AnalysisRequest",
-    "BundleMode",
     "Period",
     "QuestionType",
     "RankingWeightsSpec",
@@ -43,10 +42,6 @@ QuestionType = Literal["compare", "assess", "rank"]
 * ``assess``  - whether interest in one topic grows and how much to trust that;
 * ``rank``    - which (topic, edition) pairs look most promising under the given weights.
 """
-
-BundleMode = Literal["main", "auto", "manual"]
-"""How a topic maps to articles: only the main article, main plus automatically found related
-articles (default), or exactly the titles listed in ``extra_titles``."""
 
 EARLIEST_MONTH = date(2015, 7, 1)
 """First month with data in the Wikimedia Pageviews API."""
@@ -103,9 +98,6 @@ class TopicSpec(_StrictModel):
         id: Stable identifier used in outputs and file names; derived from ``query`` when
             omitted (``"topic-1"``, ``"topic-2"`` … for non-Latin queries).
         qid: Wikidata item to use instead of searching; set this after a clarification.
-        bundle: How to expand the topic into articles.
-        extra_titles: Additional article titles per project (``{"uk.wikipedia": ["Телескоп"]}``).
-        exclude_titles: Titles per project to drop from the automatic bundle.
         local_terms: How the topic is usually called in an edition's language
             (``{"pl.wikipedia": "post przerywany"}``). Optional; used only when the edition
             has no article linked from Wikidata, to find a redirect or articles that mention
@@ -124,9 +116,6 @@ class TopicSpec(_StrictModel):
     query_en: str | None = Field(default=None, min_length=1, max_length=200)
     id: Slug | None = None
     qid: str | None = Field(default=None, pattern=r"^Q[1-9]\d*$")
-    bundle: BundleMode = "auto"
-    extra_titles: dict[str, list[str]] = Field(default_factory=dict)
-    exclude_titles: dict[str, list[str]] = Field(default_factory=dict)
     local_terms: dict[str, Annotated[str, Field(min_length=1, max_length=200)]] = Field(
         default_factory=dict
     )
@@ -144,30 +133,12 @@ class TopicSpec(_StrictModel):
         title = unquote(match.group("title")).replace("_", " ")
         return WikiProject(match.group("lang")), title
 
-    @field_validator("extra_titles", "exclude_titles", mode="before")
-    @classmethod
-    def _normalise_project_keys(cls, value: Any) -> Any:
-        if not isinstance(value, dict):
-            return value
-        normalised: dict[str, list[str]] = {}
-        for key, titles in value.items():
-            project = WikiProject.parse(str(key)).domain
-            normalised.setdefault(project, []).extend(titles)
-        return normalised
-
     @field_validator("local_terms", "substitutes", mode="before")
     @classmethod
     def _normalise_single_value_keys(cls, value: Any) -> Any:
         if not isinstance(value, dict):
             return value
         return {WikiProject.parse(str(key)).domain: item for key, item in value.items()}
-
-    @model_validator(mode="after")
-    def _manual_bundle_needs_titles(self) -> Self:
-        if self.bundle == "manual" and not any(self.extra_titles.values()):
-            msg = 'bundle="manual" requires at least one title in extra_titles'
-            raise ValueError(msg)
-        return self
 
 
 class Period(_StrictModel):
@@ -260,7 +231,6 @@ class ReportOptions(_StrictModel):
     language: str = Field(default="en", pattern=r"^[a-z]{2,3}$")
     title: str | None = Field(default=None, max_length=120)
     audience_note: str | None = Field(default=None, max_length=500)
-    formats: list[Literal["pdf", "md"]] = Field(default=["pdf", "md"])
     seasonality: Literal["auto", "show"] = "auto"
     """``show`` when the user asked about timing (months, seasons, when to launch): the
     seasonal pattern is then always reported and charted. ``auto`` shows it only when it is
@@ -319,8 +289,6 @@ class AnalysisRequest(_StrictModel):
         known = set(self.projects)
         for topic in self.topics:
             mappings: tuple[dict[str, Any], ...] = (
-                topic.extra_titles,
-                topic.exclude_titles,
                 topic.local_terms,
                 topic.substitutes,
             )

@@ -2,8 +2,9 @@
 
 Catalogs are Python dictionaries (no file I/O, no gettext tooling) because the string set is
 small, versioned with the code, and must be importable wherever the reports are rendered.
-An unknown key raises :class:`KeyError` on purpose: a silent English fallback for a missing
-Ukrainian string would leak into a user-facing report and no test would notice.
+An unknown key raises :class:`KeyError` on purpose: a mistyped key must fail a test, not
+print an empty label into a report. Only English has a catalog; for any other report language
+the agent translates the labels a report uses, and :meth:`Translator.override` applies them.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from contextlib import contextmanager
 from string import Formatter
 from typing import Any
 
-from wiki_interest.i18n import cs, en, pl, ru, uk
+from wiki_interest.i18n import en
 from wiki_interest.i18n.formatting import (
     NumberStyle,
     format_number,
@@ -25,23 +26,20 @@ from wiki_interest.i18n.formatting import (
 
 __all__ = ["CATALOGS", "DEFAULT_LANGUAGE", "SUPPORTED_LANGUAGES", "Translator"]
 
-SUPPORTED_LANGUAGES: tuple[str, ...] = ("en", "uk", "ru", "pl", "cs")
-"""Report languages with a complete catalog; requests may name any of them."""
+SUPPORTED_LANGUAGES: tuple[str, ...] = ("en",)
+"""Report languages with a catalog. Any other language gets the English templates, and the
+agent translates the interface labels the report uses (``facts.ui_strings``)."""
 
 DEFAULT_LANGUAGE = "en"
 """Language used for keys missing from a catalog and for unsupported request languages."""
 
 CATALOGS: Mapping[str, Mapping[str, str]] = {
     "en": en.MESSAGES,
-    "uk": uk.MESSAGES,
-    "ru": ru.MESSAGES,
-    "pl": pl.MESSAGES,
-    "cs": cs.MESSAGES,
 }
 
 _ENUM_PARAMS: Mapping[str, str] = {"direction": "direction"}
 """Template parameters whose raw value is an enum member; they are replaced by the label
-``<namespace>.<value>`` so a Ukrainian sentence never contains the English word ``rising``."""
+``<namespace>.<value>`` so a translated sentence never contains the raw value ``rising``."""
 
 
 class _MessageFormatter(Formatter):

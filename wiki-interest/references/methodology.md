@@ -40,20 +40,10 @@ explaining, or when choosing between `per_million` and `absolute`.
    - **skip**: the edition is reported as *no article*, never as zero interest.
    Each option comes with its mean monthly views over the last 12 months, and the question says
    which Wikidata item the topic is and in how many languages it has an article. A chosen
-   substitute is measured alone (no related articles), named next to its edition in every table
+   substitute is measured alone, named next to its edition in every table
    and chart (`pl.wikipedia (Post)`), never wins a headline or a ranking unless it is a redirect,
    and lowers reliability (see section 7).
-3. **Related articles as context (`bundle: auto`).** Readers of a topic also read its
-   neighbours, and the report names them: forward Wikidata relations of the main item and the
-   articles linked from the *prose* of the lead section of the main article in each edition
-   (links in footnotes, citation templates, infoboxes and image captions are ignored, so ISSN
-   or DOI never become "related"). Up to 15 concepts, ordered by relevance (Wikidata relation
-   or a lead link in at least half of the editions first). Each is reported with its own mean
-   monthly views and growth; **none is added into the topic's numbers**. A weighted sum was
-   tried and dropped: which neighbours an edition has differs between editions, so the sum
-   compared article sets, not interest, and its weights could not be justified to a reader.
-   `bundle: main` shows no context; `bundle: manual` shows only `extra_titles`.
-4. **Redirects.** The Pageviews API counts redirect titles separately; the views of redirects
+3. **Redirects.** The Pageviews API counts redirect titles separately; the views of redirects
    to the main article are added to it (a reader who typed the redirect read the article).
 
 What is measured is therefore one series per (topic, edition): the main article with its
@@ -89,7 +79,7 @@ attention does the topic get". Absolute views are reported alongside as audience
 | `seasonality_strength` | share of variance explained by month-of-year after detrending (needs 24 months) | high values: school year, holidays, weather |
 | `spike_share` | share of daily traffic that is excess above the median on spike days (a spike day exceeds median + 5 robust deviations and twice the median) | growth driven by news, not by durable interest |
 | `volatility_cv` | coefficient of variation of the detrended series | stability |
-| `automated_share` | automated / (automated + user) for the canonical main article, using months observed in both traffic classes; excludes redirects and related articles | main-article bot suspicion |
+| `automated_share` | automated / (automated + user) for the canonical main article, using months observed in both traffic classes; excludes redirects | main-article bot suspicion |
 
 Growth, slope, trend and volatility are computed on the normalised series when it is
 available, so they describe attention share, not raw traffic.
@@ -133,8 +123,8 @@ numbers always give the same words and no reader has to weigh five percentages.
   the period is too short for a trend, or there is no comparison with a year earlier. The
   report states this per audience in words, with the numbers, instead of a trust score.
 - **The data** in one line: how many months, whether any are missing, whether bursts drive
-  the result, and any concern the reliability rules raised. The trend test itself is in the
-  detailed reliability section of `report.md`, not on the page.
+  the result, and any concern the reliability rules raised. The trend test itself is in
+  `method.md`, not on the page.
 
 Size and momentum give each audience an outcome:
 
@@ -187,7 +177,7 @@ conservative and says nothing rather than invent a pattern; thresholds are the d
 | No article / other subject | an edition without an article, or measured through a broader or mentioning substitute | always, first, so a gap is never read as zero interest |
 
 The same statement for several editions becomes one line; at most five findings are kept,
-strongest first (the PDF shows two, `report.md` all of them).
+strongest first (the PDF shows two, `summary.md` all of them).
 
 ## 7. Reliability verdict
 
@@ -254,5 +244,4 @@ The palette is Okabe-Ito, readable with the common colour-vision deficiencies.
 - Editions differ in coverage and editor activity; a missing or thin article depresses the
   signal regardless of audience interest.
 - Bot filtering upstream is imperfect; the `automated` and `spikes` checks catch only part of it.
-- Related articles are context with their own numbers, never added into the topic's.
 - Short windows and small editions are noisy; the verdict reflects that.
