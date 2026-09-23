@@ -4,7 +4,10 @@ For each (topic, edition) the loader fetches monthly views of the main article a
 redirects that lead to it (summed: a reader who typed a redirect's name read the article),
 the edition's monthly total (for normalisation and for the article-against-edition
 comparison), daily views of the main article (for bursts) and, when the analysis filters on
-human traffic, the main article's automated traffic (for bot suspicion). Related articles are
+human traffic, the main article's automated traffic (for bot suspicion). For the main
+article's own title it also fetches its whole monthly history since 2015-07 (seasons are read
+on it, whatever the analysed period) and, when all access methods are analysed, the monthly
+split by access method (the cause of an anomalous month is read from it). Related articles are
 fetched too, each on its own, as context: they are reported next to the topic, never added
 into its numbers. Requests are independent, so they run on a thread pool; the adapter is
 responsible for caching and rate limiting.
@@ -19,7 +22,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from wiki_interest.application.resolution import ResolvedTopic
-from wiki_interest.contracts.request import Period
+from wiki_interest.contracts.request import EARLIEST_MONTH, Period
 from wiki_interest.domain.models import (
     Access,
     Agent,
@@ -45,16 +48,22 @@ class LoadSettings:
         agent: Traffic class filter. Automated traffic is fetched for comparison only when
             this is ``USER``; otherwise the share is meaningless.
         fetch_daily: Whether to fetch daily views of the main article for spike detection.
+        fetch_history: Whether to fetch the main title's monthly views since 2015-07.
+        fetch_access: Whether to fetch the main title's monthly views per access method
+            (only when all access methods are analysed).
         max_workers: Size of the thread pool; keep it well below the API's rate limit.
     """
 
     access: Access = Access.ALL
     agent: Agent = Agent.USER
     fetch_daily: bool = True
+    fetch_history: bool = True
+    fetch_access: bool = True
     max_workers: int = 8
 
 
 _DEFAULT_SETTINGS = LoadSettings()
+_SPLIT = (Access.DESKTOP, Access.MOBILE_WEB, Access.MOBILE_APP)
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +92,10 @@ class LoadedSeries:
     """Canonical main-title user traffic, excluding redirects, matching ``main_automated``."""
     context: tuple[ContextSeries, ...] = ()
     """Related articles in the edition, each with its own views, in bundle order."""
+    main_history: Series | None = None
+    """Monthly views of the main title (without redirects) since 2015-07."""
+    main_by_access: tuple[tuple[Access, Series], ...] = ()
+    """Monthly views of the main title per access method, aligned to the analysis window."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,10 +129,12 @@ class SeriesLoader:
         """
         monthly = Window(Granularity.MONTHLY, period.start, period.end)
         daily = Window(Granularity.DAILY, period.start, _last_day_of_month(period.end))
+        history = Window(Granularity.MONTHLY, EARLIEST_MONTH, period.end)
         plan = _FetchPlan(tasks={})
         for topic in topics:
             for bundle in topic.bundles:
                 self._plan_bundle(plan, bundle, monthly, daily)
+                self._plan_extras(plan, bundle, monthly, history)
         results = self._execute(plan)
         return tuple(
             self._assemble(bundle, topic.topic_id, results)
@@ -160,12 +175,38 @@ class SeriesLoader:
                 self._article_task(project, main.title, monthly, Agent.AUTOMATED),
             )
 
+    def _plan_extras(
+        self, plan: _FetchPlan, bundle: TopicBundle, monthly: Window, history: Window
+    ) -> None:
+        """The main title's long history and its split by access method."""
+        settings = self._settings
+        main = bundle.main
+        if main is None:
+            return
+        project = bundle.project
+        if settings.fetch_history:
+            plan.add(
+                ("history", project.domain, main.title),
+                self._article_task(project, main.title, history, settings.agent),
+            )
+        if settings.fetch_access and settings.access is Access.ALL:
+            for access in _SPLIT:
+                plan.add(
+                    ("access", access.value, project.domain, main.title),
+                    self._article_task(project, main.title, monthly, settings.agent, access),
+                )
+
     def _article_task(
-        self, project: WikiProject, title: str, window: Window, agent: Agent
+        self,
+        project: WikiProject,
+        title: str,
+        window: Window,
+        agent: Agent,
+        access: Access | None = None,
     ) -> Callable[[], Series]:
-        access = self._settings.access
+        chosen = access or self._settings.access
         return lambda: self._pageviews.per_article(
-            project, title, window, access=access, agent=agent
+            project, title, window, access=chosen, agent=agent
         )
 
     # -- execution ------------------------------------------------------------------------
@@ -205,6 +246,12 @@ class SeriesLoader:
         main_user = (
             results[("monthly", project.domain, main.title)] if main_automated is not None else None
         )
+        by_access = tuple(
+            (access, series)
+            for access in _SPLIT
+            if (series := results.get(("access", access.value, project.domain, main.title)))
+            is not None
+        )
         return LoadedSeries(
             topic_id,
             project,
@@ -214,6 +261,8 @@ class SeriesLoader:
             main_automated,
             main_user,
             context,
+            main_history=results.get(("history", project.domain, main.title)),
+            main_by_access=by_access,
         )
 
 

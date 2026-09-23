@@ -10,6 +10,7 @@ from wiki_interest.domain.assessment import (
     Momentum,
     RelativeSize,
     Robustness,
+    divergence,
     edition_relation,
     momentum,
     outcome,
@@ -125,3 +126,20 @@ class TestRobustness:
         declining = Momentum.DECLINING
         assert robustness(declining, -0.2, reliable=False, views_avg=1000.0) is Robustness.UNKNOWN
         assert robustness(declining, -0.2, reliable=True, views_avg=50.0) is Robustness.UNKNOWN
+
+
+@pytest.mark.parametrize(
+    ("article", "share", "expected"),
+    [
+        (0.20, -0.10, "views_up_share_down"),
+        (-0.30, 0.10, "views_down_share_up"),
+        (0.20, 0.10, None),
+        (-0.30, -0.20, None),
+        (0.02, -0.10, None),
+        (None, -0.10, None),
+    ],
+)
+def test_readers_and_share_moving_apart(
+    article: float | None, share: float | None, expected: str | None
+) -> None:
+    assert divergence(article, share) == expected

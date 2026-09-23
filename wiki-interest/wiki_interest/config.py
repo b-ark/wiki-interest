@@ -16,7 +16,10 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from wiki_interest import __version__
+from wiki_interest.domain.assessment import AssessmentSettings
 from wiki_interest.domain.models import ReliabilityThresholds
+from wiki_interest.domain.monthly_anomalies import AnomalySettings
+from wiki_interest.domain.seasonality import SeasonSettings
 
 __all__ = ["RUNS_DIRNAME", "Settings", "default_user_agent", "skill_root"]
 
@@ -24,6 +27,9 @@ _SECONDS_PER_DAY = 86_400
 _RESOLUTION_TTL_DAYS = 7
 _PROJECT_URL = "https://github.com/b-ark/wiki-interest"
 _DEFAULT_THRESHOLDS = ReliabilityThresholds()
+_DEFAULT_ASSESSMENT = AssessmentSettings()
+_DEFAULT_SEASON = SeasonSettings()
+_DEFAULT_ANOMALY = AnomalySettings()
 
 
 def skill_root() -> Path:
@@ -124,6 +130,24 @@ class Settings(BaseSettings):
     min_views_avg: float = Field(default=_DEFAULT_THRESHOLDS.min_views_avg, ge=0)
     search_fallback_warns: bool = _DEFAULT_THRESHOLDS.search_fallback_warns
 
+    # Conclusions: when a change counts as growth, when recent months confirm it.
+    min_momentum: float = Field(default=_DEFAULT_ASSESSMENT.min_momentum, ge=0)
+    similar_size_ratio: float = Field(default=_DEFAULT_ASSESSMENT.similar_size_ratio, ge=1)
+    min_share_shift: float = Field(default=_DEFAULT_ASSESSMENT.min_share_shift, ge=0)
+    min_recent_shift: float = Field(default=_DEFAULT_ASSESSMENT.min_recent_shift, ge=0)
+    min_recent_views: float = Field(default=_DEFAULT_ASSESSMENT.min_recent_views, ge=0)
+
+    # Seasons, on the article's whole history.
+    season_min_years: int = Field(default=_DEFAULT_SEASON.min_years, ge=2)
+    season_min_consistency: float = Field(default=_DEFAULT_SEASON.min_consistency, ge=0, le=1)
+    season_min_strength: float = Field(default=_DEFAULT_SEASON.min_strength, ge=0, le=1)
+    season_min_range: float = Field(default=_DEFAULT_SEASON.min_range, ge=0)
+
+    # Months that stand out.
+    anomaly_min_multiple: float = Field(default=_DEFAULT_ANOMALY.min_multiple, gt=1)
+    anomaly_strong_multiple: float = Field(default=_DEFAULT_ANOMALY.strong_multiple, gt=1)
+    anomaly_mad_multiplier: float = Field(default=_DEFAULT_ANOMALY.mad_multiplier, gt=0)
+
     def reliability_thresholds(self) -> ReliabilityThresholds:
         """Pack the flat threshold fields into the domain value object."""
         return ReliabilityThresholds(
@@ -137,4 +161,31 @@ class Settings(BaseSettings):
             automated_share_warn=self.automated_share_warn,
             min_views_avg=self.min_views_avg,
             search_fallback_warns=self.search_fallback_warns,
+        )
+
+    def assessment_settings(self) -> AssessmentSettings:
+        """The cut-offs of the conclusions."""
+        return AssessmentSettings(
+            min_momentum=self.min_momentum,
+            similar_size_ratio=self.similar_size_ratio,
+            min_share_shift=self.min_share_shift,
+            min_recent_shift=self.min_recent_shift,
+            min_recent_views=self.min_recent_views,
+        )
+
+    def season_settings(self) -> SeasonSettings:
+        """When a seasonal pattern is stated."""
+        return SeasonSettings(
+            min_years=self.season_min_years,
+            min_consistency=self.season_min_consistency,
+            min_strength=self.season_min_strength,
+            min_range=self.season_min_range,
+        )
+
+    def anomaly_settings(self) -> AnomalySettings:
+        """When a month stands out."""
+        return AnomalySettings(
+            min_multiple=self.anomaly_min_multiple,
+            strong_multiple=self.anomaly_strong_multiple,
+            mad_multiplier=self.anomaly_mad_multiplier,
         )

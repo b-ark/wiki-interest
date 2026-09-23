@@ -12,6 +12,7 @@ import re
 from collections.abc import Mapping, Sequence
 
 from wiki_interest.contracts.narrative import (
+    AnomalyFact,
     BlockRule,
     CaveatFact,
     Facts,
@@ -22,6 +23,7 @@ from wiki_interest.contracts.narrative import (
     NumberFact,
     PairFacts,
     PairText,
+    SeasonFact,
 )
 from wiki_interest.contracts.summary import AnalysisSummary, AssessmentOut, DecisionOut
 from wiki_interest.i18n import Translator
@@ -41,6 +43,18 @@ _SPACED_UNIT = re.compile(r"(?<=\d)[ \u00a0](?=%)")
 _DIGITS = 4
 """Values are rounded for reading; the display form carries what the report shows."""
 _SMALL_CHANGE = 0.1
+_CONFIRMATION = {
+    "confirmed": "confirmed",
+    "mixed": "mixed",
+    "reversing": "contradicts",
+    "unknown": "insufficient",
+}
+"""Whether the last months confirm the trend, in the words ``facts.json`` uses."""
+_METRIC_IDS: Mapping[str, MetricId] = {
+    "article_views": "article_views",
+    "attention_share": "attention_share",
+    "edition_traffic": "edition_traffic",
+}
 """Changes below 10 % are shown with one decimal, as the template text does."""
 
 METRICS: tuple[MetricFact, ...] = (
@@ -135,6 +149,10 @@ RULES: tuple[str, ...] = (
     "Never call views demand in headline, happening or robustness; the decision and the next "
     "step may speak of checking demand elsewhere.",
     "No statistical jargon (significant, p-value): say steady, mixed, turning, cannot be judged.",
+    "A month in pairs[].anomalies with in_change is named with its month, its multiple and "
+    "the 12-month change without it; say possible_bot as 'possibly automated traffic'.",
+    "Mention a season only when season.shown, naming season.period; when the user asked about "
+    "timing and it is not shown, say why (season.reason).",
     "Follow the states: a declining momentum is a decline even for the largest audience.",
 )
 
@@ -246,13 +264,16 @@ def _pair(
         for name, metric, window, value, unit in candidates
         if value is not None
     ]
+    numbers += _month_numbers(a, pid, main, t)
+    numbers += _season_numbers(a, pid, t)
     states = {
         "size": a.size,
         "momentum": a.momentum,
         "vs_edition": a.relation,
-        "robustness": a.robustness,
+        "recent_confirmation": _CONFIRMATION[str(a.robustness)],
         "outcome": a.outcome,
-        "data_quality": a.confidence,
+        "data_quality": a.data_quality.level if a.data_quality else None,
+        "divergence": a.divergence,
     }
     reading = [line for line in (a.decision, a.robustness_line, a.edition_line) if line]
     return PairFacts(
@@ -264,6 +285,81 @@ def _pair(
         states={k: str(v) for k, v in states.items() if v is not None},
         reading=reading,
         numbers=numbers,
+        data_quality_reasons=list(a.data_quality.reasons) if a.data_quality else [],
+        anomalies=[
+            AnomalyFact(
+                month=m.month,
+                metrics=sorted(m.multiples),
+                nature=m.nature,
+                in_change=m.in_change,
+                in_recent=m.in_recent,
+            )
+            for m in a.months
+        ],
+        season=_season(a),
+    )
+
+
+def _month_numbers(a: AssessmentOut, pid: str, main: MetricId, t: Translator) -> list[NumberFact]:
+    out: list[NumberFact] = []
+    for month in a.months:
+        for metric, multiple in sorted(month.multiples.items()):
+            out.append(
+                NumberFact(
+                    id=f"{pid}.month.{month.month}.{metric}",
+                    metric=_METRIC_IDS.get(metric),
+                    window=f"{month.month} against the months around it",
+                    value=round(multiple, 2),
+                    unit="multiple",
+                    display=_display(t, multiple, "multiple"),
+                )
+            )
+        if month.change_without is not None:
+            out.append(
+                NumberFact(
+                    id=f"{pid}.month.{month.month}.change_without",
+                    metric=main,
+                    window=f"last 12 months vs the 12 before, without {month.month} and its "
+                    "twin a year off",
+                    value=round(month.change_without, _DIGITS),
+                    unit="fraction",
+                    display=_display(t, month.change_without, "fraction"),
+                )
+            )
+    return out
+
+
+def _season_numbers(a: AssessmentOut, pid: str, t: Translator) -> list[NumberFact]:
+    season = a.season
+    if season is None or not season.shown:
+        return []
+    window = f"calendar month against the usual level, {season.start} – {season.end}"
+    return [
+        NumberFact(
+            id=f"{pid}.season.{name}",
+            metric="article_views",
+            window=window,
+            value=round(value, _DIGITS),
+            unit="fraction",
+            display=_display(t, value, "fraction"),
+        )
+        for name, value in (("peak", season.peak), ("trough", season.trough))
+        if value is not None
+    ]
+
+
+def _season(a: AssessmentOut) -> SeasonFact | None:
+    season = a.season
+    if season is None:
+        return None
+    period = f"{season.start} – {season.end}" if season.start and season.end else None
+    return SeasonFact(
+        shown=season.shown,
+        reason=season.reason,
+        period=period,
+        years=season.years,
+        peak_month=season.peak_month,
+        trough_month=season.trough_month,
     )
 
 
@@ -274,6 +370,8 @@ def _display(t: Translator, value: float, unit: str) -> str:
         return t.number(value, 1)
     if unit == "score":
         return t.number(value, 2)
+    if unit == "multiple":
+        return "×" + t.number(value, 1)
     return t.number(value)
 
 
@@ -305,6 +403,18 @@ def _caveats(assessments: Sequence[AssessmentOut], *, measured_count: int) -> li
             )
         )
     for a in assessments:
+        for month in a.months:
+            if month.in_change and month.nature != "edition":
+                out.append(
+                    CaveatFact(
+                        id=f"month:{pair_id(a)}:{month.month}",
+                        meaning=(
+                            f"{month.month} in {a.label} stands out ({month.nature}) and lies "
+                            "in the 12-month comparison: name it and the change without it."
+                        ),
+                        pair=a.label,
+                    )
+                )
         if a.outcome == "no_article":
             meaning = f"{a.label} has no article on the topic: no article, not no interest."
         elif a.outcome == "substitute":
@@ -358,7 +468,12 @@ def template_narrative(summary: AnalysisSummary, translator: Translator) -> Narr
         decision=decision_lines,
         next_step=next_step,
         chat_answer="\n".join(chat).strip(),
-        covered_caveats=[c.id for c in _caveats(summary.assessments, measured_count=measured)],
+        # Anomalous months are the agent's to describe: the template does not name them.
+        covered_caveats=[
+            c.id
+            for c in _caveats(summary.assessments, measured_count=measured)
+            if not c.id.startswith("month:")
+        ],
     )
 
 

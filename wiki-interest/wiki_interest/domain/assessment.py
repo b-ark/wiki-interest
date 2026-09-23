@@ -158,6 +158,27 @@ def edition_relation(
     return EditionRelation.IN_LINE
 
 
+def divergence(
+    article_change: float | None,
+    share_change: float | None,
+    settings: AssessmentSettings = _DEFAULT_SETTINGS,
+) -> str | None:
+    """Readers and the share moving apart over the same months.
+
+    ``views_up_share_down``: the article gained readers but its edition gained more, so the
+    topic's place in the edition shrank. ``views_down_share_up``: the article lost readers
+    but its edition lost more. Both are easy to misread from one number alone.
+    """
+    if article_change is None or share_change is None:
+        return None
+    cut = settings.min_share_shift
+    if article_change >= cut and share_change <= -cut:
+        return "views_up_share_down"
+    if article_change <= -cut and share_change >= cut:
+        return "views_down_share_up"
+    return None
+
+
 def robustness(
     trend: Momentum,
     recent_shift: float | None,

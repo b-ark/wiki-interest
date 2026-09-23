@@ -13,6 +13,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = [
+    "AnomalyFact",
     "BlockRule",
     "CaveatFact",
     "Facts",
@@ -23,6 +24,7 @@ __all__ = [
     "NumberFact",
     "PairFacts",
     "PairText",
+    "SeasonFact",
 ]
 
 MetricId = Literal["attention_share", "article_views", "edition_traffic"]
@@ -49,7 +51,7 @@ class NumberFact(_Model):
         window: Which months it covers, in English.
         value: The raw value; changes are fractions (``-0.195``).
         unit: ``fraction`` (write it as a percentage), ``per_million``, ``views``, ``score``
-            (ranking, 0 to 1) or ``count``.
+            (ranking, 0 to 1), ``multiple`` (``×1.9``) or ``count``.
         display: The value as the report writes it, in the report language: copy this.
     """
 
@@ -57,8 +59,49 @@ class NumberFact(_Model):
     metric: MetricId | None
     window: str
     value: float
-    unit: Literal["fraction", "per_million", "views", "score", "count"]
+    unit: Literal["fraction", "per_million", "views", "score", "multiple", "count"]
     display: str
+
+
+class AnomalyFact(_Model):
+    """A month that stands out; its multiples and the change without it are in ``numbers``.
+
+    Attributes:
+        month: ``YYYY-MM``.
+        metrics: The series it stands out in.
+        nature: ``event``, ``possible_bot``, ``edition`` (the edition moved, not the article)
+            or ``unknown``.
+        in_change: It lies in the months behind the 12-month change: say so, with the
+            change without it.
+        in_recent: It lies in the recent window or the same months a year earlier.
+    """
+
+    month: str
+    metrics: list[str]
+    nature: str
+    in_change: bool
+    in_recent: bool
+
+
+class SeasonFact(_Model):
+    """The seasonal pattern of the article's whole history.
+
+    Attributes:
+        shown: Whether the report states it; mention it only then, or when asked about timing.
+        reason: ``solid``, ``short_history`` (fewer than 5 full years), ``inconsistent`` (the
+            peak or trough month moves between years), ``weak`` or ``no_data``.
+        period: The months it was computed on: name them when you mention the season.
+        years: Full calendar years in it.
+        peak_month: Calendar month (1-12) with the highest level.
+        trough_month: Calendar month with the lowest level.
+    """
+
+    shown: bool
+    reason: str
+    period: str | None = None
+    years: int = 0
+    peak_month: int | None = None
+    trough_month: int | None = None
 
 
 class PairFacts(_Model):
@@ -70,9 +113,13 @@ class PairFacts(_Model):
             pair must contain it.
         measured: Whether the edition has an article to measure.
         states: The code's reading, as enum values: ``size`` (largest/similar/smaller),
-            ``momentum`` (growing/flat/declining/unknown), ``vs_edition``
-            (gaining/in_line/losing), ``robustness`` (confirmed/mixed/reversing/unknown),
-            ``outcome``, ``data_quality`` (high/medium/low).
+            ``momentum`` (growing/flat/declining/unknown; the 12-month trend),
+            ``vs_edition`` (gaining/in_line/losing), ``recent_confirmation`` (do the last
+            months confirm the trend: confirmed/mixed/contradicts/insufficient), ``outcome``,
+            ``data_quality`` (high/medium/low: the data alone, not the trend) and, when the
+            article's views and its share move apart, ``divergence``
+            (views_up_share_down/views_down_share_up).
+        data_quality_reasons: What lowered ``data_quality``, in the report language.
         reading: The same states in the report language, as the template text puts them.
         numbers: What the text may quote about this pair.
     """
@@ -85,6 +132,9 @@ class PairFacts(_Model):
     states: dict[str, str] = Field(default_factory=dict)
     reading: list[str] = Field(default_factory=list)
     numbers: list[NumberFact] = Field(default_factory=list)
+    data_quality_reasons: list[str] = Field(default_factory=list)
+    anomalies: list[AnomalyFact] = Field(default_factory=list)
+    season: SeasonFact | None = None
 
 
 class FindingFact(_Model):

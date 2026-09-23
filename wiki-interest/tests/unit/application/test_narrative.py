@@ -15,12 +15,13 @@ from pathlib import Path
 import pytest
 from pypdf import PdfReader
 
-from fakes import astronomy_world, fake_container
+from fakes import AstronomyWorld, astronomy_world, fake_container
 from wiki_interest.application.narrative_check import check_narrative
 from wiki_interest.application.pipeline import Pipeline
 from wiki_interest.application.summary_builder import RunContext
 from wiki_interest.contracts.narrative import Facts, Narrative, PairText
 from wiki_interest.contracts.request import AnalysisRequest
+from wiki_interest.domain.models import Access, Agent, Granularity, WikiProject
 
 TOPIC = {"query": "astronomy", "query_language": "en", "id": "astronomy"}
 
@@ -31,6 +32,7 @@ def _run(
     overrides: Mapping[str, object] | None = None,
     *,
     run_id: str = "r1",
+    world: AstronomyWorld | None = None,
 ) -> tuple[Pipeline, Path]:
     data: dict[str, object] = {
         "question_type": "compare",
@@ -41,7 +43,7 @@ def _run(
         "session": "astro",
         **(overrides or {}),
     }
-    pipeline = fake_container(astronomy_world(), tmp_path).pipeline()
+    pipeline = fake_container(world or astronomy_world(), tmp_path).pipeline()
     run_dir = tmp_path / "runs" / "astro" / run_id
     context = RunContext(run_id, "astro", run_dir, datetime(2026, 9, 22, tzinfo=UTC))
     outcome = pipeline.run(AnalysisRequest.model_validate(data), context)
@@ -111,6 +113,65 @@ class TestFacts:
         ui = _facts(run_dir).ui_strings
         assert ui["report.decision"]  # a section heading of the PDF, in English
         assert "chart.no_data" not in ui or ui["chart.no_data"]
+
+
+def _spiky_world(month_index: int = 20) -> AstronomyWorld:
+    """uk.wikipedia's article at 2.5 times its level in one month, through mobile web alone."""
+    world = astronomy_world()
+    uk = WikiProject("uk")
+    key = (uk.domain, "Астрономія", Granularity.MONTHLY, Agent.USER, Access.ALL)
+    base = dict(world.pageviews.articles[key])
+    month = world.months[month_index]
+    world.pageviews.articles[key][month] = base[month] * 2.5
+    shares = {Access.DESKTOP: 0.3, Access.MOBILE_WEB: 0.65, Access.MOBILE_APP: 0.05}
+    for access, share in shares.items():
+        values = {m: v * share for m, v in base.items()}
+        if access is Access.MOBILE_WEB:
+            values[month] = base[month] * (2.5 - 0.35)
+        world.pageviews.set_article(uk, "Астрономія", values, access=access)
+    return world
+
+
+class TestAnalysisFacts:
+    def test_states_split_data_quality_from_the_conclusion(self, tmp_path: Path) -> None:
+        _, run_dir = _run(tmp_path, "en")
+        uk = next(p for p in _facts(run_dir).pairs if p.id == "astronomy/uk")
+        assert uk.states["recent_confirmation"] in {
+            "confirmed",
+            "mixed",
+            "contradicts",
+            "insufficient",
+        }
+        assert "robustness" not in uk.states
+        assert uk.states["data_quality"] in {"high", "medium", "low"}
+        assert uk.season is not None
+        assert not uk.season.shown  # two years of history are too short
+        assert uk.season.reason == "short_history"
+
+    def test_a_month_in_the_change_is_a_fact_with_its_cause_and_a_caveat(
+        self, tmp_path: Path
+    ) -> None:
+        world = _spiky_world()
+        month = f"{world.months[20]:%Y-%m}"
+        _, run_dir = _run(tmp_path, "en", world=world)
+        facts = _facts(run_dir)
+        uk = next(p for p in facts.pairs if p.id == "astronomy/uk")
+        (anomaly,) = uk.anomalies
+        assert (anomaly.month, anomaly.nature, anomaly.in_change) == (
+            month,
+            "possible_bot",
+            True,
+        )
+        numbers = {n.id: n for n in uk.numbers}
+        views = numbers[f"astronomy/uk.month.{month}.article_views"]
+        assert views.unit == "multiple"
+        assert views.display.startswith("×")
+        without = numbers[f"astronomy/uk.month.{month}.change_without"]
+        assert without.value < numbers["astronomy/uk.change"].value
+        assert f"month:astronomy/uk:{month}" in {c.id for c in facts.caveats}
+        # The template does not describe the month, so the agent has to.
+        messages = _messages(facts, _template(run_dir))
+        assert any(f"month:astronomy/uk:{month}" in m for m in messages)
 
 
 class TestTemplatePassesItsOwnChecks:

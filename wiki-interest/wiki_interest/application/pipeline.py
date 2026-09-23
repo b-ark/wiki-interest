@@ -27,6 +27,7 @@ from wiki_interest.application.summary_builder import (
 from wiki_interest.contracts.narrative import Facts, Narrative, NarrativeProblem
 from wiki_interest.contracts.request import AnalysisRequest, Period
 from wiki_interest.contracts.summary import AnalysisSummary, Artifacts
+from wiki_interest.domain.assessment import AssessmentSettings
 from wiki_interest.errors import ClarificationNeededError, TopicNotFoundError
 from wiki_interest.i18n import Translator
 from wiki_interest.ports import ChartRenderer, Clock, ReportRenderer
@@ -78,6 +79,8 @@ class RunServices:
     translator: Translator
     renderers: Renderers
     provenance: ProvenanceInput
+    assessment: AssessmentSettings | None = None
+    """Cut-offs of the conclusions; the domain defaults when ``None``."""
     stop_after_resolve: bool = False
     """End the run after the topic stage (see ``Settings.stop_after``)."""
 
@@ -235,7 +238,12 @@ class Pipeline:
         """
         services = self._factory.services_for(request)
         period = request.period or Period.last_full_months(self._clock.today())
-        builder = SummaryBuilder(services.translator, context, services.provenance)
+        builder = SummaryBuilder(
+            services.translator,
+            context,
+            services.provenance,
+            assessment_settings=services.assessment,
+        )
         try:
             resolved = services.resolver.resolve_request(request)
         except ClarificationNeededError as error:

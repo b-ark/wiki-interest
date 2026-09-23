@@ -40,14 +40,17 @@ __all__ = [
     "ContextArticleOut",
     "CoverageGapOut",
     "CoverageOptionOut",
+    "DataQualityOut",
     "DecisionOut",
     "EvidenceOut",
     "FindingOut",
     "MetricsOut",
+    "MonthOut",
     "PointOut",
     "Provenance",
     "RankedRow",
     "ReliabilityOut",
+    "SeasonOut",
     "SeriesOut",
     "TopicResolutionOut",
     "Verdict",
@@ -235,6 +238,71 @@ class EvidenceOut(_Model):
     """Whether it lowers trust rather than supports it."""
 
 
+class MonthOut(_Model):
+    """A month that stands out in one of the pair's series.
+
+    Attributes:
+        month: ``YYYY-MM``.
+        multiples: ``metric: value / usual level`` for every series it stands out in
+            (``article_views``, ``attention_share``, ``edition_traffic``); below one for a drop.
+        nature: ``event`` (readers through every access method, or a burst of daily views),
+            ``possible_bot`` (one access method, or automated traffic), ``edition`` (the
+            edition moved, not the article) or ``unknown``.
+        in_change: Whether it lies in the 24 months behind the headline change.
+        in_recent: Whether it lies in the recent window or the same months a year earlier.
+        change_without: The headline change without this month and its twin a year off.
+    """
+
+    month: str = Field(pattern=r"^\d{4}-\d{2}$")
+    multiples: dict[str, float]
+    nature: str
+    in_change: bool
+    in_recent: bool
+    change_without: float | None = None
+
+
+class SeasonOut(_Model):
+    """The seasonal pattern of the article's whole history, and whether it is shown.
+
+    Attributes:
+        shown: Whether the report states it.
+        reason: ``solid``, ``short_history``, ``inconsistent``, ``weak`` or ``no_data``.
+        years: Full calendar years of history.
+        consistency: Share of those years whose peak and trough agree with the pattern.
+        strength: Share of the detrended variation the calendar explains.
+        start: First month of the history used (``YYYY-MM``).
+        end: Last month used.
+        peak_month: Calendar month (1-12) with the highest level.
+        trough_month: Calendar month with the lowest level.
+        peak: Effect of the peak month against the usual level (``0.3`` = 30 % above).
+        trough: Effect of the trough month.
+    """
+
+    shown: bool
+    reason: str
+    years: int
+    consistency: float | None = None
+    strength: float | None = None
+    start: str | None = None
+    end: str | None = None
+    peak_month: int | None = None
+    trough_month: int | None = None
+    peak: float | None = None
+    trough: float | None = None
+
+
+class DataQualityOut(_Model):
+    """How good the data are, apart from what they show.
+
+    ``level`` is the worst of the data checks (months, gaps, bursts, automated traffic,
+    audience size, how the article was found); the trend test is an inference, not a data
+    check, and stays in ``reliability``. ``reasons`` are the checks that lowered it.
+    """
+
+    level: ReliabilityLevel
+    reasons: list[str] = Field(default_factory=list)
+
+
 class AssessmentOut(_Model):
     """The decision view of one (topic, edition): size, momentum, the edition, trust.
 
@@ -263,6 +331,11 @@ class AssessmentOut(_Model):
             ``low_trust``, ``unknown``, ``substitute`` or ``no_article``.
         decision: What the outcome means, as one sentence.
         edition_line: The article against its edition in words, ``None`` when not computable.
+        data_quality: The data's quality apart from the trend.
+        months: Months that stand out.
+        season: The seasonal pattern of the whole history.
+        divergence: ``views_up_share_down`` (more readers, but the edition grew faster) or
+            ``views_down_share_up`` (fewer readers, but the edition fell faster).
     """
 
     topic_id: str
@@ -291,6 +364,10 @@ class AssessmentOut(_Model):
     outcome: str
     decision: str
     edition_line: str | None = None
+    data_quality: DataQualityOut | None = None
+    months: list[MonthOut] = Field(default_factory=list)
+    season: SeasonOut | None = None
+    divergence: str | None = None
 
 
 class DecisionOut(_Model):

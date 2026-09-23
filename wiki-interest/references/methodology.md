@@ -182,7 +182,8 @@ conservative and says nothing rather than invent a pattern; thresholds are the d
 | Level shift | the best two-level split of log values (at least 6 months each side) | levels differ by >= 25 %, the difference is >= 4 standard errors, and the step fits the series clearly better than a straight line (so a steady trend is never dated as an event) |
 | Burst | a day is at least 2.5x the median of the 45 days on either side, 5 robust deviations and 50 views above it; burst days at most 2 days apart form one episode | the episode holds >= 0.5 % of the period's views; the largest one per edition is named with its dates, peak and share |
 | Recent change | the last 3 months against the same 3 months a year earlier (seasons cancel out), next to the edition's own change | all six months observed and the change is >= 10 % |
-| Season | observations divided by a Theil-Sen exponential trend, averaged per calendar month and scaled to a mean of 1 | always computed; mentioned when the calendar explains >= 30 % of the variation and the peak and trough months differ by >= 25 %. With less than five years of history (each month observed only a few times) it is stated as "signs of seasonality, a longer history is needed"; it gets its own chart only from five years and >= 50 % explained, or when the user asked about timing (`report.seasonality: "show"`) |
+| Season | on the article's whole monthly history since 2015-07, whatever the analysed period: observations divided by a Theil-Sen exponential trend, averaged per calendar month and scaled to a mean of 1 | always computed; stated only when solid: at least 5 full calendar years, the calendar explains >= 30 % of the variation, the peak and trough months differ by >= 25 %, and in >= 80 % of the years the peak month is among that year's two strongest months and the trough month among its two weakest. The text names the months it was computed on. Otherwise `facts.json` gives the reason (`short_history`, `weak`, `inconsistent`). It gets its own chart from >= 50 % explained, or when the user asked about timing (`report.seasonality: "show"`; a pattern that is not solid is then shown with its caveat) |
+| Month that stands out | each month against the median of the 6 months on either side (which follows a trend); for the article's views, its share and the edition's traffic | at least 1.6x (or 1/1.6x) its surroundings and 2.5 robust standard deviations of all months' deviations, or at least 1.8x whatever the noise. Not a month the article's season explains (with >= 5 years of history), nor one high every year. Its probable cause: `possible_bot` when >= 85 % of the extra views came through one access method (desktop, mobile web, app) while the others stayed below 1.3x, or automated traffic rose 3x; `event` when two methods rose 1.5x or daily views show a burst; `edition` when the edition moved and the article did not; else `unknown`. In the 24 months behind the headline change, the change is also given without that month and the same month a year off |
 | No article / other subject | an edition without an article, or measured through a broader or mentioning substitute | always, first, so a gap is never read as zero interest |
 
 The same statement for several editions becomes one line; at most five findings are kept,
@@ -206,6 +207,16 @@ pass.
 
 Aggregation: any fail -> **low**; two or more warns -> **medium**; otherwise **high**. A low
 verdict does not mean the numbers are wrong; it means a decision should not rest on them alone.
+
+The data and the conclusion are kept apart. `facts.json` gives **data quality** as the worst
+of the data rules alone (every rule above but `trend`: any fail -> low, any warn -> medium),
+with the reasons; and the **conclusion** as the 12-month momentum and whether the recent
+months confirm it (`confirmed`, `mixed`, `contradicts`, `insufficient`). The trend test's
+p-value stays in `summary.json`; the reports never call a trend "statistically significant".
+
+Every threshold of sections 5-7 can be changed without code, with a `WIKI_INTEREST_<NAME>`
+environment variable (`WIKI_INTEREST_SEASON_MIN_YEARS=6`, `WIKI_INTEREST_MIN_MOMENTUM=0.1`,
+`WIKI_INTEREST_ANOMALY_MIN_MULTIPLE=2`); see `wiki_interest/config.py`.
 
 ## 8. Comparison and ranking
 

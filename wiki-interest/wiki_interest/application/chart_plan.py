@@ -23,6 +23,7 @@ from statistics import fmean
 
 from wiki_interest.application.analysis import AnalysisResult, PairAnalysis
 from wiki_interest.contracts.charts import ChartSeries, ChartSpec
+from wiki_interest.domain.findings import SeasonalProfile
 from wiki_interest.domain.models import Series, WikiProject
 from wiki_interest.domain.trend_tests import detrend
 from wiki_interest.i18n import Translator
@@ -73,7 +74,7 @@ class ChartPlanner:
         self._show_season = show_season
 
     def _seasonal(self, pair: PairAnalysis) -> bool:
-        if pair.findings.seasonality is None:
+        if _profile(pair) is None:
             return False
         return self._show_season is None or self._show_season(pair)
 
@@ -204,7 +205,7 @@ class ChartPlanner:
 
     def season_bars(self, pair: PairAnalysis) -> ChartSpec | None:
         """Each calendar month against the usual level, in percent."""
-        profile = pair.findings.seasonality
+        profile = _profile(pair)
         if profile is None or not self._seasonal(pair):
             return None
         return ChartSpec(
@@ -284,7 +285,7 @@ class ChartPlanner:
 
     def season_lines(self, pairs: Sequence[PairAnalysis]) -> ChartSpec | None:
         """Seasonal profiles of the editions that have one, on one chart."""
-        profiled = [(p, p.findings.seasonality) for p in pairs[:_MAX_LINES] if self._seasonal(p)]
+        profiled = [(p, _profile(p)) for p in pairs[:_MAX_LINES] if self._seasonal(p)]
         if not profiled:
             return None
         months = [self._t.t(f"month.short.{m}") for m in range(1, _MONTHS + 1)]
@@ -347,3 +348,9 @@ def _index(series: Series) -> list[float | None] | None:
 
 def _days_between(start: date, end: date) -> list[date]:
     return [date.fromordinal(o) for o in range(start.toordinal(), end.toordinal() + 1)]
+
+
+def _profile(pair: PairAnalysis) -> SeasonalProfile | None:
+    """The seasonal profile of the pair's whole history, if one could be computed."""
+    season = pair.findings.season
+    return season.profile if season is not None else None

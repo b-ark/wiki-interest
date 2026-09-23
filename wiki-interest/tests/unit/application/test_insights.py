@@ -36,6 +36,7 @@ from wiki_interest.domain.models import (
     TrendMetrics,
     WikiProject,
 )
+from wiki_interest.domain.seasonality import SeasonEvidence, SeasonReason
 
 UK, CS, PL = WikiProject("uk"), WikiProject("cs"), WikiProject("pl")
 EMPTY = Series(Granularity.MONTHLY, SeriesUnit.VIEWS, (Point(date(2025, 1, 1), 1.0),))
@@ -106,8 +107,15 @@ def _season(peak: int, trough: int) -> SeasonalProfile:
     return SeasonalProfile(tuple(effects), peak, trough)
 
 
-def _seasonal(strength: float) -> PairFindings:
-    return PairFindings(seasonality=_season(9, 7), seasonality_strength=strength)
+def _evidence(strength: float, reason: SeasonReason = SeasonReason.SOLID) -> SeasonEvidence:
+    years = 3 if reason is SeasonReason.SHORT_HISTORY else 8
+    return SeasonEvidence(
+        _season(9, 7), strength, years, 0.9, date(2018, 1, 1), date(2026, 8, 1), reason
+    )
+
+
+def _seasonal(strength: float, reason: SeasonReason = SeasonReason.SOLID) -> PairFindings:
+    return PairFindings(season=_evidence(strength, reason))
 
 
 class TestPerEdition:
@@ -120,8 +128,7 @@ class TestPerEdition:
                 ),
             ),
             recent=RecentChange(date(2026, 6, 1), date(2026, 8, 1), 3, 150.0, 100.0, 0.5),
-            seasonality=_season(9, 7),
-            seasonality_strength=0.6,
+            season=_evidence(0.6),
         )
         settings = InsightSettings(max_per_pair=5)
         pair = _pair(UK, findings=findings, views=_months(72))
@@ -130,10 +137,7 @@ class TestPerEdition:
         assert set(kinds) == {"level_shift", "burst_day", "season"}
 
     def test_weak_or_small_patterns_stay_out(self) -> None:
-        findings = PairFindings(
-            seasonality=_season(9, 7),
-            seasonality_strength=0.1,
-        )
+        findings = _seasonal(0.1, SeasonReason.WEAK)
         assert select_insights(_result(_pair(UK, findings=findings))) == ()
 
     def test_multi_day_burst_and_no_recent_line(self) -> None:
@@ -153,45 +157,46 @@ class TestPerEdition:
 
 class TestSeasons:
     @pytest.mark.parametrize(
-        ("strength", "months", "requested", "expected"),
+        ("strength", "reason", "requested", "expected"),
         [
-            (0.1, 72, False, SeasonVisibility.HIDDEN),
-            (0.4, 36, False, SeasonVisibility.TENTATIVE),
-            (0.4, 72, False, SeasonVisibility.STATED),
-            (0.6, 72, False, SeasonVisibility.CHART),
-            (0.6, 36, False, SeasonVisibility.TENTATIVE),
-            (0.1, 36, True, SeasonVisibility.CHART),
+            (0.1, SeasonReason.WEAK, False, SeasonVisibility.HIDDEN),
+            (0.6, SeasonReason.SHORT_HISTORY, False, SeasonVisibility.HIDDEN),
+            (0.6, SeasonReason.INCONSISTENT, False, SeasonVisibility.HIDDEN),
+            (0.4, SeasonReason.SOLID, False, SeasonVisibility.STATED),
+            (0.6, SeasonReason.SOLID, False, SeasonVisibility.CHART),
+            (0.1, SeasonReason.SHORT_HISTORY, True, SeasonVisibility.CHART),
         ],
     )
-    def test_shown_when_material_and_reliable_or_asked_for(
-        self, strength: float, months: int, requested: bool, expected: SeasonVisibility
+    def test_shown_when_solid_or_asked_for(
+        self, strength: float, reason: SeasonReason, requested: bool, expected: SeasonVisibility
     ) -> None:
-        pair = _pair(UK, findings=_seasonal(strength), views=_months(months))
+        pair = _pair(UK, findings=_seasonal(strength, reason))
         assert season_visibility(pair, requested=requested) is expected
 
     def test_without_a_profile_nothing_is_shown(self) -> None:
         assert season_visibility(_pair(UK), requested=True) is SeasonVisibility.HIDDEN
 
-    def test_three_years_give_only_signs_of_a_season(self) -> None:
-        pair = _pair(UK, findings=_seasonal(0.6), views=_months(36))
-        (found,) = select_insights(_result(pair))
+    def test_a_short_history_is_not_stated_unless_asked(self) -> None:
+        pair = _pair(UK, findings=_seasonal(0.6, SeasonReason.SHORT_HISTORY))
+        assert select_insights(_result(pair)) == ()
+        (found,) = select_insights(_result(pair), season_requested=True)
         assert found.kind == "season_tentative"
 
     def test_a_requested_season_survives_the_cut_with_its_caveat(self) -> None:
         findings = PairFindings(
             level_shift=LevelShift(date(2025, 3, 1), 10.0, 16.0, 0.6, 12),
             recent=RecentChange(date(2026, 6, 1), date(2026, 8, 1), 3, 150.0, 100.0, 0.5),
-            seasonality=_season(9, 7),
-            seasonality_strength=0.05,
+            season=_evidence(0.05, SeasonReason.SHORT_HISTORY),
         )
-        pair = _pair(UK, findings=findings, views=_months(36))
+        pair = _pair(UK, findings=findings)
         settings = InsightSettings(max_per_pair=1)
         found = select_insights(_result(pair), settings, season_requested=True)
         assert [i.kind for i in found] == ["season_tentative", "level_shift"]
 
     def test_signs_in_several_editions_become_one_line(self) -> None:
-        pairs = [_pair(p, findings=_seasonal(0.6), views=_months(36)) for p in (UK, CS)]
-        (group,) = select_insights(_result(*pairs))
+        findings = _seasonal(0.6, SeasonReason.SHORT_HISTORY)
+        pairs = [_pair(p, findings=findings) for p in (UK, CS)]
+        (group,) = select_insights(_result(*pairs), season_requested=True)
         assert group.kind == "group.season_tentative"
         assert [m.project for m in group.members] == [UK, CS]
 

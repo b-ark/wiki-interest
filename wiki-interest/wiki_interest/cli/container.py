@@ -107,6 +107,8 @@ class Container:
         return AnalysisSettings.from_thresholds(
             self.settings.reliability_thresholds(),
             normalise=request.normalization == "per_million",
+            season=self.settings.season_settings(),
+            anomalies=self.settings.anomaly_settings(),
         )
 
     def renderers_for(self, language: str) -> tuple[Translator, Renderers]:
@@ -151,6 +153,7 @@ class Container:
             translator=translator,
             renderers=renderers,
             provenance=self.provenance(),
+            assessment=self.settings.assessment_settings(),
             stop_after_resolve=self.settings.stop_after == "resolve",
         )
 

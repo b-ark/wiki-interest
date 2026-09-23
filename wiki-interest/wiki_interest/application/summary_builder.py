@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
-from wiki_interest.application.analysis import AnalysisResult, PairAnalysis
+from wiki_interest.application.analysis import AnalysisResult, MonthFinding, PairAnalysis
 from wiki_interest.application.assessment import (
     Conclusion,
     Evidence,
@@ -58,14 +58,17 @@ from wiki_interest.contracts.summary import (
     ContextArticleOut,
     CoverageGapOut,
     CoverageOptionOut,
+    DataQualityOut,
     DecisionOut,
     EvidenceOut,
     FindingOut,
     MetricsOut,
+    MonthOut,
     PointOut,
     Provenance,
     RankedRow,
     ReliabilityOut,
+    SeasonOut,
     SeriesOut,
     TopicResolutionOut,
     Verdict,
@@ -74,12 +77,15 @@ from wiki_interest.domain.assessment import (
     AssessmentSettings,
     Momentum,
     Robustness,
+    divergence,
 )
 from wiki_interest.domain.models import (
     ArticleRole,
     AudienceProfile,
     BundleStatus,
+    CheckStatus,
     RankedAudience,
+    ReliabilityLevel,
     TopicBundle,
     TrendDirection,
     TrendMetrics,
@@ -105,6 +111,8 @@ _MULTIPLE_PARAMS = frozenset({"multiple"})
 _COUNT_PARAMS = frozenset({"peak_views", "baseline"})
 """Views are whole numbers whatever their size; a baseline of "83,0" views reads oddly."""
 _MAX_ANSWER_ITEMS = 5
+_INFERENCE_CHECKS = frozenset({"trend"})
+"""Reliability checks that judge the conclusion, not the data."""
 """Audiences named in one answer sentence; the table lists all of them."""
 _SENTENCE_END = (".", "!", "?", "…")
 _GROWTH_CONCLUSIONS = frozenset({"strong", "emerging", "single_growing"})
@@ -200,7 +208,7 @@ class SummaryBuilder:
             ),
             happening=self._happening(assessments, labels, normalised=normalised),
             assessments=[
-                self._assessment_out(pair, item, labels)
+                self._assessment_out(pair, item, labels, season_requested=season_requested)
                 for pair, item in zip(analysis.pairs, assessments, strict=True)
             ],
             decision=self._decision_out(conclusion, assessments, labels),
@@ -809,7 +817,12 @@ class SummaryBuilder:
         return labels.pair(item.topic_id, item.project) if item is not None else ""
 
     def _assessment_out(
-        self, pair: PairAnalysis, item: PairAssessment, labels: _TopicLabels
+        self,
+        pair: PairAnalysis,
+        item: PairAssessment,
+        labels: _TopicLabels,
+        *,
+        season_requested: bool = False,
     ) -> AssessmentOut:
         t = self._t
         label = labels.pair(item.topic_id, item.project)
@@ -856,6 +869,50 @@ class SummaryBuilder:
             outcome=item.outcome,
             decision=t.t(f"outcome.{item.outcome}", label=label, recent=self._recent(item)),
             edition_line=edition_line,
+            data_quality=self._data_quality(pair) if item.measured else None,
+            months=[_month_out(m) for m in pair.findings.months],
+            season=self._season_out(pair, requested=season_requested),
+            divergence=divergence(
+                item.article_change, item.share_change, self._assessment_settings
+            ),
+        )
+
+    def _data_quality(self, pair: PairAnalysis) -> DataQualityOut:
+        """The worst data check, the trend test left out: that is an inference."""
+        checks = [c for c in pair.reliability.checks if c.name not in _INFERENCE_CHECKS]
+        statuses = {c.status for c in checks}
+        if CheckStatus.FAIL in statuses:
+            level = ReliabilityLevel.LOW
+        elif CheckStatus.WARN in statuses:
+            level = ReliabilityLevel.MEDIUM
+        else:
+            level = ReliabilityLevel.HIGH
+        context = {"title": pair.bundle.main.title} if pair.bundle.main is not None else {}
+        reasons = [
+            self._t.t(c.reason_key, **{**context, **c.params})
+            for c in checks
+            if c.status in (CheckStatus.WARN, CheckStatus.FAIL)
+        ]
+        return DataQualityOut(level=level, reasons=reasons)
+
+    def _season_out(self, pair: PairAnalysis, *, requested: bool) -> SeasonOut | None:
+        season = pair.findings.season
+        if season is None:
+            return None
+        visibility = season_visibility(pair, self._insight_settings, requested=requested)
+        profile = season.profile
+        return SeasonOut(
+            shown=visibility is not SeasonVisibility.HIDDEN,
+            reason=season.reason.value,
+            years=season.years,
+            consistency=season.consistency,
+            strength=season.strength,
+            start=f"{season.start:%Y-%m}" if season.start else None,
+            end=f"{season.end:%Y-%m}" if season.end else None,
+            peak_month=profile.peak_month if profile else None,
+            trough_month=profile.trough_month if profile else None,
+            peak=profile.peak if profile else None,
+            trough=profile.trough if profile else None,
         )
 
     def _recent(self, item: PairAssessment) -> str:
@@ -1238,6 +1295,17 @@ def _shown(assessments: Sequence[PairAssessment]) -> list[PairAssessment]:
     """Audiences an answer speaks about: those measuring the topic itself, else any measured."""
     on_topic = [a for a in assessments if a.measured and a.measures_topic]
     return on_topic or [a for a in assessments if a.measured]
+
+
+def _month_out(month: MonthFinding) -> MonthOut:
+    return MonthOut(
+        month=f"{month.month:%Y-%m}",
+        multiples=dict(month.multiples),
+        nature=month.nature,
+        in_change=month.in_change,
+        in_recent=month.in_recent,
+        change_without=month.change_without,
+    )
 
 
 def _sentence(text: str) -> str:

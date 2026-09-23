@@ -21,6 +21,7 @@ from wiki_interest.domain.models import (
     TopicBundle,
     WikiProject,
 )
+from wiki_interest.domain.seasonality import SeasonEvidence, SeasonReason
 from wiki_interest.i18n import Translator
 
 UK, CS = WikiProject("uk"), WikiProject("cs")
@@ -56,8 +57,8 @@ def _pair(
 
 
 def _strong_season(pair: PairAnalysis) -> bool:
-    strength = pair.findings.seasonality_strength
-    return strength is not None and strength >= 0.3
+    season = pair.findings.season
+    return season is not None and season.solid
 
 
 def _planner() -> ChartPlanner:
@@ -143,12 +144,13 @@ def test_charts_without_data_are_left_out() -> None:
 
 def test_season_is_drawn_only_when_the_calendar_matters() -> None:
     profile = SeasonalProfile(tuple([0.1] * 6 + [-0.1] * 6), 1, 7)
-    weak = _pair(
-        UK, [10.0] * 24, findings=PairFindings(seasonality=profile, seasonality_strength=0.1)
-    )
-    strong = _pair(
-        CS, [10.0] * 24, findings=PairFindings(seasonality=profile, seasonality_strength=0.6)
-    )
+
+    def season(strength: float, reason: SeasonReason) -> PairFindings:
+        start, end = date(2018, 1, 1), date(2026, 8, 1)
+        return PairFindings(season=SeasonEvidence(profile, strength, 8, 0.9, start, end, reason))
+
+    weak = _pair(UK, [10.0] * 24, findings=season(0.1, SeasonReason.WEAK))
+    strong = _pair(CS, [10.0] * 24, findings=season(0.6, SeasonReason.SOLID))
     planner = _planner()
     assert planner.season_bars(weak) is None
     assert planner.season_bars(strong) is not None

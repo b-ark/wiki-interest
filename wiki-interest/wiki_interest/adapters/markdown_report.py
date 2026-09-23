@@ -185,7 +185,9 @@ class MarkdownReportRenderer:
             lines += ["", coverage]
         for item in summary.reliability:
             lines += ["", self._reliability_heading(summary, item)]
-            lines += [f"- {self._check_line(check)}" for check in sorted_checks(item.checks)]
+            # The trend test judges the conclusion, not the data; it stays in summary.json.
+            checks = [c for c in item.checks if c.name != "trend"]
+            lines += [f"- {self._check_line(check)}" for check in sorted_checks(checks)]
         return lines
 
     def _reliability_heading(self, summary: AnalysisSummary, item: ReliabilityOut) -> str:

@@ -9,7 +9,7 @@ import pytest
 from fakes import FakePageviews
 from wiki_interest.application.loading import LoadSettings, SeriesLoader
 from wiki_interest.application.resolution import ResolvedTopic
-from wiki_interest.contracts.request import Period
+from wiki_interest.contracts.request import EARLIEST_MONTH, Period
 from wiki_interest.domain.models import (
     Access,
     Agent,
@@ -113,13 +113,19 @@ class TestAssembly:
         assert item.context[0].views.values == (None, None, None)
 
 
+def _window(call: tuple[str, tuple[object, ...]]) -> Window:
+    window = call[1][2]
+    assert isinstance(window, Window)
+    return window
+
+
 class TestPlanning:
     def test_shared_titles_are_fetched_once(self) -> None:
         source = _source()
         topic_a = _topic(_bundle())
         topic_b = ResolvedTopic("b", "b", "Q333", "b", (_bundle(),))
         SeriesLoader(source).load([topic_a, topic_b], PERIOD)
-        monthly_user_calls = [
+        monthly = [
             call
             for call in source.calls
             if call[0] == "per_article"
@@ -127,8 +133,31 @@ class TestPlanning:
             and call[1][2].granularity is Granularity.MONTHLY
             and call[1][4] is Agent.USER
         ]
-        assert len(monthly_user_calls) == 3  # Астрономія, Astronomy, Телескоп
+        in_period = [
+            c for c in monthly if _window(c).start == PERIOD.start and c[1][3] is Access.ALL
+        ]
+        assert len(in_period) == 3  # Астрономія, Astronomy, Телескоп
+        history = [c for c in monthly if _window(c).start == EARLIEST_MONTH]
+        assert [c[1][1] for c in history] == ["Астрономія"]  # the main title, once
+        split = {c[1][3] for c in monthly if c[1][3] is not Access.ALL}
+        assert split == {Access.DESKTOP, Access.MOBILE_WEB, Access.MOBILE_APP}
+        assert len([c for c in monthly if c[1][3] is not Access.ALL]) == 3
         assert len([c for c in source.calls if c[0] == "aggregate"]) == 1
+
+    def test_history_and_access_split_reach_the_loaded_series(self) -> None:
+        (loaded,) = SeriesLoader(_source()).load([_topic(_bundle())], PERIOD)
+        assert loaded.main_history is not None
+        assert loaded.main_history.points[0].period == EARLIEST_MONTH
+        assert [a for a, _ in loaded.main_by_access] == [
+            Access.DESKTOP,
+            Access.MOBILE_WEB,
+            Access.MOBILE_APP,
+        ]
+
+    def test_no_split_when_one_access_method_is_analysed(self) -> None:
+        settings = LoadSettings(access=Access.DESKTOP)
+        (loaded,) = SeriesLoader(_source(), settings=settings).load([_topic(_bundle())], PERIOD)
+        assert loaded.main_by_access == ()
 
     def test_upstream_failure_fails_the_whole_load(self) -> None:
         class Failing(FakePageviews):

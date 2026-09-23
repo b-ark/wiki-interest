@@ -36,7 +36,6 @@ __all__ = [
 ]
 
 ParamValue = float | int | str | date
-_MONTHS_PER_YEAR = 12
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,21 +47,14 @@ class InsightSettings:
         max_per_pair: Findings kept per (topic, edition), so one edition cannot crowd out the
             others in a comparison.
         max_bursts_per_pair: Dated bursts named per pair.
-        min_seasonality_strength: Share of variation the calendar must explain for a
-            seasonal pattern to be mentioned.
-        min_seasonal_range: Peak month minus trough month, relative to the usual level.
-        season_confident_years: Years of history from which a material pattern is stated as
-            a fact rather than as a sign that needs a longer history.
-        season_chart_strength: Share of variation the calendar must explain for the pattern
-            to get its own chart without being asked for.
+        season_chart_strength: Share of variation the calendar must explain for a solid
+            pattern to get its own chart without being asked for. When a pattern is solid
+            at all is decided by :class:`~wiki_interest.domain.seasonality.SeasonSettings`.
     """
 
     max_findings: int = 5
     max_per_pair: int = 3
     max_bursts_per_pair: int = 1
-    min_seasonality_strength: float = 0.3
-    min_seasonal_range: float = 0.25
-    season_confident_years: int = 5
     season_chart_strength: float = 0.5
 
 
@@ -73,8 +65,6 @@ class SeasonVisibility(StrEnum):
     """How much of a pair's seasonal pattern the report shows."""
 
     HIDDEN = "hidden"
-    TENTATIVE = "tentative"
-    """One line: signs of a pattern, a longer history is needed to be sure."""
     STATED = "stated"
     """One line stating the pattern."""
     CHART = "chart"
@@ -109,35 +99,23 @@ def season_visibility(
     *,
     requested: bool = False,
 ) -> SeasonVisibility:
-    """Compute always, show when material and reliable enough, or when the user asked.
+    """Computed always on the whole history; shown when solid, or when the user asked.
 
-    A pattern is material when the calendar explains at least ``min_seasonality_strength``
-    of the variation and the peak and trough months are ``min_seasonal_range`` apart. It is
-    stated as a fact from ``season_confident_years`` of history, and charted when it is also
-    strong. When the user asked about timing, whatever profile exists is shown and charted.
+    Solid (see :func:`~wiki_interest.domain.seasonality.season_evidence`): enough full
+    years, the peak and trough months among the extremes of most years, and material. A
+    solid pattern is charted when it is also strong. When the user asked about timing,
+    whatever profile exists is shown and charted, with its caveat.
     """
-    found = pair.findings
-    season, strength = found.seasonality, found.seasonality_strength
-    if season is None or strength is None:
+    season = pair.findings.season
+    if season is None or season.profile is None:
         return SeasonVisibility.HIDDEN
     if requested:
         return SeasonVisibility.CHART
-    material = (
-        strength >= settings.min_seasonality_strength
-        and season.peak - season.trough >= settings.min_seasonal_range
-    )
-    if not material:
+    if not season.solid:
         return SeasonVisibility.HIDDEN
-    if _years(pair) < settings.season_confident_years:
-        return SeasonVisibility.TENTATIVE
-    if strength >= settings.season_chart_strength:
+    if season.strength is not None and season.strength >= settings.season_chart_strength:
         return SeasonVisibility.CHART
     return SeasonVisibility.STATED
-
-
-def _years(pair: PairAnalysis) -> int:
-    """Complete years in the analysed window: how often each calendar month was observed."""
-    return len(pair.views.points) // _MONTHS_PER_YEAR if pair.views is not None else 0
 
 
 def select_insights(
@@ -265,11 +243,12 @@ def _pair_insights(
             share=burst.share,
         )
     visibility = season_visibility(pair, settings, requested=season_requested)
-    season = found.seasonality
-    if visibility is not SeasonVisibility.HIDDEN and season is not None:
+    evidence = found.season
+    season = evidence.profile if evidence is not None else None
+    if visibility is not SeasonVisibility.HIDDEN and evidence is not None and season is not None:
         spread = season.peak - season.trough
         # Asked-for patterns are shown however short the history, but still with the caveat.
-        if _years(pair) < settings.season_confident_years:
+        if not evidence.solid:
             kind, importance = "season_tentative", 0.3
         else:
             kind, importance = "season", 0.4 + min(0.3, spread / 3)
