@@ -90,8 +90,10 @@ which may be read-only.
    uv run --project "<skill>" "<skill>/scripts/render.py" <run_dir> --narrative narrative.json
    ```
 
-   - exit 0, `status: accepted`: your answer is `chat_answer` as you wrote it; point to
-     `report_pdf`.
+   - exit 0, `status: accepted`: your answer is `chat_answer` as you wrote it. It names the
+     item analysed, gives the conclusion with the path to `report_pdf`, the assumptions
+     (`caveats`), what could change the conclusion, and three to five next steps from
+     `follow_ups`, saying which are instant (`cached`).
    - exit 2, `status: rejected`: fix every item of `problems` and render once more.
    - `status: fallback` (rejected twice): the report keeps the code's text; relay
      `summary_md` instead, numbers exactly as written.
@@ -107,6 +109,7 @@ which may be read-only.
    | "raw numbers", "without normalisation" | `normalization: "absolute"` |
    | "which months are strongest", "when to launch" | `report.seasonality: "show"` |
    | "growth matters most" | `ranking_weights` |
+   | "how exactly was this computed", "show the method" | `report.appendix: true` (a second PDF page); `method.md` is always in the run directory |
 
    To explain what the change did, compare the two runs:
    `uv run --project "<skill>" "<skill>/scripts/run.py" --diff <run_dir-a> <run_dir-b>`.

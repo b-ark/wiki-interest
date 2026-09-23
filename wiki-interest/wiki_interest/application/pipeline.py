@@ -47,6 +47,7 @@ SUMMARY_JSON = "summary.json"
 SUMMARY_MD = "summary.md"
 REPORT_MD = "report.md"
 REPORT_PDF = "report.pdf"
+METHOD_MD = "method.md"
 FACTS_JSON = "facts.json"
 TEMPLATE_JSON = "narrative.template.json"
 CHAT_BRIEF_MD = "chat_brief.md"
@@ -66,6 +67,8 @@ class Renderers:
     agent_summary: ReportRenderer
     report_markdown: ReportRenderer
     report_pdf: ReportRenderer
+    method: ReportRenderer | None = None
+    """Writes ``method.md``: how the run's numbers were computed."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -345,6 +348,7 @@ class Pipeline:
             summary_md=str(run_dir / SUMMARY_MD),
             report_md=str(run_dir / REPORT_MD) if "md" in formats else None,
             report_pdf=str(run_dir / REPORT_PDF) if "pdf" in formats else None,
+            method_md=str(run_dir / METHOD_MD) if renderers.method is not None else None,
         )
         png_files: list[Path] = []
         with translator.recording() as used:
@@ -358,6 +362,8 @@ class Pipeline:
             if artifacts.report_pdf is not None:
                 renderers.report_pdf.render(final, png_files, Path(artifacts.report_pdf))
         renderers.agent_summary.render(final, png_files, run_dir / SUMMARY_MD)
+        if renderers.method is not None:
+            renderers.method.render(final, png_files, run_dir / METHOD_MD)
         _write_summary_json(final, run_dir)
         if facts:
             _write_facts(final, run_dir, translator, used)

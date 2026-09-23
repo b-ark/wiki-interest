@@ -115,7 +115,6 @@ class TestPairs:
         assert pair.metrics.per_million_avg is not None
         assert pair.per_million is not None
         assert pair.per_million.unit is SeriesUnit.PER_MILLION
-        assert pair.analysis_series is pair.per_million
         assert pair.reliability.level in {ReliabilityLevel.HIGH, ReliabilityLevel.MEDIUM}
 
     def test_absolute_mode_skips_normalisation(self) -> None:
@@ -125,7 +124,6 @@ class TestPairs:
         )
         pair = result.pair("topic", UK)
         assert pair.per_million is None
-        assert pair.analysis_series is pair.views
         assert pair.metrics is not None
         assert pair.metrics.per_million_avg is None
 

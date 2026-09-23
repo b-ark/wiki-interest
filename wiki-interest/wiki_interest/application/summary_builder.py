@@ -140,6 +140,7 @@ class ProvenanceInput:
     sources: tuple[str, ...]
     request_count: int = 0
     cache_hits: int = 0
+    thresholds: Mapping[str, float | int | bool] | None = None
 
 
 class SummaryBuilder:
@@ -174,7 +175,7 @@ class SummaryBuilder:
         labels = _TopicLabels(resolved)
         normalised = request.normalization == "per_million"
         season_requested = request.report.seasonality == "show"
-        charts = self._charts(request, period, analysis, labels)
+        charts = self._charts(request, analysis, labels)
         insights = select_insights(
             analysis, self._insight_settings, season_requested=season_requested
         )
@@ -608,19 +609,12 @@ class SummaryBuilder:
     # -- charts ---------------------------------------------------------------------------
 
     def _charts(
-        self,
-        request: AnalysisRequest,
-        period: Period,
-        analysis: AnalysisResult,
-        labels: _TopicLabels,
+        self, request: AnalysisRequest, analysis: AnalysisResult, labels: _TopicLabels
     ) -> list[ChartSpec]:
         """The main chart, a second one chosen by the number of audiences, and the seasons.
 
         See :class:`~wiki_interest.application.chart_plan.ChartPlanner` for what each shows.
         """
-        footnote = self._t.t(
-            "chart.footnote", source="Wikimedia Pageviews API", period=_period_text(period)
-        )
         with_data = [p for p in analysis.pairs if p.views is not None]
         if not with_data:
             return []
@@ -632,7 +626,7 @@ class SummaryBuilder:
             visibility = season_visibility(pair, settings, requested=season_requested)
             return visibility is SeasonVisibility.CHART
 
-        plots = ChartPlanner(self._t, labels.pair, footnote, labels.short, show_season=charted)
+        plots = ChartPlanner(self._t, labels.pair, labels.short, show_season=charted)
         return plots.plan(with_data, normalised=normalised, single_topic=len(request.topics) == 1)
 
     # -- prose ----------------------------------------------------------------------------
@@ -1211,6 +1205,7 @@ class SummaryBuilder:
             sources=list(provenance.sources),
             request_count=provenance.request_count,
             cache_hits=provenance.cache_hits,
+            thresholds=dict(provenance.thresholds or {}),
         )
 
 
@@ -1312,10 +1307,6 @@ def _json_params(params: Mapping[str, ParamValue]) -> dict[str, float | int | st
         else:
             out[name] = value
     return out
-
-
-def _period_text(period: Period) -> str:
-    return f"{period.start:%Y-%m}..{period.end:%Y-%m}"
 
 
 def _series_out(pair: PairAnalysis) -> SeriesOut:

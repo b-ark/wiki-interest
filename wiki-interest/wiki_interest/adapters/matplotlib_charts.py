@@ -40,8 +40,6 @@ SVG_METADATA: dict[str, Any] = {"Date": None, "Creator": "wiki-interest"}
 """``Date: None`` removes the creation timestamp matplotlib would otherwise embed."""
 PNG_METADATA: dict[str, Any] = {"Software": "wiki-interest"}
 """Replaces the default ``Software`` entry so the PNG does not change with matplotlib upgrades."""
-FOOTNOTE_BAND = 0.08
-"""Share of the figure height reserved under the axes for the source/period footnote."""
 LABEL_ROTATION_THRESHOLD = 6
 """Above this many categories the x labels are rotated to stay legible."""
 LABEL_ROTATION_DEG = 45
@@ -69,14 +67,14 @@ CHAR_MM_PER_PT = 0.2
 MAX_INSIDE_LEGEND = 2
 """A wide line chart with more series than this gets its legend outside the plot."""
 MAX_PANEL_COLUMNS = 3
-EXTRA_ROW_HEIGHT = 0.75
+EXTRA_ROW_HEIGHT = 0.65
 """Each further row of panels adds this share of a one-row chart's height."""
 PT_TO_MM = 0.3528
 HEADER_GAP_MM = 2.0
 POINT_ALPHA = 0.35
 POINT_SCALE = 0.8
 DASHED_WIDTH = 0.9
-PANEL_ROW_HEIGHT = 1.4
+PANEL_ROW_HEIGHT = 1.25
 """A one-row panel chart is this many times a wide chart's height: header, legend, ticks."""
 MIN_PANEL_TICKS = 3
 LEGEND_ROW_MM = 7.0
@@ -148,11 +146,10 @@ class MatplotlibChartRenderer:
         chart = self._theme.chart
         if spec.kind == "panels":
             return self._draw_panels(spec)
-        width, height = (
-            (chart.half_width_mm, chart.half_height_mm)
-            if spec.size == "half"
-            else (chart.width_mm, chart.height_mm)
-        )
+        width, height = {
+            "half": (chart.half_width_mm, chart.half_height_mm),
+            "strip": (chart.width_mm, chart.strip_height_mm),
+        }.get(spec.size, (chart.width_mm, chart.height_mm))
         figure = Figure(figsize=(width / MM_PER_INCH, height / MM_PER_INCH), dpi=chart.dpi)
         axes = figure.add_subplot()
         self._style_axes(axes, spec)
@@ -169,7 +166,10 @@ class MatplotlibChartRenderer:
         elif spec.kind == "trend":
             self._draw_trend(axes, spec)
         else:
-            outside = spec.size == "wide" and len(spec.series) > MAX_INSIDE_LEGEND
+            # A strip is too low for a legend inside; a wide chart with many lines too.
+            outside = spec.size == "strip" or (
+                spec.size == "wide" and len(spec.series) > MAX_INSIDE_LEGEND
+            )
             self._draw_lines(axes, spec.series, legend_outside=outside)
         if spec.reference_y is not None:
             axes.axhline(
@@ -180,16 +180,17 @@ class MatplotlibChartRenderer:
             )
         if spec.log_y:
             axes.set_yscale("log")
-        self._add_footnote(figure, spec.footnote)
+        figure.tight_layout()
         return figure
 
     def _style_axes(self, axes: Axes, spec: ChartSpec) -> None:
         theme = self._theme
-        title_size = theme.chart.title_size_pt if spec.size == "wide" else theme.chart.font_size_pt
+        full_width = spec.size != "half"
+        title_size = theme.chart.title_size_pt if full_width else theme.chart.font_size_pt
         pad = TITLE_PAD_PT
         if spec.subtitle:
             # The subtitle sits between the title and the plot; the title moves up to make room.
-            width = theme.chart.width_mm if spec.size == "wide" else theme.chart.half_width_mm
+            width = theme.chart.width_mm if full_width else theme.chart.half_width_mm
             char_mm = theme.chart.small_size_pt * CHAR_MM_PER_PT
             lines = textwrap.wrap(spec.subtitle, int(width * SUBTITLE_WIDTH_SHARE / char_mm))
             axes.annotate(
@@ -206,7 +207,7 @@ class MatplotlibChartRenderer:
             pad += len(lines) * theme.chart.small_size_pt * SUBTITLE_LINE_HEIGHT
         axes.set_title(spec.title, fontsize=title_size, loc="left", pad=pad)
         # A half-height chart has no room for a long axis label at the body size.
-        label_size = theme.chart.font_size_pt if spec.size == "wide" else theme.chart.small_size_pt
+        label_size = theme.chart.font_size_pt if full_width else theme.chart.small_size_pt
         axes.set_ylabel(spec.y_label, fontsize=label_size)
         axes.grid(True, axis="y", color=theme.grid_color, linewidth=0.6)
         axes.set_axisbelow(True)
@@ -407,7 +408,6 @@ class MatplotlibChartRenderer:
         figure.supylabel(spec.y_label, fontsize=chart.small_size_pt, x=0.005)
         handles, labels = cells[0].get_legend_handles_labels()
         legend_band = LEGEND_ROW_MM / height
-        footnote_band = FOOTNOTE_BAND if spec.footnote else 0.0
         figure.legend(
             handles,
             labels,
@@ -415,10 +415,10 @@ class MatplotlibChartRenderer:
             ncol=len(labels),
             frameon=False,
             fontsize=chart.small_size_pt,
-            bbox_to_anchor=(0.5, footnote_band),
+            bbox_to_anchor=(0.5, 0.0),
         )
         top = self._figure_header(figure, spec, height)
-        self._add_footnote(figure, spec.footnote, top=top, bottom=legend_band)
+        figure.tight_layout(rect=(0.02, legend_band, 1, top))
         return figure
 
     def _draw_panel(self, axes: Axes, panel: ChartPanel, spec: ChartSpec, ticks: int) -> None:
@@ -583,22 +583,6 @@ class MatplotlibChartRenderer:
             fontsize=self._theme.chart.small_size_pt,
         )
         axes.set_xlim(-HALF_BAR, len(labels) - HALF_BAR)
-
-    def _add_footnote(
-        self, figure: Figure, footnote: str | None, *, top: float = 1.0, bottom: float = 0.0
-    ) -> None:
-        band = FOOTNOTE_BAND if footnote else 0.0
-        figure.tight_layout(rect=(0.02 if bottom else 0, band + bottom, 1, top))
-        if footnote:
-            figure.text(
-                0.01,
-                0.01,
-                footnote,
-                fontsize=self._theme.chart.small_size_pt,
-                color=self._theme.muted_color,
-                ha="left",
-                va="bottom",
-            )
 
     def _save(self, figure: Figure, chart_id: str, output_dir: Path) -> list[Path]:
         png = output_dir / f"{chart_id}.png"

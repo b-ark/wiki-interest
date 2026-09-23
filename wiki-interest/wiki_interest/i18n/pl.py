@@ -52,8 +52,6 @@ MESSAGES: dict[str, str] = {
     "role.main": "główny",
     "role.related": "powiązany",
     "role.manual": "ręcznie",
-    "unit.views": "odsłon",
-    "unit.per_million": "odsłon na milion",
     "value.na": "b.d.",
     # -- question line ---------------------------------------------------------------------
     "question.compare": "Porównaj zainteresowanie tematem „{topics}” w edycjach {projects}",
@@ -65,21 +63,16 @@ MESSAGES: dict[str, str] = {
     "report.key_numbers": "Kluczowe liczby",
     "report.chart": "Wykres",
     "report.charts": "Wykresy",
-    "report.verdict": "Wniosek",
     "report.limitations": "Założenia i ograniczenia",
     "report.next_steps": "Co można doprecyzować",
     "report.sources": "Źródła",
     "report.period": "Okres",
-    "report.projects": "Edycje",
-    "report.topics": "Tematy",
     "report.generated": "Wygenerowano",
     "report.version": "Wersja umiejętności",
     "report.data_through": "Dane do",
-    "report.comparison_table": "Porównanie",
     "report.ranking_table": "Ranking",
     "report.notes": "Uwagi",
     "report.see_summary": "… pełna lista w summary.md",
-    "report.no_chart": "Dla tego uruchomienia nie utworzono wykresu",
     # -- table columns ---------------------------------------------------------------------
     "col.topic": "Temat",
     "col.project": "Edycja",
@@ -90,11 +83,9 @@ MESSAGES: dict[str, str] = {
     "col.article": "Artykuł",
     "col.role": "Rola",
     "col.source": "Źródło",
-    "col.status": "Status",
     "col.rationale": "Dlaczego",
     # -- agent summary ---------------------------------------------------------------------
     "summary.answer": "Odpowiedź",
-    "summary.key_numbers": "Kluczowe liczby",
     "summary.caveats": "Zastrzeżenia",
     "summary.refine": "Co można doprecyzować",
     "summary.artifacts": "Pliki",
@@ -108,7 +99,6 @@ MESSAGES: dict[str, str] = {
     "summary.bundles": "Analizowane artykuły",
     # -- charts ----------------------------------------------------------------------------
     "chart.axis_views": "odsłon miesięcznie",
-    "chart.footnote": "Źródło: {source} · Okres: {period}",
     "chart.no_data": "Brak danych za ten okres",
     # -- werdykty ----------------------------------------------------------------------------
     "verdict.rank.headline": ("Najbardziej obiecująca grupa odbiorców: {label} ({profile})"),
@@ -259,7 +249,6 @@ MESSAGES: dict[str, str] = {
     "summary.context": "Powiązane artykuły (kontekst, nieliczone)",
     "summary.context_item": "{title} — {views} odsłon/mies.",
     "summary.bundle_count": "zmierzono główny artykuł; powiązane artykuły jako kontekst: {related}",
-    "summary.method": "O metodzie",
     "month.1": "styczeń",
     "month.short.1": "sty",
     "month.2": "luty",
@@ -650,4 +639,15 @@ MESSAGES: dict[str, str] = {
     "chart.axis_log": "{unit}, skala logarytmiczna",
     "chart.axis_per_million": "wyświetleń artykułu na 1 mln wyświetleń edycji",
     "chart.season_period": "Obliczono za {start} – {end}.",
+    "report.happening": "Co się dzieje",
+    "report.footer_share": (
+        "Udział w uwadze — wyświetlenia artykułu na 1 mln wyświetleń całej edycji. Zmiana: "
+        "{basis}; ostatnie miesiące: {recent}."
+    ),
+    "report.footer_caveats": (
+        "Wyświetlenia pokazują ciekawość, a nie gotowość do zapłaty; edycja językowa to nie kraj."
+    ),
+    "report.footer_months": "Wyróżniające się miesiące w porównaniu: {items}.",
+    "report.footer_month_item": "{label} {note}, zmiana bez niego {change}",
+    "report.footer_method": "Jak policzono każdą liczbę: method.md",
 }

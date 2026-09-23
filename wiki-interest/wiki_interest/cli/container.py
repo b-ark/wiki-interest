@@ -20,6 +20,7 @@ from wiki_interest.adapters.markdown_report import MarkdownReportRenderer
 from wiki_interest.adapters.matplotlib_charts import MatplotlibChartRenderer
 from wiki_interest.adapters.mediawiki import MediaWikiApi
 from wiki_interest.adapters.memory_cache import InMemoryCache
+from wiki_interest.adapters.method_report import MethodReportRenderer
 from wiki_interest.adapters.sqlite_cache import SqliteCache
 from wiki_interest.adapters.wikidata import WikidataApi
 from wiki_interest.adapters.wikimedia_rest import WikimediaRestPageviews
@@ -124,6 +125,7 @@ class Container:
             agent_summary=AgentSummaryRenderer(translator),
             report_markdown=MarkdownReportRenderer(translator),
             report_pdf=FpdfReportRenderer(translator),
+            method=MethodReportRenderer(),
         )
         return translator, renderers
 
@@ -140,6 +142,7 @@ class Container:
             ),
             request_count=stats.requests_made,
             cache_hits=stats.cache_hits,
+            thresholds=self.settings.thresholds(),
         )
 
     def services_for(self, request: AnalysisRequest) -> RunServices:

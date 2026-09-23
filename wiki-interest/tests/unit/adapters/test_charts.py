@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 from fixtures.summaries import example_summary
 from wiki_interest.adapters.matplotlib_charts import MatplotlibChartRenderer
@@ -91,15 +92,10 @@ def test_grouped_bars_with_mixed_signs_render(
     assert len(renderer.render(spec, tmp_path)) == 2
 
 
-def test_svg_contains_title_and_footnote_as_text(
-    renderer: MatplotlibChartRenderer, tmp_path: Path
-) -> None:
+def test_svg_contains_title_as_text(renderer: MatplotlibChartRenderer, tmp_path: Path) -> None:
     spec = _spec_of_kind("trend")
     _, svg = renderer.render(spec, tmp_path)
-    text = svg.read_text(encoding="utf-8")
-    assert spec.title in text
-    assert spec.footnote is not None
-    assert "Wikimedia Pageviews API" in text
+    assert spec.title in svg.read_text(encoding="utf-8")
 
 
 def test_svg_is_byte_identical_across_runs(
@@ -165,11 +161,6 @@ def test_trend_without_trend_line_or_highlights_renders(
     assert len(paths) == 2
 
 
-def test_spec_without_footnote_renders(renderer: MatplotlibChartRenderer, tmp_path: Path) -> None:
-    spec = _spec_of_kind("lines").model_copy(update={"footnote": None})
-    assert len(renderer.render(spec, tmp_path)) == 2
-
-
 def test_output_dir_that_is_a_file_raises_render_error(
     renderer: MatplotlibChartRenderer, tmp_path: Path
 ) -> None:
@@ -229,7 +220,6 @@ def _panels(count: int) -> ChartSpec:
         y_label="index",
         panels=panels,
         reference_y=100.0,
-        footnote="Source · Period",
     )
 
 
@@ -241,7 +231,6 @@ def test_panels_render_one_per_edition_with_notes(
     text = svg.read_text(encoding="utf-8")
     assert f"edition {count - 1}" in text
     assert "possibly bots" in text
-    assert "Source · Period" in text
 
 
 def test_dumbbell_and_scatter_render(renderer: MatplotlibChartRenderer, tmp_path: Path) -> None:
@@ -287,3 +276,17 @@ def test_a_chart_without_the_data_its_kind_needs_is_rejected() -> None:
             y_label="y",
             series=[ChartSeries(label="a", x=["x"], y=[1.0])],
         )
+
+
+def test_a_strip_is_as_wide_as_a_wide_chart_and_lower(
+    renderer: MatplotlibChartRenderer, tmp_path: Path
+) -> None:
+    series = [ChartSeries(label="uk", x=["2025-01", "2025-02"], y=[-10.0, 5.0])]
+    sizes = {}
+    for size in ("wide", "strip"):
+        spec = ChartSpec(id=size, kind="lines", size=size, title="t", y_label="%", series=series)
+        png, _ = renderer.render(spec, tmp_path)
+        with Image.open(png) as image:
+            sizes[size] = image.size
+    assert sizes["strip"][0] == sizes["wide"][0]
+    assert sizes["strip"][1] < sizes["wide"][1]

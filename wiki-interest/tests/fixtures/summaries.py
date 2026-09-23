@@ -199,6 +199,7 @@ def example_summary(
         ranking=_ranking(projects) if question_type == "rank" else [],
         charts=_charts(analysed, translator),
         verdict=Verdict(headline=prose["headline"][0], bullets=prose["bullets"]),
+        happening=prose["bullets"][:2],
         assessments=_assessments(analysed, translator),
         decision=_decision(analysed, translator),
         data_note=[
@@ -650,9 +651,6 @@ def _ranking(projects: list[str]) -> list[RankedRow]:
 
 
 def _charts(projects: list[str], translator: Translator) -> list[ChartSpec]:
-    footnote = translator.t(
-        "chart.footnote", source="Wikimedia Pageviews API (agent=user)", period="2024-09 – 2026-08"
-    )
     per_million_series = [
         ChartSeries(
             label=f"{_TITLES[p]} ({p})",
@@ -707,6 +705,5 @@ def _charts(projects: list[str], translator: Translator) -> list[ChartSpec]:
             series=[ChartSeries(label=_TITLES["uk.wikipedia"], x=MONTHS, y=uk_values)],
             trend_y=trend_y,
             highlight_x=[_SPIKE_MONTH],
-            footnote=footnote,
         ),
     ]

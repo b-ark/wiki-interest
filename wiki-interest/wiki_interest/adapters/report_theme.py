@@ -24,6 +24,10 @@ _MIN_PALETTE_SIZE = 6
 """A compare/rank request may plot up to this many editions before colours would repeat."""
 
 
+MIN_TEXT_PT = 8.5
+"""No text on the PDF page is smaller than this."""
+
+
 class _Frozen(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -36,6 +40,7 @@ class ChartTheme(_Frozen):
     height_mm: float = Field(gt=0)
     half_width_mm: float = Field(gt=0)
     half_height_mm: float = Field(gt=0)
+    strip_height_mm: float = Field(gt=0)
     font_size_pt: float = Field(gt=0)
     title_size_pt: float = Field(gt=0)
     small_size_pt: float = Field(gt=0)
@@ -45,25 +50,25 @@ class ChartTheme(_Frozen):
 
 
 class PdfTheme(_Frozen):
-    """One-page report grid: margins, type scale and how far it may shrink to fit."""
+    """One-page report grid: margins and the type scale.
+
+    Text is never set below :data:`MIN_TEXT_PT`; to fit the page the renderer drops items
+    and lowers charts (down to ``chart_min_height_mm``), never the font size.
+    """
 
     margin_mm: float = Field(gt=0)
-    title_pt: float = Field(gt=0)
-    subtitle_pt: float = Field(gt=0)
-    heading_pt: float = Field(gt=0)
-    body_pt: float = Field(gt=0)
-    small_pt: float = Field(gt=0)
-    tile_value_pt: float = Field(gt=0)
+    title_pt: float = Field(ge=MIN_TEXT_PT)
+    subtitle_pt: float = Field(ge=MIN_TEXT_PT)
+    heading_pt: float = Field(ge=MIN_TEXT_PT)
+    body_pt: float = Field(ge=MIN_TEXT_PT)
+    small_pt: float = Field(ge=MIN_TEXT_PT)
     line_height: float = Field(gt=0)
     section_gap_mm: float = Field(ge=0)
-    tile_height_mm: float = Field(gt=0)
-    tile_gap_mm: float = Field(ge=0)
-    tile_fill: str
+    table_fill: str
     rule_color: str
     chart_max_height_mm: float = Field(gt=0)
+    chart_min_height_mm: float = Field(gt=0)
     chart_gap_mm: float = Field(ge=0)
-    min_font_scale: float = Field(gt=0, le=1)
-    font_scale_step: float = Field(gt=0, lt=1)
 
 
 class ReportTheme(_Frozen):

@@ -73,7 +73,6 @@ def _planner() -> ChartPlanner:
     return ChartPlanner(
         Translator("en"),
         lambda _topic, project: project.domain,
-        "Source · Period",
         lambda _topic, project: project.language,
         show_season=_strong_season,
     )

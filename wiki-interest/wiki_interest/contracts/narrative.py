@@ -18,6 +18,7 @@ __all__ = [
     "CaveatFact",
     "Facts",
     "FindingFact",
+    "FollowUpFact",
     "MetricFact",
     "Narrative",
     "NarrativeProblem",
@@ -146,6 +147,19 @@ class FindingFact(_Model):
     """In the report language; the numbers in it may be quoted."""
 
 
+class FollowUpFact(_Model):
+    """A next step the user can ask for, and what it changes in ``request.json``.
+
+    ``cached``: the data are already fetched, so the rerun is instant; otherwise it fetches
+    new data (a minute or two).
+    """
+
+    id: str
+    what: str
+    change: str
+    cached: bool
+
+
 class CaveatFact(_Model):
     """A caveat the chat answer must carry; ``pair`` must then be named in it."""
 
@@ -179,6 +193,7 @@ class Facts(_Model):
         data_note: The state of the data, in the report language.
         limitations: Caveats specific to this run, in the report language.
         caveats: What the chat answer must mention.
+        follow_ups: Next steps the chat answer offers (three to five of them).
         blocks: The blocks of ``narrative.json`` with their rules.
         rules: Writing rules that apply to every block.
         ui_strings: Interface labels to translate (``key: English template``); empty when the
@@ -201,6 +216,7 @@ class Facts(_Model):
     data_note: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     caveats: list[CaveatFact]
+    follow_ups: list[FollowUpFact] = Field(default_factory=list)
     blocks: list[BlockRule]
     rules: list[str]
     ui_strings: dict[str, str] = Field(default_factory=dict)

@@ -60,7 +60,6 @@ class ChartPlanner:
     Args:
         translator: Titles and axis labels.
         pair_label: Display label of a (topic, edition) pair, substitutes included.
-        footnote: Source and period line for a full-width chart.
         short_label: Compact label for category axes (``uk`` for ``uk.wikipedia``); the
             full label is used when not given.
         show_season: Whether an edition's seasonal pattern deserves a chart; the rule lives
@@ -73,7 +72,6 @@ class ChartPlanner:
         self,
         translator: Translator,
         pair_label: Callable[[str, WikiProject], str],
-        footnote: str,
         short_label: Callable[[str, WikiProject], str] | None = None,
         *,
         show_season: Callable[[PairAnalysis], bool] | None = None,
@@ -81,17 +79,12 @@ class ChartPlanner:
         self._t = translator
         self._label = pair_label
         self._short = short_label or pair_label
-        self._footnote = footnote
         self._show_season = show_season
 
     def _seasonal(self, pair: PairAnalysis) -> bool:
         if _profile(pair) is None:
             return False
         return self._show_season is None or self._show_season(pair)
-
-    def widen(self, spec: ChartSpec) -> ChartSpec:
-        """The same chart at full width, with the source and period under it."""
-        return spec.model_copy(update={"size": "wide", "footnote": self._footnote})
 
     def _pair(self, pair: PairAnalysis) -> str:
         return self._label(pair.topic_id, pair.project)
@@ -133,7 +126,6 @@ class ChartPlanner:
             y_label=self._t.t("chart.axis_index"),
             panels=panels,
             reference_y=_PERCENT,
-            footnote=self._footnote,
         )
 
     def _panel(self, pair: PairAnalysis) -> ChartPanel | None:
@@ -203,7 +195,7 @@ class ChartPlanner:
         return ChartSpec(
             id="change",
             kind="lines",
-            size="wide",
+            size="strip",
             title=self._t.t("chart.yoy_title", metric=self._metric(normalised)),
             subtitle=self._t.t("chart.yoy_subtitle"),
             y_label=self._t.t("chart.axis_growth"),
@@ -234,7 +226,7 @@ class ChartPlanner:
         return ChartSpec(
             id="before-after",
             kind="dumbbell",
-            size="wide",
+            size="strip",
             title=self._t.t("chart.dumbbell_title", metric=self._metric(normalised)),
             subtitle=self._t.t(f"chart.dumbbell_basis.{basis}"),
             y_label="",
@@ -277,7 +269,7 @@ class ChartPlanner:
         return ChartSpec(
             id="size-change",
             kind="scatter",
-            size="wide",
+            size="strip",
             title=self._t.t("chart.scatter_title", metric=self._metric(normalised)),
             subtitle=self._t.t("chart.scatter_subtitle"),
             y_label=self._t.t("chart.axis_growth"),

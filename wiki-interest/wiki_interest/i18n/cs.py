@@ -52,8 +52,6 @@ MESSAGES: dict[str, str] = {
     "role.main": "hlavní",
     "role.related": "související",
     "role.manual": "ručně",
-    "unit.views": "zobrazení",
-    "unit.per_million": "zobrazení na milion",
     "value.na": "n/a",
     # -- question line ---------------------------------------------------------------------
     "question.compare": "Porovnat zájem o téma „{topics}“ v edicích {projects}",
@@ -65,21 +63,16 @@ MESSAGES: dict[str, str] = {
     "report.key_numbers": "Klíčová čísla",
     "report.chart": "Graf",
     "report.charts": "Grafy",
-    "report.verdict": "Závěr",
     "report.limitations": "Předpoklady a omezení",
     "report.next_steps": "Co lze upřesnit",
     "report.sources": "Zdroje",
     "report.period": "Období",
-    "report.projects": "Edice",
-    "report.topics": "Témata",
     "report.generated": "Vygenerováno",
     "report.version": "Verze dovednosti",
     "report.data_through": "Data do",
-    "report.comparison_table": "Srovnání",
     "report.ranking_table": "Pořadí",
     "report.notes": "Poznámky",
     "report.see_summary": "… úplný seznam je v summary.md",
-    "report.no_chart": "Pro tento běh nebyl vytvořen žádný graf",
     # -- table columns ---------------------------------------------------------------------
     "col.topic": "Téma",
     "col.project": "Edice",
@@ -90,11 +83,9 @@ MESSAGES: dict[str, str] = {
     "col.article": "Článek",
     "col.role": "Role",
     "col.source": "Zdroj",
-    "col.status": "Stav",
     "col.rationale": "Proč",
     # -- agent summary ---------------------------------------------------------------------
     "summary.answer": "Odpověď",
-    "summary.key_numbers": "Klíčová čísla",
     "summary.caveats": "Výhrady",
     "summary.refine": "Co lze upřesnit",
     "summary.artifacts": "Soubory",
@@ -108,7 +99,6 @@ MESSAGES: dict[str, str] = {
     "summary.bundles": "Analyzované články",
     # -- charts ----------------------------------------------------------------------------
     "chart.axis_views": "zobrazení měsíčně",
-    "chart.footnote": "Zdroj: {source} · Období: {period}",
     "chart.no_data": "Za toto období nejsou data",
     # -- verdikty ----------------------------------------------------------------------------
     "verdict.rank.headline": "Nejslibnější publikum: {label} ({profile})",
@@ -256,7 +246,6 @@ MESSAGES: dict[str, str] = {
     "summary.context": "Související články (kontext, nezapočteno)",
     "summary.context_item": "{title} — {views} zobrazení/měs.",
     "summary.bundle_count": "měřen hlavní článek; souvisejících článků jako kontext: {related}",
-    "summary.method": "O metodě",
     "month.1": "leden",
     "month.short.1": "led",
     "month.2": "únor",
@@ -628,4 +617,15 @@ MESSAGES: dict[str, str] = {
     "chart.axis_log": "{unit}, logaritmická stupnice",
     "chart.axis_per_million": "zobrazení článku na 1 mil. zobrazení edice",
     "chart.season_period": "Spočteno za {start} – {end}.",
+    "report.happening": "Co se děje",
+    "report.footer_share": (
+        "Podíl pozornosti — zobrazení článku na 1 mil. zobrazení celé edice. Změna: {basis}; "
+        "poslední měsíce: {recent}."
+    ),
+    "report.footer_caveats": (
+        "Zobrazení ukazují zvědavost, ne ochotu platit; jazyková edice není země."
+    ),
+    "report.footer_months": "Vybočující měsíce ve srovnání: {items}.",
+    "report.footer_month_item": "{label} {note}, změna bez něj {change}",
+    "report.footer_method": "Jak bylo spočteno každé číslo: method.md",
 }

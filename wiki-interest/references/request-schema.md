@@ -61,7 +61,8 @@ Unknown keys are rejected on purpose: a misspelled field would otherwise be sile
 | `title` | string | derived | Report title. |
 | `audience_note` | string | none | One line of context that goes into the report ("educational app considering an astronomy course"). |
 | `formats` | list of `pdf` / `md` | both | Which report files to write. `summary.md` and `summary.json` are always written. |
-| `seasonality` | `auto` / `show` | `auto` | `show` when the user asks about timing (which months, seasons, when to launch): the seasonal pattern is then always reported and charted, with a caveat if the history is short. `auto` mentions it only when it is material and charts it only with five or more years of history. |
+| `seasonality` | `auto` / `show` | `auto` | `show` when the user asks about timing (which months, seasons, when to launch): the seasonal pattern is then always reported and charted, with a caveat if it is not solid. `auto` states it only when it is solid on the article's whole history (5+ full years, repeated in 80 % of years, material). |
+| `appendix` | `true` / `false` | `false` | `true` adds a second PDF page with the method and data checks (the content of `method.md`, which every run writes next to the report). The report is one page otherwise. |
 
 ## Examples
 

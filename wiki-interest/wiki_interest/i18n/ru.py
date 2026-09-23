@@ -58,8 +58,6 @@ MESSAGES: dict[str, str] = {
     "role.main": "главная",
     "role.related": "смежная",
     "role.manual": "вручную",
-    "unit.views": "просмотров",
-    "unit.per_million": "просмотров на миллион",
     "value.na": "н/д",
     # -- question line ---------------------------------------------------------------------
     "question.compare": "Сравнить интерес к теме «{topics}» в разделах {projects}",
@@ -71,21 +69,16 @@ MESSAGES: dict[str, str] = {
     "report.key_numbers": "Ключевые числа",
     "report.chart": "График",
     "report.charts": "Графики",
-    "report.verdict": "Вывод",
     "report.limitations": "Допущения и ограничения",
     "report.next_steps": "Что можно уточнить",
     "report.sources": "Источники",
     "report.period": "Период",
-    "report.projects": "Разделы",
-    "report.topics": "Темы",
     "report.generated": "Сформировано",
     "report.version": "Версия навыка",
     "report.data_through": "Данные по",
-    "report.comparison_table": "Сравнение",
     "report.ranking_table": "Рейтинг",
     "report.notes": "Примечания",
     "report.see_summary": "… полный список в summary.md",
-    "report.no_chart": "Для этого запуска график не построен",
     # -- table columns ---------------------------------------------------------------------
     "col.topic": "Тема",
     "col.project": "Раздел",
@@ -96,11 +89,9 @@ MESSAGES: dict[str, str] = {
     "col.article": "Статья",
     "col.role": "Роль",
     "col.source": "Источник",
-    "col.status": "Статус",
     "col.rationale": "Почему",
     # -- agent summary ---------------------------------------------------------------------
     "summary.answer": "Ответ",
-    "summary.key_numbers": "Ключевые числа",
     "summary.caveats": "Оговорки",
     "summary.refine": "Что можно уточнить",
     "summary.artifacts": "Файлы",
@@ -114,7 +105,6 @@ MESSAGES: dict[str, str] = {
     "summary.bundles": "Проанализированные статьи",
     # -- charts ----------------------------------------------------------------------------
     "chart.axis_views": "просмотров в месяц",
-    "chart.footnote": "Источник: {source} · Период: {period}",
     "chart.no_data": "Нет данных за этот период",
     # -- вердикты ----------------------------------------------------------------------------
     "verdict.rank.headline": "Самая перспективная аудитория: {label} ({profile})",
@@ -266,7 +256,6 @@ MESSAGES: dict[str, str] = {
     "summary.context": "Связанные статьи (контекст, не учтены)",
     "summary.context_item": "{title} — {views} просмотров/мес",
     "summary.bundle_count": "измерена главная статья; связанных статей как контекст: {related}",
-    "summary.method": "О методе",
     "month.1": "январь",
     "month.short.1": "янв",
     "month.2": "февраль",
@@ -647,4 +636,15 @@ MESSAGES: dict[str, str] = {
     "chart.axis_log": "{unit}, логарифмическая шкала",
     "chart.axis_per_million": "просмотров статьи на 1 млн просмотров раздела",
     "chart.season_period": "Рассчитано за {start} – {end}.",
+    "report.happening": "Что происходит",
+    "report.footer_share": (
+        "Доля внимания — просмотры статьи на 1 млн просмотров всего раздела. Изменение: {basis}; "
+        "последние месяцы: {recent}."
+    ),
+    "report.footer_caveats": (
+        "Просмотры показывают любопытство, а не готовность платить; языковой раздел — не страна."
+    ),
+    "report.footer_months": "Выделяющиеся месяцы в сравнении: {items}.",
+    "report.footer_month_item": "{label} {note}, изменение без него {change}",
+    "report.footer_method": "Как посчитано каждое число: method.md",
 }

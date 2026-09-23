@@ -17,6 +17,7 @@ from wiki_interest.contracts.narrative import (
     CaveatFact,
     Facts,
     FindingFact,
+    FollowUpFact,
     MetricFact,
     MetricId,
     Narrative,
@@ -42,6 +43,7 @@ _SPACED_UNIT = re.compile(r"(?<=\d)[ \u00a0](?=%)")
 """A space between a number and its percent sign: the PDF would break the line there."""
 _DIGITS = 4
 """Values are rounded for reading; the display form carries what the report shows."""
+_FIVE_YEARS = 60
 _SMALL_CHANGE = 0.1
 _CONFIRMATION = {
     "confirmed": "confirmed",
@@ -128,9 +130,12 @@ BLOCKS: tuple[BlockRule, ...] = (
     BlockRule(
         name="chat_answer",
         rule=(
-            "Your reply in the chat: the headline, what happened, robustness, the decision "
-            "and the next step, then every caveat of caveats[] and the path to report_pdf. "
-            "Short paragraphs or bullets, no tables."
+            "Your reply in the chat: which item was analysed; the conclusion (headline, "
+            "what happened, robustness, decision and next step) with the path to report_pdf; "
+            "the assumptions (every caveat of caveats[]); what could change the conclusion "
+            "(recent_confirmation, months that stand out, data_quality); then three to five "
+            "next steps from follow_ups, saying which are instant (cached). Short paragraphs "
+            "or bullets, no tables."
         ),
         max_chars=3500,
     ),
@@ -209,6 +214,7 @@ def build_facts(
         data_note=list(summary.data_note),
         limitations=list(summary.limitations),
         caveats=_caveats(summary.assessments, measured_count=len(measured)),
+        follow_ups=_follow_ups(summary),
         blocks=list(BLOCKS),
         rules=list(RULES),
         ui_strings=dict(ui_strings or {}),
@@ -373,6 +379,66 @@ def _display(t: Translator, value: float, unit: str) -> str:
     if unit == "multiple":
         return "×" + t.number(value, 1)
     return t.number(value)
+
+
+def _follow_ups(summary: AnalysisSummary) -> list[FollowUpFact]:
+    """Refinements the user may want next; ``cached`` ones reuse the fetched data."""
+    request = summary.request
+    out: list[FollowUpFact] = []
+    if request.report.seasonality != "show":
+        out.append(
+            FollowUpFact(
+                id="seasons",
+                what="which months of the year are strongest (the season on the whole history)",
+                change='report.seasonality: "show"',
+                cached=True,
+            )
+        )
+    if summary.period.months < _FIVE_YEARS:
+        out.append(
+            FollowUpFact(
+                id="longer_period",
+                what="a longer period, up to 2015-07",
+                change="period.start earlier",
+                cached=False,
+            )
+        )
+    out.append(
+        FollowUpFact(
+            id="add_editions",
+            what="more language editions to compare",
+            change="append to projects",
+            cached=False,
+        )
+    )
+    if request.normalization == "per_million":
+        out.append(
+            FollowUpFact(
+                id="raw_views",
+                what="raw article views instead of the attention share",
+                change='normalization: "absolute"',
+                cached=True,
+            )
+        )
+    if any(t.bundle == "auto" for t in request.topics):
+        out.append(
+            FollowUpFact(
+                id="main_only",
+                what="without the related articles listed as context",
+                change='topics[].bundle: "main"',
+                cached=True,
+            )
+        )
+    if not request.report.appendix:
+        out.append(
+            FollowUpFact(
+                id="method_page",
+                what="a second PDF page with the method and data checks",
+                change="report.appendix: true",
+                cached=True,
+            )
+        )
+    return out
 
 
 def _caveats(assessments: Sequence[AssessmentOut], *, measured_count: int) -> list[CaveatFact]:

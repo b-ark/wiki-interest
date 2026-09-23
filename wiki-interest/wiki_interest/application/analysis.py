@@ -231,11 +231,6 @@ class PairAnalysis:
         """
         return self.bundle.substitute_kind not in _OTHER_SUBJECT
 
-    @property
-    def analysis_series(self) -> Series | None:
-        """The series growth and trend are computed on: the share, else raw views."""
-        return self.per_million if self.per_million is not None else self.views
-
 
 @dataclass(frozen=True, slots=True)
 class AnalysisResult:

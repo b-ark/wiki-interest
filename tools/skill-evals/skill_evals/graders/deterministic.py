@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -317,6 +316,3 @@ def _clarification_asked(a: ClarificationAsked, ctx: GradeContext) -> GradeOutco
     asked = asked or requested
     evidence = f"{how}; {len(pdfs)} report.pdf"
     return _outcome(a, asked and not pdfs, evidence)
-
-
-GraderFn = Callable[[Assertion, GradeContext], GradeOutcome]

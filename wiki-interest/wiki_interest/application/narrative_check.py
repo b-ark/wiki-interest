@@ -14,6 +14,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from string import Formatter
 
 from wiki_interest.contracts.narrative import Facts, Narrative, NarrativeProblem
@@ -238,6 +239,9 @@ class _Checker:
     # -- caveats and interface --------------------------------------------------------------
 
     def caveats(self) -> None:
+        pdf = self.facts.report_pdf
+        if pdf and Path(pdf).name not in self.narrative.chat_answer:
+            self.add("chat_answer", f"Give the path to the PDF in chat_answer: {pdf}.")
         declared = set(self.narrative.covered_caveats)
         for caveat in self.facts.caveats:
             if caveat.id not in declared:

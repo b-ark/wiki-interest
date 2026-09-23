@@ -163,6 +163,22 @@ class Settings(BaseSettings):
             search_fallback_warns=self.search_fallback_warns,
         )
 
+    def thresholds(self) -> dict[str, float | int | bool]:
+        """Every tunable threshold by its field name, for the run's method note."""
+        names = (
+            *ReliabilityThresholds.__dataclass_fields__,
+            *AssessmentSettings.__dataclass_fields__,
+            "season_min_years",
+            "season_min_consistency",
+            "season_min_strength",
+            "season_min_range",
+            "anomaly_min_multiple",
+            "anomaly_strong_multiple",
+            "anomaly_mad_multiplier",
+        )
+        values = self.model_dump()
+        return {name: values[name] for name in names if name in values}
+
     def assessment_settings(self) -> AssessmentSettings:
         """The cut-offs of the conclusions."""
         return AssessmentSettings(

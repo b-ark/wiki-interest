@@ -176,11 +176,10 @@ class TestCompare:
         summary = _build(tmp_path)
         assert [(c.id, c.kind, c.size) for c in summary.charts] == [
             ("main", "panels", "wide"),
-            ("change", "lines", "wide"),
+            ("change", "lines", "strip"),
         ]
         main = summary.charts[0]
         assert main.subtitle is not None
-        assert main.footnote is not None
         assert [p.title for p in main.panels] == ["uk.wikipedia", "cs.wikipedia"]
         assert main.panels[0].series[0].x[0] == "2024-09"
         change = summary.charts[1]

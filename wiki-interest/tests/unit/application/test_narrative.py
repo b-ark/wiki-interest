@@ -174,6 +174,31 @@ class TestAnalysisFacts:
         assert any(f"month:astronomy/uk:{month}" in m for m in messages)
 
 
+class TestChatBrief:
+    def test_follow_ups_say_which_reruns_are_instant(self, tmp_path: Path) -> None:
+        _, run_dir = _run(tmp_path, "en")
+        follow_ups = {f.id: f for f in _facts(run_dir).follow_ups}
+        assert follow_ups["seasons"].cached
+        assert follow_ups["raw_views"].cached
+        assert not follow_ups["add_editions"].cached
+        assert not follow_ups["longer_period"].cached
+        assert "appendix" in follow_ups["method_page"].change
+
+    def test_the_chat_answer_gives_the_pdf(self, tmp_path: Path) -> None:
+        _, run_dir = _run(tmp_path, "en")
+        facts, template = _facts(run_dir), _template(run_dir)
+        without = template.model_copy(update={"chat_answer": "The share grows in uk.wikipedia."})
+        assert any("path to the PDF" in m for m in _messages(facts, without))
+
+    def test_the_run_writes_the_method_next_to_the_report(self, tmp_path: Path) -> None:
+        _, run_dir = _run(tmp_path, "ru")
+        method = (run_dir / "method.md").read_text(encoding="utf-8")
+        assert method.startswith("# Method")
+        assert "Trend test (Mann-Kendall" in method
+        assert "- season_min_years: 5" in method
+        assert "uk.wikipedia" in method
+
+
 class TestTemplatePassesItsOwnChecks:
     @pytest.mark.parametrize("language", ["en", "ru", "uk", "pl", "cs"])
     @pytest.mark.parametrize(

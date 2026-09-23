@@ -47,8 +47,6 @@ LABEL_KEYS = [
         for v in ("sitelink", "wikidata_relation", "lead_link", "search_fallback", "manual")
     ],
     *[f"role.{v}" for v in ("main", "related", "manual")],
-    "unit.views",
-    "unit.per_million",
 ]
 
 SECTION_KEYS = [
@@ -56,7 +54,6 @@ SECTION_KEYS = [
     "report.question",
     "report.key_numbers",
     "report.chart",
-    "report.verdict",
     "report.reliability",
     "report.limitations",
     "report.next_steps",
@@ -64,7 +61,6 @@ SECTION_KEYS = [
     "report.period",
     "report.generated",
     "report.bundle_composition",
-    "report.comparison_table",
     "report.ranking_table",
     *[
         f"col.{v}"
@@ -87,7 +83,6 @@ SECTION_KEYS = [
         f"summary.{v}"
         for v in (
             "answer",
-            "key_numbers",
             "caveats",
             "refine",
             "artifacts",
@@ -97,7 +92,6 @@ SECTION_KEYS = [
     ],
     "chart.axis_per_million",
     "chart.axis_views",
-    "chart.footnote",
     "chart.index_title",
     "chart.yoy_title",
     "chart.season_title",

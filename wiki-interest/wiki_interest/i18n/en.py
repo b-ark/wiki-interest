@@ -59,8 +59,6 @@ MESSAGES: dict[str, str] = {
     "role.main": "main",
     "role.related": "related",
     "role.manual": "manual",
-    "unit.views": "views",
-    "unit.per_million": "views per million",
     "value.na": "n/a",
     # -- question line ---------------------------------------------------------------------
     "question.compare": "Compare interest in {topics} across {projects}",
@@ -72,21 +70,16 @@ MESSAGES: dict[str, str] = {
     "report.key_numbers": "Key numbers",
     "report.chart": "Chart",
     "report.charts": "Charts",
-    "report.verdict": "Verdict",
     "report.limitations": "Assumptions and limitations",
     "report.next_steps": "What can be refined",
     "report.sources": "Sources",
     "report.period": "Period",
-    "report.projects": "Editions",
-    "report.topics": "Topics",
     "report.generated": "Generated",
     "report.version": "Skill version",
     "report.data_through": "Data through",
-    "report.comparison_table": "Comparison",
     "report.ranking_table": "Ranking",
     "report.notes": "Notes",
     "report.see_summary": "… the full list is in summary.md",
-    "report.no_chart": "No chart was produced for this run",
     # -- table columns ---------------------------------------------------------------------
     "col.topic": "Topic",
     "col.project": "Edition",
@@ -97,11 +90,9 @@ MESSAGES: dict[str, str] = {
     "col.article": "Article",
     "col.role": "Role",
     "col.source": "Source",
-    "col.status": "Status",
     "col.rationale": "Why",
     # -- agent summary ---------------------------------------------------------------------
     "summary.answer": "Answer",
-    "summary.key_numbers": "Key numbers",
     "summary.caveats": "Caveats",
     "summary.refine": "What can be refined",
     "summary.artifacts": "Files",
@@ -115,7 +106,6 @@ MESSAGES: dict[str, str] = {
     "summary.bundles": "Articles analysed",
     # -- charts ----------------------------------------------------------------------------
     "chart.axis_views": "views per month",
-    "chart.footnote": "Source: {source} · Period: {period}",
     "chart.no_data": "No data for this period",
     # -- verdicts (composed by the summary builder) ---------------------------------------
     "verdict.rank.headline": "Most promising audience: {label} ({profile})",
@@ -264,7 +254,6 @@ MESSAGES: dict[str, str] = {
     "summary.bundle_count": (
         "measured: the main article; related articles shown as context: {related}"
     ),
-    "summary.method": "About the method",
     "month.1": "January",
     "month.short.1": "Jan",
     "month.2": "February",
@@ -650,4 +639,15 @@ MESSAGES: dict[str, str] = {
     "chart.axis_log": "{unit}, log scale",
     "chart.axis_per_million": "article views per million edition views",
     "chart.season_period": "Computed on {start} – {end}.",
+    "report.happening": "What happened",
+    "report.footer_share": (
+        "Attention share: article views per 1 million views of the whole edition. Change: {basis}; "
+        "recent months: {recent}."
+    ),
+    "report.footer_caveats": (
+        "Views show curiosity, not willingness to pay; a language edition is not a country."
+    ),
+    "report.footer_months": "Months that stand out in the comparison: {items}.",
+    "report.footer_month_item": "{label} {note}, change without it {change}",
+    "report.footer_method": "How every number was computed: method.md",
 }

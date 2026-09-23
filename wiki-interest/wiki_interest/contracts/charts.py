@@ -29,8 +29,9 @@ and highlighted periods; ``panels``: small multiples, one panel of lines per edi
 shared scale; ``dumbbell``: two values per category joined by a line (before and after);
 ``scatter``: labelled points on two numeric axes."""
 
-ChartSize = Literal["wide", "half"]
-"""``wide`` spans the page; ``half`` is drawn for a two-column grid."""
+ChartSize = Literal["wide", "strip", "half"]
+"""``wide`` spans the page; ``strip`` spans it at half the height (a second chart under the
+main one); ``half`` is drawn for a two-column grid."""
 
 SeriesStyle = Literal["line", "dashed", "points"]
 """``line``: the series that matters; ``dashed``: a reference to compare against;
@@ -98,7 +99,6 @@ class ChartSpec(_Model):
         points: The points of a ``scatter`` chart.
         trend_y: Fitted trend values aligned with ``series[0].x`` (``trend`` charts only).
         highlight_x: Labels of periods to shade as spikes (``trend`` charts only).
-        footnote: Source and period line under the chart.
         size: Width class; the renderer maps it to physical dimensions.
         log_y: Logarithmic value axis, for series that differ by orders of magnitude.
         log_x: Logarithmic horizontal axis (``scatter``).
@@ -117,7 +117,6 @@ class ChartSpec(_Model):
     points: list[ChartPoint] = Field(default_factory=list)
     trend_y: list[float | None] | None = None
     highlight_x: list[str] = Field(default_factory=list)
-    footnote: str | None = None
     size: ChartSize = "wide"
     log_y: bool = False
     log_x: bool = False

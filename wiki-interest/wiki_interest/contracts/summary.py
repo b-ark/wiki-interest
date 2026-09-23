@@ -503,6 +503,8 @@ class Artifacts(_Model):
     summary_md: str
     report_md: str | None = None
     report_pdf: str | None = None
+    method_md: str | None = None
+    """How every number was computed for this run, the data checks and the thresholds."""
     charts: list[str] = Field(default_factory=list)
 
 
@@ -516,6 +518,8 @@ class Provenance(_Model):
     sources: list[str]
     request_count: int = 0
     cache_hits: int = 0
+    thresholds: dict[str, float | int | bool] = Field(default_factory=dict)
+    """The configured thresholds this run used (``WIKI_INTEREST_*``), for ``method.md``."""
 
 
 class AnalysisSummary(_Model):
