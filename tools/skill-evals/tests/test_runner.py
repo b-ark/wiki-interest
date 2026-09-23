@@ -239,6 +239,20 @@ def test_latest_reference_is_the_newest_summary(tmp_path: Path) -> None:
     assert latest_reference(ctx, "**/nothing.md") is None
 
 
+def test_latest_reference_adds_the_data_of_the_same_runs_facts(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "s" / "r1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "summary.md").write_text("summary", encoding="utf-8")
+    facts = {"pairs": [{"display": "-0,5 %"}], "rules": ["write short"], "ui_strings": {}}
+    (run_dir / "facts.json").write_text(json.dumps(facts), encoding="utf-8")
+    ctx = GradeContext(case_dir=tmp_path, trajectory=make_trajectory("x"))
+    reference = latest_reference(ctx, "**/summary.md")
+    assert reference is not None
+    assert reference.startswith("summary\n\nfacts.json")
+    assert "-0,5 %" in reference
+    assert "write short" not in reference
+
+
 def test_regrade_rewrites_grades_and_keeps_a_backup(tmp_path: Path, skill_dir: Path) -> None:
     provider = FakeProvider({"first prompt": _good_first})
     config = _config(tmp_path, skill_dir, provider)
@@ -251,3 +265,16 @@ def test_regrade_rewrites_grades_and_keeps_a_backup(tmp_path: Path, skill_dir: P
     reread = read_jsonl(config.run_dir / "results.jsonl", CaseResult)
     assert [r.grades for r in reread] == [r.grades for r in updated]
     assert reread[0].cost_usd == updated[0].cost_usd
+
+
+def test_regrade_without_judge_drops_verdicts_of_removed_criteria(
+    tmp_path: Path, skill_dir: Path
+) -> None:
+    provider = FakeProvider({"first prompt": _good_first})
+    config = _config(tmp_path, skill_dir, provider, judge=StubJudge())
+    run(config)
+    renamed = json.loads(config.scenarios_path.read_text(encoding="utf-8"))
+    renamed["scenarios"][1]["rubric"] = [{"id": "relays", "criterion": "Relays."}]
+    config.scenarios_path.write_text(json.dumps(renamed), encoding="utf-8")
+    updated = regrade(config.run_dir, config.scenarios_path, None)
+    assert not [g for r in updated for g in r.grades if g.kind == "judge"]

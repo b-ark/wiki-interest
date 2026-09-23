@@ -72,6 +72,9 @@
             "відсутн",
             "не знайдено"
           ]
+        },
+        {
+          "type": "narrative_accepted"
         }
       ],
       "rubric": [
@@ -143,6 +146,9 @@
           "type": "summary_field",
           "path": "request.question_type",
           "regex": "assess|compare"
+        },
+        {
+          "type": "narrative_accepted"
         }
       ],
       "rubric": [
@@ -214,6 +220,9 @@
           "type": "summary_field",
           "path": "request.projects.4",
           "regex": "wikipedia"
+        },
+        {
+          "type": "narrative_accepted"
         }
       ],
       "rubric": [
@@ -291,6 +300,9 @@
           "type": "summary_field",
           "path": "period.start",
           "regex": "^202[01]-"
+        },
+        {
+          "type": "narrative_accepted"
         }
       ],
       "rubric": [
@@ -363,6 +375,9 @@
           "patterns": [
             "\\.pdf"
           ]
+        },
+        {
+          "type": "narrative_accepted"
         }
       ],
       "rubric": [
@@ -435,6 +450,9 @@
           "patterns": [
             "\\.pdf"
           ]
+        },
+        {
+          "type": "narrative_accepted"
         }
       ],
       "rubric": [
@@ -554,6 +572,9 @@
             "(?i)element",
             "Hg"
           ]
+        },
+        {
+          "type": "narrative_accepted"
         }
       ],
       "rubric": [
@@ -631,6 +652,9 @@
             "(?i)елемент",
             "Hg"
           ]
+        },
+        {
+          "type": "narrative_accepted"
         }
       ],
       "rubric": [
@@ -777,6 +801,9 @@
           "patterns": [
             "Post"
           ]
+        },
+        {
+          "type": "narrative_accepted"
         }
       ],
       "rubric": [
@@ -843,6 +870,9 @@
           "type": "summary_field",
           "path": "request.report.language",
           "equals": "pl"
+        },
+        {
+          "type": "narrative_accepted"
         }
       ],
       "rubric": [
@@ -916,6 +946,9 @@
           "patterns": [
             "2015"
           ]
+        },
+        {
+          "type": "narrative_accepted"
         }
       ],
       "rubric": [
@@ -980,6 +1013,9 @@
           "type": "summary_field",
           "path": "request.normalization",
           "equals": "absolute"
+        },
+        {
+          "type": "narrative_accepted"
         }
       ],
       "rubric": [
@@ -1045,6 +1081,9 @@
           "type": "summary_field",
           "path": "request.projects.2",
           "regex": "wikipedia"
+        },
+        {
+          "type": "narrative_accepted"
         }
       ],
       "rubric": [

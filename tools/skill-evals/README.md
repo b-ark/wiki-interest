@@ -127,7 +127,8 @@ last turn. Globs are matched under the case's `artifacts/` directory (see layout
 | `max_turns` | `n` | model turns summed over all user messages ≤ `n` |
 | `max_cost_usd` | `value` | provider-reported cost ≤ `value`; passes with a note when the provider reports no cost |
 | `summary_field` | `summary_glob`, `path`, `equals` or `regex` | `path` (`a.b[0].c` or `a.b.0.c`) in some matching summary equals the value / matches the regex |
-| `caveats_relayed` | `summary_glob`, `min_reasons=1` | for every `reliability[]` block with `level != high`, collect `checks[]` with status `warn`/`fail`; at least `min_reasons` of their `message`s appear in the answer (fuzzy: ≥ 50 % of the message's words of 4+ letters). Vacuously passes when reliability is high everywhere |
+| `caveats_relayed` | `summary_glob`, `min_reasons=1` | for every `reliability[]` block with `level != high`, collect `checks[]` with status `warn`/`fail`. English report: at least `min_reasons` of their `message`s appear in the answer (fuzzy: ≥ 50 % of the message's words of 4+ letters). Other languages (the messages are English template text): the answer relays the accepted `chat_brief.md` of that run (same fuzzy rule), whose caveats the skill's render check verified; without one, it names every edition whose reliability is not high. Vacuously passes when reliability is high everywhere |
+| `narrative_accepted` | `pattern="render\.py"` | every run directory rendered with `--narrative` ended with status `accepted` (the last status per run counts; `fallback` fails); at least one such render |
 | `clarification_asked` | – | final answer contains `?` and no `report.pdf` was produced |
 
 `trigger_evals.json` is a JSON list: `[{"query": "...", "should_trigger": true}, ...]`.
@@ -143,8 +144,9 @@ runs/<name>/
     events.jsonl        raw provider events (stream-json lines, or OpenRouter request/response bodies)
     trajectory.json     parsed Trajectory: turns, tool calls with commands/results, usage, cost, model
     grades.json         every assertion and rubric verdict with evidence
-    artifacts/          files copied from the sandbox: **/summary.json, summary.md,
-                        report.pdf, request.json, manifest.json, charts/*, *.png, *.svg
+    artifacts/          files copied from the sandbox: **/summary.json, summary.md, facts.json,
+                        narrative.json, chat_brief.md, method.md, report.pdf, request.json,
+                        manifest.json, charts/*, *.png, *.svg
   sandboxes/<scenario-id>-rep-<k>/     the agent's cwd, kept as evidence (--delete-sandboxes to drop)
     .claude/skills/<skill-name>/       private copy of the skill (.venv, .cache, runs, evals excluded)
     workspace/                         empty directory for the agent
@@ -282,8 +284,9 @@ PATH is usually the WSL launcher. Retries 429/5xx with backoff; a persistent 429
   `--warm-cache` to keep network variance out of A/B comparisons.
 - `numbers_grounded` is a recall check on the answer, not a proof of correctness: a number
   that happens to exist anywhere in the summary counts as grounded.
-- `caveats_relayed` uses word overlap, so a heavily paraphrased caveat in another language
-  than the summary's may be missed; write summaries in the report language.
+- `caveats_relayed` uses word overlap. For non-English reports it trusts the skill's own
+  caveat check on the accepted text; after a fallback it only checks that the flagged
+  editions are named, which is weaker.
 - The judge is Claude too (different tier); systematic family bias is possible. Judge
   verdicts are reported separately from deterministic ones for that reason.
 - Session files accumulate under `~/.claude/projects/`; they are not cleaned up.

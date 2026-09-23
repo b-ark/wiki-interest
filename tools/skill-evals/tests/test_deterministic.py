@@ -19,6 +19,7 @@ from skill_evals.scenarios import (
     FileExists,
     MaxCostUsd,
     MaxTurns,
+    NarrativeAccepted,
     NoToolCalled,
     NumbersGrounded,
     PdfPages,
@@ -256,3 +257,71 @@ def test_caveats_come_from_the_newest_summary_only(tmp_path: Path) -> None:
     os.utime(final / "summary.json", (2_000, 2_000))
     outcome = grade(CaveatsRelayed(type="caveats_relayed"), _ctx(tmp_path, "All good."))
     assert outcome.passed, outcome.evidence
+
+
+def _render(run_dir: str, status: str) -> ToolCall:
+    command = f"uv run scripts/render.py {run_dir} --narrative narrative.json"
+    output = f'{{"status": "{status}", "exit_code": 0, "run_dir": "{run_dir}"}}'
+    return ToolCall(name="Bash", input={"command": command}, command=command, result=output)
+
+
+def test_narrative_accepted_counts_the_last_status_of_each_run(tmp_path: Path) -> None:
+    check = NarrativeAccepted(type="narrative_accepted")
+    fixed = [_render("runs/s/r1", "rejected"), _render("runs/s/r1", "accepted")]
+    outcome = grade(check, _ctx(tmp_path, tool_calls=fixed))
+    assert outcome.passed
+    assert outcome.evidence == "1/1 rendered run(s) accepted"
+    follow_up_fell_back = [
+        *fixed,
+        _render("runs/s/r2", "rejected"),
+        _render("runs/s/r2", "fallback"),
+    ]
+    outcome = grade(check, _ctx(tmp_path, tool_calls=follow_up_fell_back))
+    assert not outcome.passed
+    assert "1/2" in outcome.evidence
+    assert "fallback" in outcome.evidence
+
+
+def test_narrative_accepted_needs_a_render_with_the_agents_text(tmp_path: Path) -> None:
+    check = NarrativeAccepted(type="narrative_accepted")
+    assert not grade(check, _ctx(tmp_path)).passed
+    plain = ToolCall(
+        name="Bash",
+        input={},
+        command="uv run scripts/render.py runs/s/r1",
+        result='{"status": "ok", "run_dir": "runs/s/r1"}',
+    )
+    crashed = ToolCall(
+        name="Bash", input={}, command="render.py r1 --narrative n.json", result="Traceback"
+    )
+    outcome = grade(check, _ctx(tmp_path, tool_calls=[plain, crashed]))
+    assert not outcome.passed
+    assert outcome.evidence == "no render with the agent's text"
+
+
+def _summary_in(language: str) -> dict[str, object]:
+    summary = make_summary(level="low", checks=CHECKS)
+    summary["request"] = {"report": {"language": language}}
+    return summary
+
+
+def test_caveats_of_another_language_come_from_the_accepted_text(tmp_path: Path) -> None:
+    run_dir = tmp_path / "artifacts" / "r1"
+    write_summary(run_dir, _summary_in("uk"))
+    brief = "Частка уваги в pl.wikipedia зростає; але дані неповні: зростання дають сплески."
+    (run_dir / "chat_brief.md").write_text(brief, encoding="utf-8")
+    check = CaveatsRelayed(type="caveats_relayed")
+    assert grade(check, _ctx(tmp_path, brief)).passed
+    outcome = grade(check, _ctx(tmp_path, "Інтерес зростає, інвестуйте."))
+    assert not outcome.passed
+    assert outcome.evidence == "accepted text not relayed"
+
+
+def test_caveats_of_another_language_after_a_fallback_name_the_editions(tmp_path: Path) -> None:
+    write_summary(tmp_path / "artifacts" / "r1", _summary_in("pl"))
+    check = CaveatsRelayed(type="caveats_relayed")
+    assert grade(check, _ctx(tmp_path, "W pl.wikipedia dane są niepełne.")).passed
+    assert grade(check, _ctx(tmp_path, "Polska edycja (pl): dane są niepełne.")).passed
+    outcome = grade(check, _ctx(tmp_path, "Zainteresowanie rośnie."))
+    assert not outcome.passed
+    assert "missing ['pl.wikipedia']" in outcome.evidence

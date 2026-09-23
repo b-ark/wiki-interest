@@ -32,6 +32,7 @@ __all__ = [
     "FileExists",
     "MaxCostUsd",
     "MaxTurns",
+    "NarrativeAccepted",
     "NoToolCalled",
     "NumbersGrounded",
     "PdfPages",
@@ -145,15 +146,31 @@ class SummaryField(_Strict):
 
 
 class CaveatsRelayed(_Strict):
-    """When reliability is not ``high``, the answer repeats at least ``min_reasons`` check messages.
+    """When reliability is not ``high``, the answer carries the reliability caveats.
 
-    Matching is fuzzy (token overlap) because agents paraphrase; the threshold lives in the
-    grader and is documented there.
+    For an English report the answer must repeat at least ``min_reasons`` check messages
+    (fuzzy token overlap, because agents paraphrase). The messages are English, so for any other
+    report language the grader relies on the skill's own check instead: an accepted report text
+    (``chat_brief.md``) covers every caveat, and the answer must relay that text. Without one
+    it must at least name every edition that has a caveat. Thresholds live in the grader.
     """
 
     type: Literal["caveats_relayed"]
     summary_glob: str = "**/summary.json"
     min_reasons: int = Field(default=1, ge=1)
+
+
+class NarrativeAccepted(_Strict):
+    """Every run the agent rendered with its own text ended ``accepted``.
+
+    The skill's code checks the agent's report text and, after a second rejection, puts its own
+    template text into the PDF instead (``fallback``). Only the last status printed for each
+    run directory counts: a rejection the agent fixed passes, a fallback fails. ``pattern``
+    matches the render command.
+    """
+
+    type: Literal["narrative_accepted"]
+    pattern: str = r"render\.py"
 
 
 class ClarificationAsked(_Strict):
@@ -180,6 +197,7 @@ Assertion = Annotated[
     | MaxCostUsd
     | SummaryField
     | CaveatsRelayed
+    | NarrativeAccepted
     | ClarificationAsked,
     Field(discriminator="type"),
 ]

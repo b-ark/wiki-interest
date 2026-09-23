@@ -25,6 +25,7 @@ from skill_evals.scenarios import (
     FileExists,
     MaxCostUsd,
     MaxTurns,
+    NarrativeAccepted,
     NoToolCalled,
     NumbersGrounded,
     PdfPages,
@@ -38,6 +39,10 @@ _CAVEAT_TOKEN_MIN_LEN = 4
 _CAVEAT_OVERLAP = 0.5
 _NON_HIGH = {"medium", "low"}
 _CAVEAT_STATUSES = {"warn", "fail"}
+_CHAT_BRIEF = "chat_brief.md"
+"""Written next to ``summary.json`` when the skill accepts the agent's report text."""
+_STATUS_RE = re.compile(r'"status"\s*:\s*"(\w+)"')
+_RUN_DIR_RE = re.compile(r'"run_dir"\s*:\s*"((?:[^"\\]|\\.)*)"')
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +75,11 @@ class GradeContext:
         abandoned attempts (verified 2026-09-23: a query that matched no article anywhere,
         retried with better wording), and their caveats must not be demanded of the answer.
         """
+        found = self.latest_summary_file(pattern)
+        return found[1] if found else None
+
+    def latest_summary_file(self, pattern: str) -> tuple[Path, dict[str, object]] | None:
+        """Like :meth:`latest_summary`, with the path of the file it was read from."""
         paths = sorted(self.files(pattern), key=lambda p: (p.stat().st_mtime, str(p)))
         for path in reversed(paths):
             try:
@@ -77,7 +87,7 @@ class GradeContext:
             except (json.JSONDecodeError, OSError):
                 continue
             if isinstance(loaded, dict):
-                return loaded
+                return path, loaded
         return None
 
 
@@ -97,7 +107,7 @@ def describe(assertion: Assertion) -> str:
     return f"{assertion.type}({args})"
 
 
-def grade(assertion: Assertion, ctx: GradeContext) -> GradeOutcome:  # noqa: PLR0911 - dispatcher
+def grade(assertion: Assertion, ctx: GradeContext) -> GradeOutcome:  # noqa: PLR0911, PLR0912 - dispatcher
     """Dispatch to the grader for the assertion's type."""
     match assertion:
         case FileExists():
@@ -124,6 +134,8 @@ def grade(assertion: Assertion, ctx: GradeContext) -> GradeOutcome:  # noqa: PLR
             return _caveats_relayed(assertion, ctx)
         case ClarificationAsked():
             return _clarification_asked(assertion, ctx)
+        case NarrativeAccepted():
+            return _narrative_accepted(assertion, ctx)
 
 
 def _outcome(assertion: Assertion, passed: bool, evidence: str) -> GradeOutcome:
@@ -264,18 +276,91 @@ def _field_matches(a: SummaryField, value: object) -> bool:
 
 
 def _caveats_relayed(a: CaveatsRelayed, ctx: GradeContext) -> GradeOutcome:
-    latest = ctx.latest_summary(a.summary_glob)
-    if latest is None:
+    found = ctx.latest_summary_file(a.summary_glob)
+    if found is None:
         return _outcome(a, False, "no summary.json found")
+    path, latest = found
     messages = _caveat_messages([latest])
     if not messages:
         return _outcome(a, True, "reliability is high everywhere; nothing to relay")
     answer = ctx.trajectory.final_answer
+    if _report_language(latest) != "en":
+        return _caveats_in_other_language(a, path.parent, latest, answer)
     relayed = [m for m in messages if _is_relayed(m, answer)]
     evidence = f"{len(relayed)}/{len(messages)} caveat(s) relayed (need {a.min_reasons})"
     if relayed:
         evidence += f"; e.g. {relayed[0][:100]!r}"
     return _outcome(a, len(relayed) >= a.min_reasons, evidence)
+
+
+def _report_language(summary: dict[str, object]) -> str:
+    """The report language of a summary; English when the summary does not say."""
+    try:
+        return str(resolve_path(summary, "request.report.language"))
+    except KeyError:
+        return "en"
+
+
+def _caveats_in_other_language(
+    a: CaveatsRelayed, run_dir: Path, summary: dict[str, object], answer: str
+) -> GradeOutcome:
+    """Caveats of a non-English report, whose check messages are English template text.
+
+    An accepted report text has passed the skill's caveat check (every caveat declared and its
+    edition named), so relaying that text relays the caveats. After a fallback there is no such
+    text; the answer must then at least name every edition whose reliability is not high.
+    """
+    brief = run_dir / _CHAT_BRIEF
+    if brief.is_file():
+        text = brief.read_text(encoding="utf-8-sig")
+        passed = _is_relayed(text, answer)
+        return _outcome(a, passed, f"accepted text {'relayed' if passed else 'not relayed'}")
+    editions = _flagged_editions(summary)
+    missing = [e for e in editions if not _names_edition(e, answer)]
+    evidence = (
+        f"no accepted text; {len(editions) - len(missing)}/{len(editions)} flagged edition(s) named"
+    )
+    return _outcome(a, not missing, evidence + (f"; missing {missing}" if missing else ""))
+
+
+def _flagged_editions(summary: dict[str, object]) -> list[str]:
+    blocks = summary.get("reliability")
+    return sorted(
+        {
+            str(block.get("project"))
+            for block in (blocks if isinstance(blocks, list) else [])
+            if isinstance(block, dict) and block.get("level") in _NON_HIGH
+        }
+    )
+
+
+def _names_edition(project: str, answer: str) -> bool:
+    """``pl.wikipedia`` is named as itself or by its language code (``pl``)."""
+    code = project.split(".", maxsplit=1)[0]
+    return (
+        project in answer or re.search(rf"(?<![\w-]){re.escape(code)}(?![\w-])", answer) is not None
+    )
+
+
+def _narrative_accepted(a: NarrativeAccepted, ctx: GradeContext) -> GradeOutcome:
+    regex = re.compile(a.pattern, flags=re.IGNORECASE)
+    final: dict[str, str] = {}
+    for call in ctx.trajectory.tool_calls:
+        command = call.command or ""
+        if not regex.search(command) or "--narrative" not in command:
+            continue
+        output = call.result or ""
+        status = _STATUS_RE.search(output)
+        if status is None:  # a crash or malformed file: nothing was decided about the text
+            continue
+        run_dir = _RUN_DIR_RE.search(output)
+        final[run_dir.group(1) if run_dir else command] = status.group(1)
+    if not final:
+        return _outcome(a, False, "no render with the agent's text")
+    accepted = sum(1 for status in final.values() if status == "accepted")
+    others = sorted({s for s in final.values() if s != "accepted"})
+    evidence = f"{accepted}/{len(final)} rendered run(s) accepted"
+    return _outcome(a, accepted == len(final), evidence + (f"; also {others}" if others else ""))
 
 
 def _caveat_messages(docs: list[dict[str, object]]) -> list[str]:

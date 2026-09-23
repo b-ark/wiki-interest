@@ -61,7 +61,10 @@ __all__ = [
 DEFAULT_ARTIFACT_GLOBS: tuple[str, ...] = (
     "**/summary.json",
     "**/summary.md",
-    "**/report.md",
+    "**/facts.json",
+    "**/narrative.json",
+    "**/chat_brief.md",
+    "**/method.md",
     "**/report.pdf",
     "**/request.json",
     "**/manifest.json",
@@ -70,6 +73,12 @@ DEFAULT_ARTIFACT_GLOBS: tuple[str, ...] = (
     "**/*.svg",
 )
 """Files copied from the sandbox into the case directory after the run."""
+
+FACTS_FILE = "facts.json"
+_FACTS_INSTRUCTION_KEYS = frozenset(
+    {"blocks", "rules", "ui_strings", "template_file", "follow_ups", "report_pdf", "schema_version"}
+)
+"""Keys of ``facts.json`` that tell the agent how to write, not what the data says."""
 
 _ARTIFACT_SKIP_DIRS = frozenset({".claude", ".venv", ".cache", "__pycache__", ".git"})
 """Never copied as artifacts: the skill copy itself and machine-specific junk. ``runs`` is
@@ -417,7 +426,31 @@ def latest_reference(ctx: GradeContext, reference_glob: str) -> str | None:
     if not references:
         return None
     newest = max(references, key=lambda path: (path.stat().st_mtime, str(path)))
-    return newest.read_text(encoding="utf-8-sig")
+    text = newest.read_text(encoding="utf-8-sig")
+    facts = _facts_reference(newest.parent / FACTS_FILE)
+    return f"{text}\n\n{facts}" if facts else text
+
+
+def _facts_reference(path: Path) -> str | None:
+    """The data part of the run's ``facts.json``, or ``None`` when there is none.
+
+    The agent writes its answer from ``facts.json``, which holds more than ``summary.md``
+    (every month that stands out, recent-months changes). With ``summary.md`` alone the judge
+    called such figures invented (verified 2026-09-23), although the skill had already
+    checked every number against ``facts.json``. Keys that only instruct the agent are left
+    out to keep the judge's input short.
+    """
+    if not path.is_file():
+        return None
+    try:
+        facts = json.loads(path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(facts, dict):
+        return None
+    data = {k: v for k, v in facts.items() if k not in _FACTS_INSTRUCTION_KEYS}
+    body = json.dumps(data, ensure_ascii=False, indent=1)
+    return f"facts.json (the data the answer is written from):\n{body}"
 
 
 def _judge(
@@ -460,10 +493,9 @@ def regrade(
     """Re-grade every finished case of a run with the current graders and scenarios.
 
     Trajectories, artifacts, usage and timings are kept; only ``grades`` change. Without a
-    judge, only deterministic grades are recomputed and earlier judge verdicts are kept. The
-    previous
-    ``results.jsonl`` is preserved as ``results.before-regrade.jsonl`` so the effect of a
-    grader change stays auditable.
+    judge, only deterministic grades are recomputed and earlier judge verdicts are kept for
+    the rubric criteria the scenario still has. The previous ``results.jsonl`` is preserved
+    as ``results.before-regrade.jsonl`` so the effect of a grader change stays auditable.
 
     Raises:
         KeyError: If a result refers to a scenario no longer in ``scenarios_path``.
@@ -481,8 +513,10 @@ def regrade(
             scenarios[result.scenario_id], trajectory, case_dir, judge, reference_glob
         )
         if judge is None:
-            # Deterministic-only regrade: keep the verdicts the judge already gave.
-            grades += [g for g in result.grades if g.kind == "judge"]
+            # Deterministic-only regrade: keep the verdicts the judge already gave on the
+            # criteria the scenario still has; a removed or renamed criterion drops its verdict.
+            rubric = {item.id for item in scenarios[result.scenario_id].rubric}
+            grades += [g for g in result.grades if g.kind == "judge" and g.id in rubric]
         (case_dir / "grades.json").write_text(
             json.dumps([g.model_dump() for g in grades], indent=2, ensure_ascii=False),
             encoding="utf-8",
