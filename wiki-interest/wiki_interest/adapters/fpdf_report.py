@@ -11,14 +11,16 @@ It must never spill onto a second page, and text is never set smaller to make it
 renderer draws the page on a throwaway document, measures, and if the content overflows
 retries with fewer items (the seasonal chart, the data line, decision lines, what-happened
 sentences, run-specific caveats, the second chart), then lower charts, and finally a layout
-that truncates with a pointer to ``summary.md``. With ``report.appendix`` a second page
-carries the method. Fonts come from matplotlib's bundled DejaVu Sans so Cyrillic and Central
-European diacritics render without shipping font files. Metadata is fixed (no creation
-timestamp) so re-runs are byte-identical.
+that truncates with a pointer to ``summary.md``. A chart too tall for its place is drawn
+again lower, not shrunk: every full-width chart keeps the page width, and their plots line
+up. With ``report.appendix`` a second page carries the method. Fonts come from matplotlib's
+bundled DejaVu Sans so Cyrillic and Central European diacritics render without shipping font
+files. Metadata is fixed (no creation timestamp) so re-runs are byte-identical.
 """
 
 from __future__ import annotations
 
+import tempfile
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -41,9 +43,11 @@ from wiki_interest.adapters.report_blocks import (
     short_label,
 )
 from wiki_interest.adapters.report_theme import PdfTheme, ReportTheme
+from wiki_interest.contracts.charts import ChartSpec
 from wiki_interest.contracts.summary import AnalysisSummary
 from wiki_interest.errors import RenderError
 from wiki_interest.i18n import Translator
+from wiki_interest.ports import ChartRenderer
 
 __all__ = ["FONT_DIR", "FpdfReportRenderer"]
 
@@ -65,6 +69,11 @@ CHART_STEP_MM = 10.0
 """How much lower the charts get per tightening step."""
 METHOD_FILE = "method.md"
 MAX_FOOTER_MONTHS = 3
+REDRAW_SLACK_MM = 0.3
+"""A redrawn chart aims this much under its height: its pixels round up, not over."""
+
+Redraw = Callable[[str, float], Path | None]
+"""Draws the chart of an id again at a figure height in millimetres; its PNG, or ``None``."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,11 +112,20 @@ class FpdfReportRenderer:
     Args:
         translator: Supplies section titles and number formatting.
         theme_path: Theme JSON; ``None`` selects the one shipped in ``assets/``.
+        charts: Draws a chart again at the height the page leaves it; without it, a chart too
+            tall is shrunk, and the full-width charts with it so their plots stay lined up.
     """
 
-    def __init__(self, translator: Translator, theme_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        translator: Translator,
+        theme_path: Path | None = None,
+        *,
+        charts: ChartRenderer | None = None,
+    ) -> None:
         self._t = translator
         self._theme = ReportTheme.load(theme_path)
+        self._charts = charts
         for name in FONT_FILES.values():
             if not (FONT_DIR / name).is_file():
                 msg = f"Font file {name} not found in {FONT_DIR}"
@@ -121,19 +139,27 @@ class FpdfReportRenderer:
                 guarded), or fpdf2/the file system fails.
         """
         try:
-            page = self._fit(summary, charts)
-            if summary.request.report.appendix:
-                page.draw_appendix(method_markdown(summary))
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            page.pdf.output(str(output_path))
+            with tempfile.TemporaryDirectory(prefix="charts-") as scratch:
+                redraw = (
+                    _ChartRedraw(self._charts, summary.charts, Path(scratch))
+                    if self._charts is not None
+                    else None
+                )
+                page = self._fit(summary, charts, redraw)
+                if summary.request.report.appendix:
+                    page.draw_appendix(method_markdown(summary))
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                page.pdf.output(str(output_path))
         except (OSError, FPDFException, ValueError) as exc:
             msg = f"Cannot write PDF report to {output_path}: {exc}"
             raise RenderError(msg, hint="Check the chart files and the run directory") from exc
         return output_path
 
-    def _fit(self, summary: AnalysisSummary, charts: Sequence[Path]) -> _Page:
+    def _fit(
+        self, summary: AnalysisSummary, charts: Sequence[Path], redraw: Redraw | None
+    ) -> _Page:
         for layout in self._layouts():
-            page = _Page(self._t, self._theme, summary, charts, layout)
+            page = _Page(self._t, self._theme, summary, charts, layout, redraw=redraw)
             page.draw()
             if not page.overflowed:
                 return page
@@ -186,16 +212,47 @@ class FpdfReportRenderer:
         yield replace(layout, truncate=True)
 
 
+def _aspect(image: Path) -> float:
+    """Width over height of an image."""
+    with Image.open(image) as opened:
+        pixel_w, pixel_h = opened.size
+    return float(pixel_w) / pixel_h
+
+
+class _ChartRedraw:
+    """Draws charts again at other heights, each height once, for the attempts of one page."""
+
+    def __init__(self, charts: ChartRenderer, specs: Sequence[ChartSpec], directory: Path) -> None:
+        self._charts = charts
+        self._specs = {spec.id: spec for spec in specs}
+        self._directory = directory
+        self._drawn: dict[tuple[str, int], Path | None] = {}
+
+    def __call__(self, chart_id: str, height_mm: float) -> Path | None:
+        spec = self._specs.get(chart_id)
+        if spec is None:
+            return None
+        tenths = round(height_mm * 10)
+        key = (chart_id, tenths)
+        if key not in self._drawn:
+            lower = spec.model_copy(update={"id": f"{chart_id}-h{tenths}", "height_mm": height_mm})
+            written = self._charts.render(lower, self._directory)
+            self._drawn[key] = next((p for p in written if p.suffix.lower() == ".png"), None)
+        return self._drawn[key]
+
+
 class _Page:
     """Draws one attempt and records whether anything ran past the content area."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 -- one attempt needs all of it
         self,
         translator: Translator,
         theme: ReportTheme,
         summary: AnalysisSummary,
         charts: Sequence[Path],
         layout: _Layout,
+        *,
+        redraw: Redraw | None = None,
     ) -> None:
         self._t = translator
         self._theme = theme
@@ -203,6 +260,7 @@ class _Page:
         self._summary = summary
         self._charts = charts
         self._layout = layout
+        self._redraw = redraw
         self.overflowed = False
         self._stopped = False
         self.pdf = self._new_document()
@@ -381,32 +439,65 @@ class _Page:
         if not images:
             return
         main, rest = images[0], images[1:]
-        if not self._chart_row([main]):
-            return
-        wide = [i for i in rest if not self._is_half(i)]
+        wide = [main, *(i for i in rest if not self._is_half(i))]
         half = [i for i in rest if self._is_half(i)]
+        # Full-width charts share their plot's edges (see the chart renderer). Too tall for their
+        # place, they are drawn again lower, all by the same share, so the page keeps both;
+        # what still does not fit (a chart cannot get lower and stay legible) shrinks, all of
+        # them by one scale so the edges stay lined up.
+        wide = self._lowered(wide)
+        scale = min(self._chart_box(image, self.pdf.epw)[0] / self.pdf.epw for image in wide)
         for image in wide:
-            if not self._chart_row([image]):
+            if not self._chart_row([image], scale=scale):
                 return
         if half:
             self._chart_row(half)
 
-    def _chart_box(self, image: Path, slot: float) -> tuple[float, float]:
-        with Image.open(image) as opened:
-            pixel_w, pixel_h = opened.size
-        width, height = slot, slot * pixel_h / pixel_w
+    def _lowered(self, images: Sequence[Path]) -> list[Path]:
+        """``images``, drawn again lower by one share when the tallest is over its height.
+
+        The share is what the tallest needs to fit at the page width; the others get as much
+        lower, so the charts together take about the room they took when they were shrunk.
+        """
+        redraw = self._redraw
+        if redraw is None:
+            return list(images)
+        epw = self.pdf.epw
+        heights = {image: epw / _aspect(image) for image in images}
         max_height = self._layout.chart_height or self._style.chart_max_height_mm
-        if height > max_height:
-            width, height = max_height * pixel_w / pixel_h, max_height
+        share = min(1.0, max_height / max(heights.values()))
+        if share >= 1.0 - FLOAT_TOLERANCE:
+            return list(images)
+        to_figure = self._theme.chart.width_mm / epw
+        return [
+            redraw(image.stem, (heights[image] * share - REDRAW_SLACK_MM) * to_figure) or image
+            for image in images
+        ]
+
+    def _chart_box(
+        self, image: Path, slot: float, scale: float | None = None
+    ) -> tuple[float, float]:
+        """Width and height of ``image`` in ``slot``: its full width, less when too tall.
+
+        With ``scale``, the image takes that share of the slot's width.
+        """
+        aspect = _aspect(image)
+        if scale is not None:
+            width = slot * scale
+            return width, width / aspect
+        width, height = slot, slot / aspect
+        max_height = self._layout.chart_height or self._style.chart_max_height_mm
+        if height > max_height + FLOAT_TOLERANCE:
+            width, height = max_height * aspect, max_height
         return width, height
 
-    def _chart_row(self, images: Sequence[Path]) -> bool:
+    def _chart_row(self, images: Sequence[Path], *, scale: float | None = None) -> bool:
         gap = self._style.chart_gap_mm
         columns = 2 if len(images) > 1 else 1
         slot = (self.pdf.epw - gap * (columns - 1)) / columns
         if columns == 1 and self._is_half(images[0]):
             slot = (self.pdf.epw - gap) / 2
-        boxes = [self._chart_box(image, slot) for image in images]
+        boxes = [self._chart_box(image, slot, scale) for image in images]
         row_height = max(h for _, h in boxes)
         self._gap()
         if not self._fits(row_height):

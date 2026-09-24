@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 import textwrap
+import warnings
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -19,6 +20,7 @@ import matplotlib
 matplotlib.use("Agg")  # Must precede any pyplot/figure import: never rely on a display.
 
 import numpy as np
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.ticker import FuncFormatter
 from matplotlib.typing import RcKeyType
@@ -65,7 +67,21 @@ SUBTITLE_WIDTH_SHARE = 0.85
 CHAR_MM_PER_PT = 0.2
 """Average width of a DejaVu Sans character per point of font size, in millimetres."""
 MAX_INSIDE_LEGEND = 2
-"""A wide line chart with more series than this gets its legend outside the plot."""
+"""A wide line chart with more series than this gets its legend under the plot."""
+MAX_LEGEND_COLUMNS = 5
+"""Entries per row of a legend under the plot."""
+FRAME_LEFT_MM = 22.0
+FRAME_RIGHT_MM = 3.5
+"""Where the plot of every full-width chart starts and ends: charts stacked in the report
+line up. The left edge leaves room for the value labels and the axis label."""
+FRAME_MIN_MARGIN_MM = 1.0
+"""The least room left of the leftmost label before the plot moves right to make more."""
+STRIP_X_TICKS = 6
+"""A strip labels at most this many months: upright, they leave the plot more of its height."""
+MIN_PLOT_MM = 15.0
+"""The lowest a plot is drawn: a chart asked to be lower grows back until every row of it
+has this much, and the PDF shrinks it instead."""
+MAX_REGROWS = 3
 MAX_PANEL_COLUMNS = 3
 EXTRA_ROW_HEIGHT = 0.65
 """Each further row of panels adds this share of a one-row chart's height."""
@@ -143,6 +159,22 @@ class MatplotlibChartRenderer:
         }
 
     def _draw(self, spec: ChartSpec) -> Figure:
+        """The figure of ``spec``; one asked to be low gets taller until its plots are legible."""
+        if spec.height_mm is None:
+            return self._draw_figure(spec)
+        with warnings.catch_warnings():
+            # A height too low for the labels is expected here: the figure grows back below.
+            warnings.filterwarnings("ignore", message="Tight layout not applied")
+            figure = self._draw_figure(spec)
+            for _ in range(MAX_REGROWS):
+                taller = _taller(figure)
+                if taller is None:
+                    break
+                spec = spec.model_copy(update={"height_mm": taller})
+                figure = self._draw_figure(spec)
+        return figure
+
+    def _draw_figure(self, spec: ChartSpec) -> Figure:
         chart = self._theme.chart
         if spec.kind == "panels":
             return self._draw_panels(spec)
@@ -150,9 +182,36 @@ class MatplotlibChartRenderer:
             "half": (chart.half_width_mm, chart.half_height_mm),
             "strip": (chart.width_mm, chart.strip_height_mm),
         }.get(spec.size, (chart.width_mm, chart.height_mm))
+        full_width = spec.size != "half"
+        legend_under = _legend_under_plot(spec)
+        rows = math.ceil(len(spec.series) / MAX_LEGEND_COLUMNS) if legend_under else 0
+        legend_mm = rows * LEGEND_ROW_MM
+        height = spec.height_mm or height + legend_mm
         figure = Figure(figsize=(width / MM_PER_INCH, height / MM_PER_INCH), dpi=chart.dpi)
         axes = figure.add_subplot()
-        self._style_axes(axes, spec)
+        self._style_axes(axes, spec, title=not full_width)
+        self._draw_kind(axes, spec, legend=not legend_under)
+        if legend_under:
+            self._legend_under(figure, axes)
+        if spec.reference_y is not None:
+            axes.axhline(
+                spec.reference_y,
+                color=self._theme.muted_color,
+                linewidth=REFERENCE_LINE_WIDTH,
+                linestyle=":",
+            )
+        if spec.log_y:
+            axes.set_yscale("log")
+        if full_width:
+            top = self._figure_header(figure, spec, height)
+            figure.tight_layout(rect=(0, legend_mm / height, 1, top))
+            self._frame(figure, width)
+        else:
+            figure.tight_layout()
+        return figure
+
+    def _draw_kind(self, axes: Axes, spec: ChartSpec, *, legend: bool) -> None:
+        """The data of one single-axes chart, by its kind."""
         if spec.kind == "scatter":
             self._draw_scatter(axes, spec)
         elif spec.kind == "dumbbell":
@@ -166,46 +225,72 @@ class MatplotlibChartRenderer:
         elif spec.kind == "trend":
             self._draw_trend(axes, spec)
         else:
-            # A strip is too low for a legend inside; a wide chart with many lines too.
-            outside = spec.size == "strip" or (
-                spec.size == "wide" and len(spec.series) > MAX_INSIDE_LEGEND
-            )
-            self._draw_lines(axes, spec.series, legend_outside=outside)
-        if spec.reference_y is not None:
-            axes.axhline(
-                spec.reference_y,
-                color=self._theme.muted_color,
-                linewidth=REFERENCE_LINE_WIDTH,
-                linestyle=":",
-            )
-        if spec.log_y:
-            axes.set_yscale("log")
-        figure.tight_layout()
-        return figure
+            ticks = STRIP_X_TICKS if spec.size == "strip" else None
+            self._draw_lines(axes, spec.series, legend=legend, max_ticks=ticks)
 
-    def _style_axes(self, axes: Axes, spec: ChartSpec) -> None:
+    def _frame(self, figure: Figure, width_mm: float) -> None:
+        """Put the plot between the edges every full-width chart shares.
+
+        Value labels wider than the left margin (long category names) push the plot right by
+        as much as they would stick out, rather than get cut.
+        """
+        figure.subplots_adjust(left=FRAME_LEFT_MM / width_mm, right=1 - FRAME_RIGHT_MM / width_mm)
+        FigureCanvasAgg(figure)  # a canvas to measure the labels on
+        labels = [
+            text
+            for axes in figure.axes
+            if axes.get_visible()
+            for text in (*axes.get_yticklabels(), axes.yaxis.label)
+            if text.get_text()
+        ]
+        if not labels:
+            return
+        start_inches = min(t.get_window_extent().x0 for t in labels) / figure.dpi
+        overflow = FRAME_MIN_MARGIN_MM - start_inches * MM_PER_INCH
+        if overflow > 0:
+            figure.subplots_adjust(left=(FRAME_LEFT_MM + overflow) / width_mm)
+
+    def _legend_under(self, figure: Figure, axes: Axes) -> None:
+        """The legend in rows under the plot, as the panels have it."""
+        handles, labels = axes.get_legend_handles_labels()
+        figure.legend(
+            handles,
+            labels,
+            loc="lower center",
+            ncol=min(len(labels), MAX_LEGEND_COLUMNS),
+            frameon=False,
+            fontsize=self._theme.chart.small_size_pt,
+            bbox_to_anchor=(0.5, 0.0),
+        )
+
+    def _style_axes(self, axes: Axes, spec: ChartSpec, *, title: bool) -> None:
+        """Grid, spines and the value label; with ``title``, the title and subtitle too.
+
+        Full-width charts put the title and subtitle across the figure instead (see
+        :meth:`_figure_header`), so they start at the same place in every chart.
+        """
         theme = self._theme
         full_width = spec.size != "half"
-        title_size = theme.chart.title_size_pt if full_width else theme.chart.font_size_pt
-        pad = TITLE_PAD_PT
-        if spec.subtitle:
-            # The subtitle sits between the title and the plot; the title moves up to make room.
-            width = theme.chart.width_mm if full_width else theme.chart.half_width_mm
-            char_mm = theme.chart.small_size_pt * CHAR_MM_PER_PT
-            lines = textwrap.wrap(spec.subtitle, int(width * SUBTITLE_WIDTH_SHARE / char_mm))
-            axes.annotate(
-                "\n".join(lines),
-                xy=(0, 1),
-                xycoords="axes fraction",
-                xytext=(0, TITLE_PAD_PT / 2),
-                textcoords="offset points",
-                fontsize=theme.chart.small_size_pt,
-                color=theme.muted_color,
-                ha="left",
-                va="bottom",
-            )
-            pad += len(lines) * theme.chart.small_size_pt * SUBTITLE_LINE_HEIGHT
-        axes.set_title(spec.title, fontsize=title_size, loc="left", pad=pad)
+        if title:
+            pad = TITLE_PAD_PT
+            if spec.subtitle:
+                # The subtitle sits between the title and the plot; the title moves up for it.
+                char_mm = theme.chart.small_size_pt * CHAR_MM_PER_PT
+                width = int(theme.chart.half_width_mm * SUBTITLE_WIDTH_SHARE / char_mm)
+                lines = textwrap.wrap(spec.subtitle, width)
+                axes.annotate(
+                    "\n".join(lines),
+                    xy=(0, 1),
+                    xycoords="axes fraction",
+                    xytext=(0, TITLE_PAD_PT / 2),
+                    textcoords="offset points",
+                    fontsize=theme.chart.small_size_pt,
+                    color=theme.muted_color,
+                    ha="left",
+                    va="bottom",
+                )
+                pad += len(lines) * theme.chart.small_size_pt * SUBTITLE_LINE_HEIGHT
+            axes.set_title(spec.title, fontsize=theme.chart.font_size_pt, loc="left", pad=pad)
         # A half-height chart has no room for a long axis label at the body size.
         label_size = theme.chart.font_size_pt if full_width else theme.chart.small_size_pt
         axes.set_ylabel(spec.y_label, fontsize=label_size)
@@ -257,22 +342,19 @@ class MatplotlibChartRenderer:
         )
 
     def _draw_lines(
-        self, axes: Axes, series: Sequence[ChartSeries], *, legend_outside: bool = False
+        self,
+        axes: Axes,
+        series: Sequence[ChartSeries],
+        *,
+        legend: bool = True,
+        max_ticks: int | None = None,
     ) -> None:
-        theme = self._theme
+        """The lines; with ``legend``, their legend in the emptiest corner of the plot."""
         for index, one in enumerate(series):
             self._plot_series(axes, one, index, markers=True)
-        self._label_x(axes, _longest_x(series))
-        if legend_outside:
-            # Many lines leave no empty corner; the legend goes right of the plot instead.
-            axes.legend(
-                frameon=False,
-                fontsize=theme.chart.small_size_pt,
-                loc="upper left",
-                bbox_to_anchor=(1.0, 1.0),
-            )
-        else:
-            axes.legend(frameon=False, fontsize=theme.chart.small_size_pt, loc="best")
+        self._label_x(axes, _longest_x(series), max_ticks=max_ticks)
+        if legend:
+            axes.legend(frameon=False, fontsize=self._theme.chart.small_size_pt, loc="best")
 
     def _draw_bars(self, axes: Axes, series: ChartSeries, suffix: str) -> None:
         theme = self._theme
@@ -395,7 +477,9 @@ class MatplotlibChartRenderer:
         count = len(spec.panels)
         columns = 2 if count == 4 else min(MAX_PANEL_COLUMNS, count)  # noqa: PLR2004 -- 2x2
         rows = math.ceil(count / columns)
-        height = chart.height_mm * (PANEL_ROW_HEIGHT + EXTRA_ROW_HEIGHT * (rows - 1))
+        height = spec.height_mm or chart.height_mm * (
+            PANEL_ROW_HEIGHT + EXTRA_ROW_HEIGHT * (rows - 1)
+        )
         figure = Figure(figsize=(chart.width_mm / MM_PER_INCH, height / MM_PER_INCH), dpi=chart.dpi)
         grid = figure.subplots(rows, columns, sharey=True, squeeze=False)
         cells = [axes for row in grid for axes in row]
@@ -405,7 +489,6 @@ class MatplotlibChartRenderer:
         for axes in cells[count:]:
             axes.set_visible(False)
         # One axis label and one legend for all panels, the legend under them.
-        figure.supylabel(spec.y_label, fontsize=chart.small_size_pt, x=0.005)
         handles, labels = cells[0].get_legend_handles_labels()
         legend_band = LEGEND_ROW_MM / height
         figure.legend(
@@ -419,7 +502,26 @@ class MatplotlibChartRenderer:
         )
         top = self._figure_header(figure, spec, height)
         figure.tight_layout(rect=(0.02, legend_band, 1, top))
+        self._frame(figure, chart.width_mm)
+        self._panels_label(figure, spec.y_label, height)
         return figure
+
+    def _panels_label(self, figure: Figure, label: str, height_mm: float) -> None:
+        """The value axis label, centred on the panels and wrapped to their height.
+
+        Centred on the figure, a long label ran into the subtitle of a low chart.
+        """
+        visible = [a for a in figure.axes if a.get_visible()]
+        bottom = min(a.get_position().y0 for a in visible)
+        top = max(a.get_position().y1 for a in visible)
+        small = self._theme.chart.small_size_pt
+        width = max(1, int((top - bottom) * height_mm / (small * CHAR_MM_PER_PT)))
+        figure.supylabel(
+            "\n".join(textwrap.wrap(label, width)),
+            fontsize=small,
+            x=0.005,
+            y=(top + bottom) / 2,
+        )
 
     def _draw_panel(self, axes: Axes, panel: ChartPanel, spec: ChartSpec, ticks: int) -> None:
         """One edition; months that stand out are ringed and listed under the panel title."""
@@ -590,6 +692,30 @@ class MatplotlibChartRenderer:
         figure.savefig(png, format="png", dpi=self._theme.chart.dpi, metadata=PNG_METADATA)
         figure.savefig(svg, format="svg", metadata=SVG_METADATA)
         return [png, svg]
+
+
+def _taller(figure: Figure) -> float | None:
+    """The height in millimetres at which every row of plots gets ``MIN_PLOT_MM``.
+
+    ``None`` when every row has that already.
+    """
+    height_mm = figure.get_figheight() * MM_PER_INCH
+    visible = [a for a in figure.axes if a.get_visible()]
+    rows = len({round(a.get_position().y0, 3) for a in visible})
+    plot_mm = min(a.get_position().height for a in visible) * height_mm
+    short = MIN_PLOT_MM - plot_mm
+    return height_mm + short * rows + 1.0 if short > 0 else None
+
+
+def _legend_under_plot(spec: ChartSpec) -> bool:
+    """Whether the legend goes in a band under the plot rather than inside it.
+
+    A strip is too low for a legend inside, and a wide chart with many lines has no empty
+    corner. The band is added to the height, so the plot keeps its size.
+    """
+    if spec.kind != "lines" or _is_empty(spec):
+        return False
+    return spec.size == "strip" or (spec.size == "wide" and len(spec.series) > MAX_INSIDE_LEGEND)
 
 
 def _is_empty(spec: ChartSpec) -> bool:

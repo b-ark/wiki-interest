@@ -114,15 +114,16 @@ class Container:
     def renderers_for(self, language: str) -> tuple[Translator, Renderers]:
         """Translator and renderers for one report language."""
         translator = Translator(language)
+        charts = MatplotlibChartRenderer(
+            empty_note=translator.t("chart.no_data"),
+            missing_label=translator.t("value.na"),
+            decimal_sep=translator.number_style.decimal_sep,
+            thousands_sep=translator.number_style.thousands_sep,
+        )
         renderers = Renderers(
-            charts=MatplotlibChartRenderer(
-                empty_note=translator.t("chart.no_data"),
-                missing_label=translator.t("value.na"),
-                decimal_sep=translator.number_style.decimal_sep,
-                thousands_sep=translator.number_style.thousands_sep,
-            ),
+            charts=charts,
             agent_summary=AgentSummaryRenderer(translator),
-            report_pdf=FpdfReportRenderer(translator),
+            report_pdf=FpdfReportRenderer(translator, charts=charts),
             method=MethodReportRenderer(),
         )
         return translator, renderers

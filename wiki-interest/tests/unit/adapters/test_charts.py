@@ -290,3 +290,30 @@ def test_a_strip_is_as_wide_as_a_wide_chart_and_lower(
             sizes[size] = image.size
     assert sizes["strip"][0] == sizes["wide"][0]
     assert sizes["strip"][1] < sizes["wide"][1]
+
+
+def test_full_width_charts_share_the_edges_of_their_plot(
+    renderer: MatplotlibChartRenderer,
+) -> None:
+    """Charts stacked in the report line up: a legend or long labels never move the plot."""
+    months = [f"2025-{m:02d}" for m in range(1, 13)]
+    strip = ChartSpec(
+        id="change",
+        kind="lines",
+        size="strip",
+        title="Attention share: change against the same months a year earlier",
+        y_label="change, %",
+        series=[
+            ChartSeries(label=f"{code}.wikipedia", x=months, y=[float(i) for i in range(12)])
+            for code in ("en", "de", "fr")
+        ],
+        reference_y=0.0,
+    )
+    edges = set()
+    for spec in (_panels(2), _panels(5), strip):
+        figure = renderer._draw(spec)
+        visible = [a for a in figure.axes if a.get_visible()]
+        left = min(a.get_position().x0 for a in visible)
+        right = max(a.get_position().x1 for a in visible)
+        edges.add((round(left, 3), round(right, 3)))
+    assert len(edges) == 1, edges

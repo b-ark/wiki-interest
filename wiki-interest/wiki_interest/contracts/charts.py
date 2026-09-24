@@ -100,6 +100,8 @@ class ChartSpec(_Model):
         trend_y: Fitted trend values aligned with ``series[0].x`` (``trend`` charts only).
         highlight_x: Labels of periods to shade as spikes (``trend`` charts only).
         size: Width class; the renderer maps it to physical dimensions.
+        height_mm: Figure height in millimetres instead of the one ``size`` gives: the PDF
+            redraws a chart lower rather than shrink it, so it keeps the full page width.
         log_y: Logarithmic value axis, for series that differ by orders of magnitude.
         log_x: Logarithmic horizontal axis (``scatter``).
         reference_y: Value of a horizontal reference line (100 for an index, 0 for change).
@@ -118,6 +120,7 @@ class ChartSpec(_Model):
     trend_y: list[float | None] | None = None
     highlight_x: list[str] = Field(default_factory=list)
     size: ChartSize = "wide"
+    height_mm: float | None = Field(default=None, gt=0)
     log_y: bool = False
     log_x: bool = False
     reference_y: float | None = None

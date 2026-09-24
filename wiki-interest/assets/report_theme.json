@@ -18,10 +18,10 @@
   "highlight_alpha": 0.35,
   "trend_color": "#333333",
   "chart": {
-    "dpi": 200,
-    "width_mm": 170,
+    "dpi": 300,
+    "width_mm": 180,
     "height_mm": 58,
-    "half_width_mm": 88,
+    "half_width_mm": 88.5,
     "half_height_mm": 46,
     "font_size_pt": 9,
     "title_size_pt": 11,

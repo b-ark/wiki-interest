@@ -1,19 +1,24 @@
 """PDF report: exactly one A4 page in every language, readable text, graceful overflow."""
 
 from pathlib import Path
+from typing import Any
 
 import pytest
+from fpdf import FPDF
 from pypdf import PdfReader
 
 from fixtures.summaries import example_summary
 from wiki_interest.adapters import fpdf_report
 from wiki_interest.adapters.fpdf_report import FpdfReportRenderer
 from wiki_interest.adapters.matplotlib_charts import MatplotlibChartRenderer
+from wiki_interest.adapters.report_theme import ReportTheme
+from wiki_interest.contracts.charts import ChartPanel, ChartSeries, ChartSpec
 from wiki_interest.contracts.summary import AnalysisSummary
 from wiki_interest.errors import RenderError
 from wiki_interest.i18n import Translator
 
 A4_WIDTH_PT = 595
+A4_WIDTH_MM = 210
 A4_HEIGHT_PT = 842
 LONG_LIMITATION = (
     "This limitation is deliberately verbose so that a long list of them cannot possibly fit "
@@ -247,3 +252,76 @@ def test_render_error_when_no_layout_fits(
     )
     with pytest.raises(RenderError, match="does not fit"):
         FpdfReportRenderer(Translator("en")).render(summary, chart_paths, tmp_path / "r.pdf")
+
+
+def _stacked_charts() -> list[ChartSpec]:
+    """Panels over a strip, as most reports have them."""
+    months = [f"2025-{m:02d}" for m in range(1, 13)]
+    line = [ChartSeries(label="article", x=months, y=[100.0 + i for i in range(12)])]
+    panels = ChartSpec(
+        id="main",
+        kind="panels",
+        title="Article views against edition traffic",
+        subtitle="Index: mean of the first 12 months = 100.",
+        y_label="index, first 12 months = 100",
+        panels=[ChartPanel(title=f"{code}.wikipedia", series=line) for code in ("uk", "cs")],
+        reference_y=100.0,
+    )
+    strip = ChartSpec(
+        id="change",
+        kind="lines",
+        size="strip",
+        title="Attention share: change against the same months a year earlier",
+        y_label="change, %",
+        series=[
+            ChartSeries(label=f"{code}.wikipedia", x=months, y=[float(i) for i in range(12)])
+            for code in ("uk", "cs")
+        ],
+    )
+    return [panels, strip]
+
+
+def test_charts_too_tall_are_drawn_lower_at_the_full_width_and_line_up(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A crowded page lowers the charts instead of shrinking them: the page width stays."""
+    attempts: list[list[tuple[str, float, float]]] = []
+    image, draw = FPDF.image, fpdf_report._Page.draw
+
+    def spy_image(pdf: FPDF, name: str, **kwargs: Any) -> object:
+        attempts[-1].append((Path(name).stem, round(kwargs["x"], 1), round(kwargs["w"], 1)))
+        return image(pdf, name, **kwargs)
+
+    def spy_draw(page: fpdf_report._Page) -> None:
+        attempts.append([])
+        draw(page)
+
+    monkeypatch.setattr(FPDF, "image", spy_image)
+    monkeypatch.setattr(fpdf_report._Page, "draw", spy_draw)
+    charts = MatplotlibChartRenderer()
+    specs = _stacked_charts()
+    paths = [charts.render(spec, tmp_path / "charts")[0] for spec in specs]
+    summary = example_summary()
+    # The headline always stays: a long one leaves the charts less room on every layout.
+    headline = " ".join([summary.verdict.headline] * 4)
+    crowded = summary.model_copy(
+        update={
+            "charts": specs,
+            "verdict": summary.verdict.model_copy(update={"headline": headline}),
+        }
+    )
+    renderer = FpdfReportRenderer(Translator("en"), charts=charts)
+    renderer.render(crowded, paths, tmp_path / "report.pdf")
+    two_charts = [a for a in attempts if len(a) == len(specs)]
+    lowered = [a for a in two_charts if all("-h" in name for name, _, _ in a)]
+    assert lowered, attempts
+    for attempt in lowered:
+        assert {(x, w) for _, x, w in attempt} == {(15.0, 180.0)}, attempt
+
+
+def test_charts_are_drawn_as_wide_as_the_page_places_them() -> None:
+    """A chart scaled up in the PDF blurs, and its text grows past the type scale."""
+    theme = ReportTheme.load()
+    text_width = A4_WIDTH_MM - 2 * theme.pdf.margin_mm
+    assert theme.chart.width_mm == text_width
+    assert theme.chart.half_width_mm == (text_width - theme.pdf.chart_gap_mm) / 2
