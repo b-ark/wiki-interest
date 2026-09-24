@@ -1,11 +1,13 @@
 """From a summary to ``facts.json``, the template text, and back with the agent's text.
 
-The summary already holds every number and state; this module lays them out for the agent
-(each number with its metric, window and display form), writes the code's own text as a
-template inside the facts (the agent rewrites it; the report falls back to it), puts an
-accepted narrative into the summary so the renderers print it, and composes the chat answer
-from the report text.
+The summary already holds every observation; this module lays them out for the agent with
+the rules for writing, a worked example and the interface labels to translate; writes the
+code's own text (the observations strung together: the report before the agent's text, and
+the fallback), puts an accepted narrative into the summary so the renderers print it, and
+composes the chat answer from the report text.
 """
+
+# ruff: noqa: RUF001  -- the minus sign and narrow spaces are intentional.
 
 from __future__ import annotations
 
@@ -13,194 +15,176 @@ import re
 from collections.abc import Mapping, Sequence
 
 from wiki_interest.application.summary_builder import period_notes
-from wiki_interest.contracts.narrative import (
-    AnomalyFact,
-    BlockRule,
-    CaveatFact,
-    Facts,
-    FindingFact,
-    FollowUpFact,
-    MetricFact,
-    MetricId,
-    Narrative,
-    NumberFact,
-    PairFacts,
-    PairText,
-    SeasonFact,
-)
-from wiki_interest.contracts.summary import AnalysisSummary, AssessmentOut, DecisionOut
+from wiki_interest.contracts.narrative import Facts, FollowUpFact, Narrative, Paragraph
+from wiki_interest.contracts.summary import AnalysisSummary, ObservationOut
 from wiki_interest.i18n import Translator
 
 __all__ = [
-    "BLOCKS",
+    "EXAMPLE",
+    "LIMITS",
+    "PARAGRAPH_PERCENTAGES",
     "RULES",
+    "STORY_PARAGRAPHS",
     "apply_narrative",
     "build_facts",
     "compose_chat",
-    "pair_id",
-    "template_caveats",
+    "template_limits",
     "template_narrative",
 ]
 
 _NARROW_NBSP = chr(0x202F)
 _SPACED_UNIT = re.compile(r"(?<=\d)[ \u00a0](?=%)")
 """A space between a number and its percent sign: the PDF would break the line there."""
-_DIGITS = 4
-"""Values are rounded for reading; the display form carries what the report shows."""
 _FIVE_YEARS = 60
-_SMALL_CHANGE = 0.1
-_CONFIRMATION = {
-    "confirmed": "confirmed",
-    "mixed": "mixed",
-    "reversing": "contradicts",
-    "unknown": "insufficient",
-}
-"""Whether the last months confirm the trend, in the words ``facts.json`` uses."""
-_METRIC_IDS: Mapping[str, MetricId] = {
-    "article_views": "article_views",
-    "attention_share": "attention_share",
-    "edition_traffic": "edition_traffic",
-}
-"""Changes below 10 % are shown with one decimal, as the template text does."""
-
-METRICS: tuple[MetricFact, ...] = (
-    MetricFact(
-        id="attention_share",
-        name="attention share",
-        definition=(
-            "article views per 1 million views of the whole edition: the size of interest, "
-            "comparable across editions of different size"
-        ),
-    ),
-    MetricFact(
-        id="article_views",
-        name="article views",
-        definition="monthly views of the topic's main article (with its redirects)",
-    ),
-    MetricFact(
-        id="edition_traffic",
-        name="edition traffic",
-        definition="monthly views of the whole language edition of Wikipedia",
-    ),
-)
-
-BLOCKS: tuple[BlockRule, ...] = (
-    BlockRule(
-        name="topic",
-        rule=(
-            "Which item was analysed, in one line of the report language: its name and what "
-            "it is (from topics[]), so the reader sees the meaning: the planet, not the element."
-        ),
-        max_chars=240,
-    ),
-    BlockRule(
-        name="headline",
-        rule=(
-            "The answer in one sentence, without numbers: which audience, and where its "
-            "attention share is heading. Follows the states; never contradicts them."
-        ),
-        max_chars=200,
-    ),
-    BlockRule(
-        name="happening",
-        rule=(
-            "What happened, two to four sentences: the size of interest (attention share), "
-            "its change, and article views against edition traffic. Every number with its "
-            "metric and its window."
-        ),
-        max_items=4,
-        max_chars=320,
-    ),
-    BlockRule(
-        name="robustness",
-        rule=(
-            "One entry per measured pair ({'pair': pairs[].id, 'text': ...}), the text "
-            "starting with the pair's label: do the recent months confirm the long-term "
-            "direction? Follow states.robustness and quote the recent_* numbers; when it is "
-            "unknown, say it cannot be judged and why."
-        ),
-        max_items=99,
-        max_chars=400,
-    ),
-    BlockRule(
-        name="decision",
-        rule=(
-            "What it means for the decision: the conclusion first (conclusion.key, "
-            "candidate), then at most one line per group of audiences with the same outcome."
-        ),
-        max_items=6,
-        max_chars=400,
-    ),
-    BlockRule(
-        name="next_step",
-        rule=(
-            "The next step in one sentence, naming examples of independent sources: Google "
-            "Trends, search volume, a small ad test."
-        ),
-        max_chars=300,
-    ),
-    BlockRule(
-        name="caveats",
-        rule=(
-            "Every caveat of caveats[] in the report language, one short item each (related "
-            "ones may share an item); an item for a pair names its edition. List their ids "
-            "in covered_caveats."
-        ),
-        max_items=12,
-        max_chars=250,
-    ),
-)
+_TEMPLATE_PARAGRAPHS = 4
+_TEMPLATE_STATEMENTS = 3
+_TEMPLATE_DECISIONS = 3
+_STORY_WEIGHTS = ("caution", "high")
 _CHAT_FOLLOW_UPS = 3
 """How many next steps the chat answer offers."""
-_CHAT_MONTHS = 3
-"""How many months that stand out the chat answer names, as many as the PDF footer."""
 _BLANK_LINES = re.compile(r"\n{3,}")
 
+LIMITS: Mapping[str, int] = {
+    "topic": 240,
+    "headline": 200,
+    "story": 500,
+    "story_total": 1400,
+    "meaning": 450,
+    "check": 300,
+    "limits": 250,
+}
+"""Longest text of each block, in characters (a story paragraph each; the whole story)."""
+STORY_PARAGRAPHS = (2, 4)
+"""Fewest and most paragraphs of the story (one is allowed when little was observed)."""
+PARAGRAPH_PERCENTAGES = 3
+"""Most percentages in a paragraph: more is the observations translated, not explained."""
+
 RULES: tuple[str, ...] = (
-    "Write in the report language, for the user; use audience_note when given.",
-    "Copy numbers from numbers[].display (rounding is fine); never compute new ones: no "
-    "ratios, differences, sums, shares of totals or '1 in N'.",
-    "Every sentence with a number names its metric with your glossary term (a list item may "
-    "take it from the line that introduces the list, ending with ':'); give each metric one "
-    "term in glossary, in the nominative, and inflect it as each sentence needs. A rejection "
-    "quotes the words to write: use them.",
-    "Name editions by their label (uk.wikipedia).",
-    "An edition without an article has 'no article', never 'no interest'.",
-    "Wikipedia views measure attention and curiosity, not demand, a market or willingness "
-    "to pay: never call them demand.",
-    "Never call views demand in headline, happening or robustness; the decision and the next "
-    "step may speak of checking demand elsewhere.",
-    "No statistical jargon (significant, p-value): say steady, mixed, turning, cannot be judged.",
-    "A month in pairs[].anomalies with in_change is named with its month, its multiple and "
-    "the 12-month change of the attention share without it, each with its metric; say "
-    "possible_bot as 'possibly automated traffic'.",
-    "Mention a season only when season.shown, naming season.period; when the user asked about "
-    "timing and it is not shown, say why (season.reason).",
-    "Follow the states: a declining momentum is a decline even for the largest audience.",
+    "Write in the report language, for a founder who decides where to invest and does not "
+    "know how the data were computed; use audience_note when given. Explain, do not list "
+    "statistics.",
+    f"headline: the answer to the user's question in one sentence, without numbers (at most "
+    f"{LIMITS['headline']} characters).",
+    f"story: {STORY_PARAGRAPHS[0]} to {STORY_PARAGRAPHS[1]} short paragraphs (at most "
+    f"{LIMITS['story']} characters each, {LIMITS['story_total']} in all). Pick the "
+    "observations that answer this question, starting from caution and high ones, and "
+    "connect them into one story: why the numbers move, not only that they move. The "
+    "observations are your notes, not text to translate: say what they mean together, in "
+    "your own words. Leave the rest out. Each paragraph lists the ids of the observations it "
+    "relies on in 'uses'.",
+    f"meaning: what it means for the user's decision (at most {LIMITS['meaning']} "
+    "characters), built from the decision observations that fit the question; cite them in "
+    "'uses'.",
+    f"check: one concrete way to check the conclusion outside Wikipedia, one sentence (at "
+    f"most {LIMITS['check']} characters).",
+    f"limits: one line (at most {LIMITS['limits']} characters): page views show curiosity, "
+    "not willingness to pay; an edition is a language, not a country.",
+    "Numbers: only those of the observations a paragraph cites (rounding is fine); never "
+    "compute a new one (no ratios, 'N times', sums or differences). Prefer the words and "
+    "counts given ('about half', 'about 560 times a month'); at most three percentages in a "
+    "paragraph.",
+    "Name periods as the observations do ('September 2020 – August 2021', 'over the last "
+    "year'), never 'N years ago'.",
+    "Views are how often the article is opened ('the article is opened about 560 times a "
+    "month'), never a number of people, never demand or a market.",
+    "Every cause or guess comes from an observation and keeps its 'possibly' or 'probably'; "
+    "add no causes of your own and no outside events.",
+    "Name editions by their language ('the Polish Wikipedia'), never by a country.",
+    "Cite every caution observation of an edition your text talks about.",
+    "ui: every label of facts.ui translated into the report language, same keys, "
+    "{placeholders} kept as they are; leave 'ui' empty only when facts.ui is empty.",
 )
 
+EXAMPLE: Mapping[str, object] = {
+    "observations": [
+        {
+            "id": "long_term:beekeeping/nl",
+            "weight": "high",
+            "statement": "Its share of the Dutch Wikipedia's reading rose in 4 of the 5 "
+            "year-on-year steps; now it is about one and a half times what it was in "
+            "September 2020 – August 2021. A long, steady rise.",
+        },
+        {
+            "id": "vs_edition:beekeeping/nl",
+            "weight": "high",
+            "statement": "Over the last year the Dutch Wikipedia as a whole was read less "
+            "(−9 %), yet beekeeping held up (+4 % views): its share rose +14 %. The topic "
+            "gains attention against a shrinking Wikipedia.",
+        },
+        {
+            "id": "season:beekeeping/nl",
+            "weight": "medium",
+            "statement": "Beekeeping in the Dutch Wikipedia has a yearly rhythm: strongest in "
+            "April (+62 % against its usual level), weakest in December (−41 %).",
+        },
+        {
+            "id": "size:beekeeping/nl",
+            "weight": "context",
+            "statement": "In the Dutch Wikipedia the article on beekeeping is opened about 2,400 "
+            "times a month now (September 2025 – August 2026); in September 2020 – August "
+            "2021 it was about 2,300 a month: about the same as it was.",
+        },
+        {
+            "id": "decision:timing:beekeeping/nl",
+            "weight": "decision",
+            "statement": "Interest in beekeeping in the Dutch Wikipedia peaks every April: "
+            "anything launched or promoted should be ready by March.",
+        },
+        {
+            "id": "decision:verdict:beekeeping/nl",
+            "weight": "decision",
+            "statement": "Interest in beekeeping in the Dutch Wikipedia grows against the "
+            "edition: Wikipedia supports investing.",
+        },
+    ],
+    "narrative": {
+        "language": "en",
+        "topic": "Beekeeping, the keeping of honey bees",
+        "headline": "Yes: interest in beekeeping in the Dutch Wikipedia is growing, slowly "
+        "and steadily.",
+        "story": [
+            {
+                "text": "The article is opened about 2,400 times a month, much as in "
+                "September 2020 – August 2021. That looks flat, but it hides a rise: the "
+                "Dutch Wikipedia as a whole is read less, and beekeeping kept its readers "
+                "anyway. As a share of everything read there, it now gets about one and a "
+                "half times the attention it got then, and it rose almost every year.",
+                "uses": [
+                    "size:beekeeping/nl",
+                    "vs_edition:beekeeping/nl",
+                    "long_term:beekeeping/nl",
+                ],
+            },
+            {
+                "text": "The interest also has a calendar: every April the article is read far "
+                "above its usual level, and December is its quietest month.",
+                "uses": ["season:beekeeping/nl"],
+            },
+        ],
+        "meaning": {
+            "text": "Wikipedia supports the idea: attention is growing, not fading. Plan to "
+            "be ready by March, before the April peak.",
+            "uses": ["decision:verdict:beekeeping/nl", "decision:timing:beekeeping/nl"],
+        },
+        "check": "Compare how often people search for beekeeping courses this year and last.",
+        "limits": "Page views show curiosity, not willingness to pay; the Dutch Wikipedia is "
+        "a language, not a country.",
+        "ui": {
+            "report.decision": "(each key of facts.ui with its label in the report language)",
+            "chat.pdf": "(... keeping {path} as it is)",
+        },
+    },
+}
+"""A made-up topic, observations and the narrative written from them: the form, not content."""
 
-def pair_id(assessment: AssessmentOut) -> str:
-    """``<topic>/<language>``: how facts and narrative refer to one (topic, edition)."""
-    return f"{assessment.topic_id}/{assessment.project.split('.')[0]}"
 
-
-def build_facts(
-    summary: AnalysisSummary,
-    translator: Translator,
-    *,
-    template: Narrative,
-) -> Facts:
+def build_facts(summary: AnalysisSummary, *, ui: Mapping[str, str]) -> Facts:
     """Lay out a finished summary for the agent that writes the text.
 
     Args:
         summary: A summary with status ``ok``.
-        translator: The report-language translator (formats the display values).
-        template: The code's own text, with the interface labels still to translate in ``ui``.
+        ui: Interface labels still to translate, ``key: English template``.
     """
-    english = Translator("en")
-    measured = [a for a in summary.assessments if a.measured]
-    decision = summary.decision
     return Facts(
         language=summary.request.report.language,
         question=summary.request.question_type,
@@ -211,189 +195,125 @@ def build_facts(
             + (f", {r.description}" if r.description else "")
             for r in summary.resolution
         ],
-        metrics=list(METRICS),
-        pairs=[_pair(summary, a, translator, english) for a in summary.assessments],
-        conclusion={
-            "key": decision.conclusion if decision else "none",
-            "candidate": decision.candidate if decision else None,
-        },
-        findings=[
-            FindingFact(
-                kind=f.kind,
-                pair=f"{f.topic_id}/{f.project.split('.')[0]}"
-                if f.topic_id and f.project
-                else None,
-                text=f.text,
-            )
-            for f in summary.findings
-        ],
-        data_note=list(summary.data_note),
-        limitations=list(summary.limitations),
-        caveats=_caveats(summary.assessments, measured_count=len(measured)),
+        observations=list(summary.observations),
         follow_ups=_follow_ups(summary),
-        blocks=list(BLOCKS),
         rules=list(RULES),
-        template=template,
+        example=dict(EXAMPLE),
+        ui=dict(ui),
         report_pdf=summary.artifacts.report_pdf,
     )
 
 
-def _pair(
-    summary: AnalysisSummary, a: AssessmentOut, t: Translator, english: Translator
-) -> PairFacts:
-    normalised = summary.request.normalization == "per_million"
-    pid = pair_id(a)
-    months = next(
-        (m.periods for m in summary.metrics if (m.topic_id, m.project) == (a.topic_id, a.project)),
-        None,
+def template_narrative(
+    summary: AnalysisSummary, translator: Translator, *, ui: Mapping[str, str] | None = None
+) -> Narrative:
+    """The code's own text as a narrative: the fallback, and the report before the agent's.
+
+    The story strings together the caution and high observations of each pair (then the
+    comparisons across pairs), the meaning the decision observations. It is English: the
+    observations are.
+
+    Args:
+        summary: A summary with status ``ok``.
+        translator: The report-language translator.
+        ui: Interface labels still to translate, ``key: English template``.
+    """
+    observations = summary.observations
+    groups: dict[str | None, list[ObservationOut]] = {}
+    for o in observations:
+        if o.weight in _STORY_WEIGHTS:
+            groups.setdefault(o.pair, []).append(o)
+    story = [_fitting(chosen, LIMITS["story"]) for chosen in groups.values()]
+    story = [p for p in story if p.text][:_TEMPLATE_PARAGRAPHS]
+    decisions = _fitting(
+        [o for o in observations if o.weight == "decision"][:_TEMPLATE_DECISIONS],
+        LIMITS["meaning"],
     )
-    recent = (
-        f"last {a.recent_months} months vs the same months a year earlier"
-        if a.recent_months
-        else ""
+    decision = summary.decision
+    fallback_meaning = (decision.summary or "") if decision else ""
+    return Narrative(
+        language=summary.request.report.language,
+        topic=" ".join(_topic_lines(summary, translator)),
+        headline=summary.verdict.headline,
+        story=story or [Paragraph(text=line) for line in summary.happening],
+        meaning=decisions if decisions.text else Paragraph(text=fallback_meaning),
+        check=decision.next_step if decision else "",
+        limits=template_limits(translator),
+        ui=dict(ui or {}),
     )
-    score = next(
-        (r.score for r in summary.ranking if (r.topic_id, r.project) == (a.topic_id, a.project)),
-        None,
-    )
-    relation = english.t(f"basis.{a.relation_basis}") if a.relation_basis else ""
-    basis = english.t(f"basis.{a.basis}") if a.basis else ""
-    main: MetricId = "attention_share" if normalised else "article_views"
-    candidates: list[tuple[str, MetricId | None, str, float | None, str]] = [
-        ("per_million", "attention_share", "period average", a.per_million, "per_million"),
-        ("views_avg", "article_views", "period average, per month", a.views_avg, "views"),
-        ("change", main, basis, a.change, "fraction"),
-        ("article_change", "article_views", relation, a.article_change, "fraction"),
-        ("edition_change", "edition_traffic", relation, a.edition_change, "fraction"),
-        ("share_change", "attention_share", relation, a.share_change, "fraction"),
-        ("recent_article", "article_views", recent, a.recent_article, "fraction"),
-        ("recent_edition", "edition_traffic", recent, a.recent_edition, "fraction"),
-        ("recent_share", "attention_share", recent, a.recent_shift, "fraction"),
-        ("recent_months", None, "length of the recent window", a.recent_months, "count"),
-        ("months", None, "months of data", months, "count"),
-        ("rank_score", None, "ranking score, 0 to 1", score, "score"),
+
+
+def _fitting(observations: Sequence[ObservationOut], limit: int) -> Paragraph:
+    """The first statements that fit ``limit`` and the cap on percentages, citing them.
+
+    The template passes the checks the agent's text does.
+    """
+    chosen: list[ObservationOut] = []
+    length = percentages = 0
+    for o in observations[:_TEMPLATE_STATEMENTS]:
+        count = sum(1 for q in o.numbers if q.percent)
+        if chosen and (
+            length + len(o.statement) + 1 > limit or percentages + count > PARAGRAPH_PERCENTAGES
+        ):
+            break
+        chosen.append(o)
+        length += len(o.statement) + 1
+        percentages += count
+    return Paragraph(text=" ".join(o.statement for o in chosen), uses=[o.id for o in chosen])
+
+
+def template_limits(translator: Translator) -> str:
+    """The limits line of the template text."""
+    return translator.t("report.footer_caveats")
+
+
+def compose_chat(
+    summary: AnalysisSummary,
+    limits: str,
+    translator: Translator,
+    previous: AnalysisSummary | None = None,
+) -> str:
+    """The answer the agent sends to the chat as it is, built from the report text.
+
+    The agent's blocks are already checked and in the user's language; the code only lays
+    them out and adds the item analysed, a few next steps and the path to the PDF, so the
+    answer needs no second text and no second check. A label the agent left untranslated
+    gives way to a form without words (``PDF: <path>``) or is left out, so the answer never
+    switches to English.
+
+    Args:
+        summary: The summary as rendered, with the agent's text when it was accepted.
+        limits: The limits line, the agent's or :func:`template_limits`.
+        translator: The report-language translator, with the agent's interface labels.
+        previous: The session's run before this one: a follow-up says what changed.
+    """
+    t = translator
+    decision = summary.decision
+    meaning = decision.summary if decision and decision.summary else ""
+    heading = t.t("report.decision")
+    if meaning and _translated(t, "report.decision"):
+        meaning = f"**{heading}:** {meaning}"
+    lines = [
+        *([summary.topic_line] if summary.topic_line else _topic_lines(summary, t)),
+        "",
+        f"**{summary.verdict.headline}**",
+        "",
+        *_period_lines(summary, t),
+        *_change_lines(summary, previous, t),
+        "",
+        *(line for paragraph in summary.happening for line in (paragraph, "")),
+        meaning,
+        decision.next_step if decision else "",
+        "",
+        f"_{limits}_" if limits else "",
+        "",
+        *_offer_lines(summary, t),
     ]
-    numbers = [
-        NumberFact(
-            id=f"{pid}.{name}",
-            metric=metric,
-            window=window,
-            value=round(value, _DIGITS),
-            unit=unit,  # type: ignore[arg-type]
-            display=_display(t, value, unit),
-        )
-        for name, metric, window, value, unit in candidates
-        if value is not None
-    ]
-    numbers += _month_numbers(a, pid, main, t)
-    numbers += _season_numbers(a, pid, t)
-    states = {
-        "size": a.size,
-        "momentum": a.momentum,
-        "vs_edition": a.relation,
-        "recent_confirmation": _CONFIRMATION[str(a.robustness)],
-        "outcome": a.outcome,
-        "data_quality": a.data_quality.level if a.data_quality else None,
-        "divergence": a.divergence,
-    }
-    reading = [line for line in (a.decision, a.robustness_line, a.edition_line) if line]
-    return PairFacts(
-        id=pid,
-        topic=a.topic_id,
-        project=a.project,
-        label=a.label,
-        measured=a.measured,
-        states={k: str(v) for k, v in states.items() if v is not None},
-        reading=reading,
-        numbers=numbers,
-        data_quality_reasons=list(a.data_quality.reasons) if a.data_quality else [],
-        anomalies=[
-            AnomalyFact(
-                month=m.month,
-                metrics=sorted(m.multiples),
-                nature=m.nature,
-                in_change=m.in_change,
-                in_recent=m.in_recent,
-            )
-            for m in a.months
-        ],
-        season=_season(a),
-    )
-
-
-def _month_numbers(a: AssessmentOut, pid: str, main: MetricId, t: Translator) -> list[NumberFact]:
-    out: list[NumberFact] = []
-    for month in a.months:
-        for metric, multiple in sorted(month.multiples.items()):
-            out.append(
-                NumberFact(
-                    id=f"{pid}.month.{month.month}.{metric}",
-                    metric=_METRIC_IDS.get(metric),
-                    window=f"{month.month} against the months around it",
-                    value=round(multiple, 2),
-                    unit="multiple",
-                    display=_display(t, multiple, "multiple"),
-                )
-            )
-        if month.change_without is not None:
-            out.append(
-                NumberFact(
-                    id=f"{pid}.month.{month.month}.change_without",
-                    metric=main,
-                    window=f"last 12 months vs the 12 before, without {month.month} and its "
-                    "twin a year off",
-                    value=round(month.change_without, _DIGITS),
-                    unit="fraction",
-                    display=_display(t, month.change_without, "fraction"),
-                )
-            )
-    return out
-
-
-def _season_numbers(a: AssessmentOut, pid: str, t: Translator) -> list[NumberFact]:
-    season = a.season
-    if season is None or not season.shown:
-        return []
-    window = f"calendar month against the usual level, {season.start} – {season.end}"
-    return [
-        NumberFact(
-            id=f"{pid}.season.{name}",
-            metric="article_views",
-            window=window,
-            value=round(value, _DIGITS),
-            unit="fraction",
-            display=_display(t, value, "fraction"),
-        )
-        for name, value in (("peak", season.peak), ("trough", season.trough))
-        if value is not None
-    ]
-
-
-def _season(a: AssessmentOut) -> SeasonFact | None:
-    season = a.season
-    if season is None:
-        return None
-    period = f"{season.start} – {season.end}" if season.start and season.end else None
-    return SeasonFact(
-        shown=season.shown,
-        reason=season.reason,
-        period=period,
-        years=season.years,
-        peak_month=season.peak_month,
-        trough_month=season.trough_month,
-    )
-
-
-def _display(t: Translator, value: float, unit: str) -> str:
-    if unit == "fraction":
-        return t.percent(value, 1 if abs(value) < _SMALL_CHANGE else 0, signed=True)
-    if unit == "per_million":
-        return t.number(value, 1)
-    if unit == "score":
-        return t.number(value, 2)
-    if unit == "multiple":
-        return "×" + t.number(value, 1)
-    return t.number(value)
+    if summary.artifacts.report_pdf:
+        path = summary.artifacts.report_pdf
+        pdf = t.t("chat.pdf", path=path)
+        lines += ["", pdf if t.translates("chat.pdf") else f"PDF: {path}"]
+    return _BLANK_LINES.sub("\n\n", "\n".join(lines)).strip()
 
 
 def _follow_ups(summary: AnalysisSummary) -> list[FollowUpFact]:
@@ -445,157 +365,6 @@ def _follow_ups(summary: AnalysisSummary) -> list[FollowUpFact]:
             )
         )
     return out
-
-
-def _caveats(assessments: Sequence[AssessmentOut], *, measured_count: int) -> list[CaveatFact]:
-    out = [
-        CaveatFact(
-            id="curiosity_not_demand",
-            meaning=(
-                "Wikipedia views measure attention and curiosity, not demand or willingness "
-                "to pay; confirm with an independent source before investing."
-            ),
-        ),
-        CaveatFact(
-            id="language_not_country",
-            meaning=(
-                "A language edition is not a country: readers of uk.wikipedia live in many "
-                "countries, and people of one country read several editions."
-            ),
-        ),
-    ]
-    if measured_count > 1:
-        out.append(
-            CaveatFact(
-                id="coverage_differs",
-                meaning=(
-                    "Editions cover a topic differently (article length, related articles), "
-                    "which shifts views apart from interest."
-                ),
-            )
-        )
-    # Months that stand out are not caveats the agent must write: the code states them in the
-    # chat answer and the PDF. As caveats they drew most rejections, a text with numbers
-    # in a block meant for short warnings (verified 2026-09-23 on the evals).
-    for a in assessments:
-        if a.outcome == "no_article":
-            meaning = f"{a.label} has no article on the topic: no article, not no interest."
-        elif a.outcome == "substitute":
-            meaning = f"{a.label} is measured through a substitute article; name it every time."
-        elif a.outcome == "low_trust":
-            meaning = f"The data for {a.label} are too weak for a conclusion."
-        else:
-            continue
-        out.append(CaveatFact(id=f"{a.outcome}:{pair_id(a)}", meaning=meaning, pair=a.label))
-    return out
-
-
-def template_narrative(
-    summary: AnalysisSummary, translator: Translator, *, ui: Mapping[str, str] | None = None
-) -> Narrative:
-    """The code's own text as a narrative: the fallback, and a reference for the agent.
-
-    Args:
-        summary: A summary with status ``ok``.
-        translator: The report-language translator.
-        ui: Interface labels still to translate, ``key: English template``.
-    """
-    decision = summary.decision
-    measured = sum(1 for a in summary.assessments if a.measured)
-    return Narrative(
-        language=summary.request.report.language,
-        glossary={
-            "attention_share": translator.t("metric.attention_share").lower(),
-            "article_views": translator.t("metric.article_views").lower(),
-            "edition_traffic": translator.t("metric.edition_views").lower(),
-        },
-        topic=" ".join(_topic_lines(summary, translator)),
-        headline=summary.verdict.headline,
-        happening=list(summary.happening),
-        robustness=[
-            PairText(pair=pair_id(a), text=a.robustness_line)
-            for a in summary.assessments
-            if a.measured and a.robustness_line
-        ],
-        decision=_decision_lines(decision, summary.assessments),
-        next_step=decision.next_step if decision else "",
-        caveats=template_caveats(summary, translator),
-        covered_caveats=[c.id for c in _caveats(summary.assessments, measured_count=measured)],
-        ui=dict(ui or {}),
-    )
-
-
-def template_caveats(summary: AnalysisSummary, translator: Translator) -> list[str]:
-    """The caveats of the template text: this run's limitations and the general ones in brief.
-
-    The chat keeps the general limitations to one line; the PDF and ``summary.md`` have them
-    in full. An edition with data too weak for a conclusion is named, as the check requires
-    of the agent's text.
-    """
-    measured = sum(1 for a in summary.assessments if a.measured)
-    return [
-        *summary.limitations,
-        *(
-            translator.t("outcome.low_trust", label=a.label)
-            for a in summary.assessments
-            if a.outcome == "low_trust"
-        ),
-        *([translator.t("limitation.coverage")] if measured > 1 else []),
-        translator.t("report.footer_caveats"),
-    ]
-
-
-def compose_chat(
-    summary: AnalysisSummary,
-    caveats: Sequence[str],
-    translator: Translator,
-    previous: AnalysisSummary | None = None,
-) -> str:
-    """The answer the agent sends to the chat as it is, built from the report text.
-
-    The agent's blocks are already checked and in the user's language; the code only lays
-    them out and adds the item analysed, the months that stand out, a few next steps and the
-    path to the PDF, so the answer needs no second text and no second check. A label the
-    agent left untranslated gives way to a form without words (``PDF: <path>``) or is left
-    out, so the answer never switches to English.
-
-    Args:
-        summary: The summary as rendered, with the agent's text when it was accepted.
-        caveats: The caveat items, the agent's or :func:`template_caveats`.
-        translator: The report-language translator, with the agent's interface labels.
-        previous: The session's run before this one: a follow-up says what changed.
-    """
-    t = translator
-    decision = summary.decision
-    lines = [
-        *([summary.topic_line] if summary.topic_line else _topic_lines(summary, t)),
-        "",
-        f"**{summary.verdict.headline}**",
-        "",
-        *_period_lines(summary, t),
-        *_change_lines(summary, previous, t),
-        "",
-        *(f"- {line}" for line in summary.happening),
-        "",
-        *(
-            f"- {a.robustness_line}"
-            for a in summary.assessments
-            if a.measured and a.robustness_line
-        ),
-        "",
-        *_decision_lines(decision, summary.assessments),
-        decision.next_step if decision else "",
-        "",
-        *(f"- {line}" for line in caveats),
-        *_months_line(summary, t),
-        "",
-        *_offer_lines(summary, t),
-    ]
-    if summary.artifacts.report_pdf:
-        path = summary.artifacts.report_pdf
-        pdf = t.t("chat.pdf", path=path)
-        lines += ["", pdf if t.translates("chat.pdf") else f"PDF: {path}"]
-    return _BLANK_LINES.sub("\n\n", "\n".join(lines)).strip()
 
 
 def _translated(t: Translator, *keys: str) -> bool:
@@ -685,35 +454,6 @@ def _change_lines(
     return [line] if _translated(t, *keys) else []
 
 
-def _months_line(summary: AnalysisSummary, t: Translator) -> list[str]:
-    """The months that stand out in the change and the change without each, as the PDF says."""
-    months = [
-        (a.label, m)
-        for a in summary.assessments
-        for m in a.months
-        if m.in_change and m.change_without is not None and m.multiples
-    ][:_CHAT_MONTHS]
-    if not months:
-        return []
-    items = [
-        t.t(
-            "report.footer_month_item",
-            label=label,
-            note=t.t(
-                f"chart.note.{m.nature}",
-                month=m.month,
-                multiple=t.number(max(m.multiples.values(), key=lambda v: abs(v - 1)), 1),
-            ),
-            change=t.percent(m.change_without, 0, signed=True),
-        )
-        for label, m in months
-    ]
-    line = t.t("report.footer_months", items="; ".join(items))
-    keys = ["report.footer_months", "report.footer_month_item"]
-    keys += [f"chart.note.{m.nature}" for _, m in months]
-    return [f"- {line}"] if _translated(t, *keys) else []
-
-
 def _offer_lines(summary: AnalysisSummary, t: Translator) -> list[str]:
     """A few next steps, the instant ones marked, each only when its label is translated.
 
@@ -734,18 +474,6 @@ def _offer_lines(summary: AnalysisSummary, t: Translator) -> list[str]:
     return [heading, *shown] if shown and _translated(t, "chat.follow_ups") else []
 
 
-def _decision_lines(
-    decision: DecisionOut | None, assessments: Sequence[AssessmentOut]
-) -> list[str]:
-    if decision is None:
-        return []
-    lines = [decision.summary] if decision.summary else []
-    lines += decision.lines
-    if not lines:  # one audience: its outcome is the decision
-        lines = [a.decision for a in assessments[:1]]
-    return lines
-
-
 def _typeset(narrative: Narrative) -> Narrative:
     """Keep "-22 %" on one line in the reports, as the template text does."""
 
@@ -755,45 +483,46 @@ def _typeset(narrative: Narrative) -> Narrative:
     return narrative.model_copy(
         update={
             "headline": fix(narrative.headline),
-            "happening": [fix(line) for line in narrative.happening],
-            "robustness": [
-                r.model_copy(update={"text": fix(r.text)}) for r in narrative.robustness
-            ],
-            "decision": [fix(line) for line in narrative.decision],
-            "next_step": fix(narrative.next_step),
+            "story": [p.model_copy(update={"text": fix(p.text)}) for p in narrative.story],
+            "meaning": narrative.meaning.model_copy(update={"text": fix(narrative.meaning.text)}),
+            "check": fix(narrative.check),
+            "limits": fix(narrative.limits),
         }
     )
 
 
-def apply_narrative(summary: AnalysisSummary, narrative: Narrative) -> AnalysisSummary:
-    """The summary with the agent's text in place of the template text.
+def apply_narrative(
+    summary: AnalysisSummary, narrative: Narrative, *, source: str = "agent"
+) -> AnalysisSummary:
+    """The summary with ``narrative`` as its report text.
 
-    The first decision line becomes the conclusion, the rest the per-audience lines; the
-    robustness text replaces each pair's line. The chat answer is composed when the summary
-    is rendered.
+    The story takes the place of "what happened", the meaning and the check that of the
+    decision block; the per-pair robustness lines go (the story covers them). The chat answer
+    is composed when the summary is rendered.
+
+    Args:
+        summary: The summary to update.
+        narrative: The text: the agent's, accepted, or the template.
+        source: ``agent`` or ``template``.
     """
     narrative = _typeset(narrative)
-    by_pair = {r.pair: r.text for r in narrative.robustness}
-    assessments = [
-        a.model_copy(update={"robustness_line": by_pair.get(pair_id(a), a.robustness_line)})
-        for a in summary.assessments
-    ]
+    assessments = [a.model_copy(update={"robustness_line": None}) for a in summary.assessments]
     decision = summary.decision
     if decision is not None:
         decision = decision.model_copy(
             update={
-                "summary": narrative.decision[0] if narrative.decision else None,
-                "lines": list(narrative.decision[1:]),
-                "next_step": narrative.next_step,
+                "summary": narrative.meaning.text or None,
+                "lines": [],
+                "next_step": narrative.check,
             }
         )
     return summary.model_copy(
         update={
             "verdict": summary.verdict.model_copy(update={"headline": narrative.headline}),
-            "happening": list(narrative.happening),
+            "happening": [p.text for p in narrative.story],
             "assessments": assessments,
             "decision": decision,
-            "narrative_source": "agent",
-            "topic_line": narrative.topic.strip() or None,
+            "narrative_source": source,
+            "topic_line": (narrative.topic.strip() or None) if source == "agent" else None,
         }
     )

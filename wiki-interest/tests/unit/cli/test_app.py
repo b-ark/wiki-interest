@@ -10,9 +10,12 @@ import pytest
 from typer.testing import CliRunner
 
 from fakes import astronomy_world, fake_container
+from wiki_interest.application.facts import template_narrative
+from wiki_interest.application.runs import load_summary
 from wiki_interest.cli import app as cli
 from wiki_interest.cli.container import Container
 from wiki_interest.errors import RequestValidationError
+from wiki_interest.i18n import Translator
 
 REQUEST: dict[str, object] = {
     "question_type": "compare",
@@ -178,15 +181,20 @@ class TestRenderNarrative:
 
     @staticmethod
     def _template(payload: dict[str, object]) -> dict[str, object]:
+        """The code's own text for the run, as the agent could write it."""
         facts = json.loads(Path(str(payload["facts_json"])).read_text(encoding="utf-8"))
-        template: dict[str, object] = facts["template"]
-        return template
+        summary = load_summary(Path(str(payload["run_dir"])))
+        translator = Translator(summary.request.report.language)
+        template = template_narrative(summary, translator, ui=facts["ui"])
+        return template.model_dump(mode="json")
 
-    def test_run_points_to_the_facts_with_the_template(
+    def test_run_points_to_the_facts_with_the_observations(
         self, tmp_path: Path, fakes: Container
     ) -> None:
         payload = self._run(tmp_path)
-        assert self._template(payload)["headline"]
+        facts = json.loads(Path(str(payload["facts_json"])).read_text(encoding="utf-8"))
+        assert facts["observations"]
+        assert facts["example"]["narrative"]["story"]
 
     def test_the_template_is_accepted_and_returns_the_chat_answer(
         self, tmp_path: Path, fakes: Container
@@ -230,4 +238,4 @@ class TestRenderNarrative:
         code, rendered = _invoke("render", str(payload["run_dir"]), "--narrative", str(path))
         assert code == 2
         assert "narrative schema" in str(rendered["error"])
-        assert "facts.json's template" in str(rendered["hint"])
+        assert "facts.json's example" in str(rendered["hint"])

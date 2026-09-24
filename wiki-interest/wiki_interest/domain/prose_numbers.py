@@ -39,13 +39,16 @@ _NUMBER = re.compile(
       | \d+(?:[.,]\d+)?                             # 12 | 12.3 | 12,3
     )
     (?P<suffix>[kKM](?![\w]))?
-    (?P<percent>[{_SPACES}]?%)?
+    (?P<thousands>[{_SPACES}](?:тыс|тис|thousand|tys|tisíc|[Tt]ausend)\w*\.?)?
+    (?P<percent>[{_SPACES}]?%|[{_SPACES}](?:percent|procent\w*|процент\w*|відсот\w*|[Pp]rozent))?
     (?![\w.,]\d)
     """,
     re.VERBOSE,
 )
 
 _MULTIPLIERS = {"k": 1_000.0, "K": 1_000.0, "M": 1_000_000.0}
+_THOUSAND = 1_000.0
+"""The word in "18 тысяч" or "18 thousand" multiplies as "k" does."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +112,8 @@ def _to_number(match: re.Match[str]) -> ProseNumber | None:
     if not readings:
         return None
     multiplier = _MULTIPLIERS.get(match.group("suffix") or "", 1.0)
+    if match.group("thousands"):
+        multiplier *= _THOUSAND
     sign = -1.0 if match.group("sign") in {"-", "−"} else 1.0
     decimals = min(d for _, d in readings)
     return ProseNumber(
@@ -146,7 +151,7 @@ def _decimals(text: str) -> int:
 
 
 def _ignorable(match: re.Match[str], ignore_below: int) -> bool:
-    if match.group("percent") or match.group("suffix") or match.group("sign"):
+    if any(match.group(g) for g in ("percent", "suffix", "thousands", "sign")):
         return False
     body = match.group("body")
     if not body.isdigit():

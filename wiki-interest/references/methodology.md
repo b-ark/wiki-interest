@@ -141,28 +141,57 @@ order decides, and when the ranking's first and the largest differ, both are nam
 step always points to an independent source of demand (for example Google Trends, search
 volume or a small ad test), because page views do not show willingness to pay.
 
+### Observations: what the report text is made of
+
+The report does not retell the charts: the code turns the monthly series into observations,
+true statements in plain English with the numbers they quote, and the agent explains the ones
+that answer the user's question. The detectors read the attention share (the article's views
+per million views of its edition) over up to six years before the period ends, whatever
+period the charts show: a trend, a wave, a season or a step needs years to be told apart
+from noise. A period the user named is read on its own; the season still on the whole
+window. Years are counted back from the last month.
+
+| Observation | Fires when |
+|---|---|
+| `size` | always: how often the article is opened now, and in the first year of the window |
+| `long_term` | at least 3 years: a steady decline or rise (the last year below 0.7 or above 1/0.7 of the first, falling or rising in all but one year), a wave (a middle year peaks above the first and the last is below 3/4 of the peak), or a flat range |
+| `vs_edition` | 24 months: the last year's change of the article's views, of the edition's, and of the share; says whether the fall is Wikipedia losing readers or the topic |
+| `season` | 3 years: the median over years of each calendar month against its year; a school-year rhythm (a September–November peak above +60 % and a summer below −15 %), another rhythm (spread above 30 points), or none |
+| `spike` | a month more than 3 times what that calendar month usually brings, the next month back |
+| `wave`, `unusual` | 3 or more months in a row above 3 times the median; flat (at least 9 months, highest below twice the lowest) and abrupt reads as automated traffic (a caution) |
+| `step` | the largest change of the mean level between the six months before and after a month, the season removed, above 1.35 times; says whether the edition changed at the same time |
+| `recent` | the last 3 months against the same months a year earlier, compared with the year: continues, slower, faster, stopped |
+| `editions` | one topic in two editions: relative and absolute size, and their directions |
+| `topics` | several topics of the user's in one edition, against each other |
+| `decision:*` | what the above imply: when to be ready (a peak above +25 %), which audience (school readers), where to start (two editions), a verdict per edition |
+| `caution:*` | an edition without an article, measured through a substitute, or with data too weak |
+
+Each observation has a weight: `caution` (the text must carry it), `high`, `medium`, `low`,
+`context`, `decision`.
+
 ### Who writes the text
 
-The states above (size, momentum, the edition, robustness, outcome, conclusion) and every
-number are the code's. The sentences in the report are the agent's: `run.py` writes them
-into `facts.json` with each number's metric, window and display form, and the agent writes
-`narrative.json` in the user's language. `render.py --narrative` accepts the text only when:
+The observations and every number are the code's. The sentences in the report are the
+agent's: `run.py` writes the observations into `facts.json` with the rules and a worked
+example, and the agent writes `narrative.json` in the user's language: a headline, a story
+of two to four paragraphs, what it means for the decision, a check outside Wikipedia and one
+line of limits. Every paragraph lists the observations it relies on. `render.py --narrative`
+accepts the text only when:
 
-- every number in it is one of the facts (within the rounding it was written with), and a
-  percentage in the robustness text of an edition is one of that edition's;
-- a number several metrics share is named with its metric, using the term the agent
-  declared, and no number sits in a sentence that names another metric;
-- the headline is one sentence without numbers, and every measured edition has its
-  robustness text, naming the edition;
-- every caveat of `facts.caveats` is declared, and an edition it concerns is named in the
-  caveat items;
-- the descriptive blocks never call views demand, and no block uses statistical jargon or
-  "1 in N" (word lists for en, uk, ru, pl, cs, de; other languages skip this check).
+- every number in a paragraph is one of the observations it cites (within the rounding it
+  was written with), and every cited id exists;
+- the story cites at least one caution or high observation, the meaning a decision one, and
+  every caution is cited somewhere;
+- the headline is one sentence without numbers, and every block keeps its length;
+- no block counts back from today ("five years ago") instead of naming the period, counts
+  views as people, or names a country for an edition; the headline and the story never call
+  views demand; no block uses statistical jargon or "1 in N" (word lists for en, uk, ru,
+  pl, cs, de and the countries of common editions; other languages skip these checks).
 
 A rejected text comes back with the reasons; after the second rejection the report keeps
-the code's own text, the template the agent started from. The chat answer is not written
-separately: the code lays out the checked blocks, adds the item analysed, a few next steps
-and the path to the PDF, so the user reads the same checked text as the PDF.
+the code's own text: the main observations strung together, in English. The chat answer is
+not written separately: the code lays out the checked blocks, adds the item analysed, a few
+next steps and the path to the PDF, so the user reads the same checked text as the PDF.
 
 ## 6. Further findings
 

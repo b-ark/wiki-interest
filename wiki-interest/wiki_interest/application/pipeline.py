@@ -8,7 +8,7 @@ receives from the composition root, so the whole thing runs against in-memory fa
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -20,11 +20,12 @@ from wiki_interest.application.facts import (
     apply_narrative,
     build_facts,
     compose_chat,
-    template_caveats,
+    template_limits,
     template_narrative,
 )
 from wiki_interest.application.loading import SeriesLoader
 from wiki_interest.application.narrative_check import check_narrative
+from wiki_interest.application.observations import observation_start, run_observations
 from wiki_interest.application.question import compose_question, label_problems
 from wiki_interest.application.resolution import TopicResolver
 from wiki_interest.application.runs import ATTEMPTS_FILENAME, CHAT_BRIEF_FILENAME, previous_run
@@ -313,7 +314,9 @@ class Pipeline:
             summary = builder.build_topic_only(request=request, period=period, resolved=resolved)
             self._write_clarification(summary, context.run_dir, services.renderers)
             return PipelineOutcome(summary, EXIT_OK)
-        loaded = services.loader.load(resolved, period)
+        loaded = services.loader.load(
+            resolved, period, observe_from=observation_start(request, period)
+        )
         analysis = analyse(
             resolved,
             loaded,
@@ -321,8 +324,16 @@ class Pipeline:
             settings=services.analysis_settings,
         )
         summary = builder.build(
-            request=request, period=period, resolved=resolved, analysis=analysis
+            request=request,
+            period=period,
+            resolved=resolved,
+            analysis=analysis,
+            observations=run_observations(loaded, resolved, request, period),
         )
+        # The report shows the code's own text until the agent's is accepted: the same
+        # blocks, so the PDF has one layout whoever wrote it.
+        template = template_narrative(summary, services.translator)
+        summary = apply_narrative(summary, template, source="template")
         rendered = self._render(summary, context.run_dir, services.renderers, services.translator)
         return PipelineOutcome(rendered, EXIT_OK)
 
@@ -388,7 +399,7 @@ class Pipeline:
             run_dir,
             renderers,
             translator,
-            caveats=narrative.caveats,
+            limits=narrative.limits,
         )
         (run_dir / CHAT_BRIEF_MD).write_text(f"{final.chat_answer}\n", encoding="utf-8")
         return NarrationOutcome(final, "accepted")
@@ -402,7 +413,7 @@ class Pipeline:
         renderers: Renderers,
         translator: Translator,
         *,
-        caveats: Sequence[str] | None = None,
+        limits: str | None = None,
     ) -> AnalysisSummary:
         """Write charts, reports, the chat answer and ``summary.json``.
 
@@ -414,9 +425,9 @@ class Pipeline:
             run_dir: Where to write it.
             renderers: The renderers of the report language.
             translator: The report-language translator.
-            caveats: The agent's caveat items when its text was accepted; ``None`` for the
+            limits: The agent's limits line when its text was accepted; ``None`` for the
                 analysis itself, which also writes the agent's inputs (``facts.json``) and
-                composes the chat answer with the template's caveats.
+                composes the chat answer with the template's limits.
         """
         run_dir.mkdir(parents=True, exist_ok=True)
         if not translator.has_catalog:
@@ -437,14 +448,14 @@ class Pipeline:
             artifacts = artifacts.model_copy(update={"charts": [str(p) for p in png_files]})
             final = summary.model_copy(update={"artifacts": artifacts})
             renderers.report_pdf.render(final, png_files, run_dir / REPORT_PDF)
-            items = template_caveats(final, translator) if caveats is None else caveats
-            chat = compose_chat(final, items, translator, previous_run(run_dir))
+            line = template_limits(translator) if limits is None else limits
+            chat = compose_chat(final, line, translator, previous_run(run_dir))
             final = final.model_copy(update={"chat_answer": chat})
         renderers.agent_summary.render(final, png_files, run_dir / SUMMARY_MD)
         if renderers.method is not None:
             renderers.method.render(final, png_files, run_dir / METHOD_MD)
         _write_summary_json(final, run_dir)
-        if caveats is None:
+        if limits is None:
             _write_facts(final, run_dir, translator, used)
         return final
 
@@ -463,10 +474,10 @@ def load_run_summary(run_dir: Path) -> AnalysisSummary:
 def _write_facts(
     summary: AnalysisSummary, run_dir: Path, translator: Translator, used: set[str]
 ) -> None:
-    """``facts.json`` with the template text inside, for the agent that writes the report text.
+    """``facts.json`` for the agent that writes the report text.
 
-    One file, read once: the template with the labels to translate sits in the facts, so the
-    agent does not spend a turn on a second file.
+    One file, read once: the labels to translate sit in the facts, so the agent does not spend
+    a turn on a second file.
     """
     cached = _read_ui(_ui_cache_path(run_dir, translator.requested))
     ui = (
@@ -474,8 +485,7 @@ def _write_facts(
         if translator.has_catalog
         else {key: translator.english(key) for key in sorted(used) if key not in cached}
     )
-    template = template_narrative(summary, translator, ui=ui)
-    facts = build_facts(summary, translator, template=template)
+    facts = build_facts(summary, ui=ui)
     _write_json(run_dir / FACTS_JSON, facts.model_dump(mode="json"))
     (run_dir / ATTEMPTS_FILE).unlink(missing_ok=True)
 

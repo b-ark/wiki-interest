@@ -1,0 +1,140 @@
+"""Use-case: the observations of a run, from the fetched series to what ``facts.json`` lists.
+
+The detectors (:mod:`wiki_interest.domain.observations`) read the article's and the edition's
+monthly views over up to six years, whatever period the report shows: a trend, a wave, a
+season or a step needs years to be told apart from noise. A period the user named is read on
+its own, the season still on the whole window. Editions measured through a substitute
+article, or without an article, get a caution the text must carry.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from datetime import date
+
+from wiki_interest.application.loading import LoadedSeries
+from wiki_interest.application.resolution import ResolvedTopic
+from wiki_interest.contracts.request import AnalysisRequest, Period
+from wiki_interest.contracts.summary import AssessmentOut, ObservationOut, QuotedNumber
+from wiki_interest.domain.models import BundleStatus
+from wiki_interest.domain.observations import (
+    Observation,
+    ObservationSettings,
+    PairHistory,
+    Weight,
+    edition_name,
+    observe,
+)
+
+__all__ = ["observation_start", "outcome_cautions", "run_observations", "to_out"]
+
+_YEAR = 12
+
+
+def observation_start(
+    request: AnalysisRequest, period: Period, settings: ObservationSettings | None = None
+) -> date:
+    """First month the observations read: six years before the period ends.
+
+    A period the user named that starts earlier is read from its start.
+    """
+    years = (settings or ObservationSettings()).observe_years
+    end = period.end
+    months = end.year * _YEAR + end.month - 1 - (years * _YEAR - 1)
+    six_years = date(months // _YEAR, months % _YEAR + 1, 1)
+    return min(six_years, period.start) if request.period is not None else six_years
+
+
+def run_observations(
+    loaded: Sequence[LoadedSeries],
+    resolved: Sequence[ResolvedTopic],
+    request: AnalysisRequest,
+    period: Period,
+) -> list[Observation]:
+    """The detectors' observations for every pair with an article.
+
+    Args:
+        loaded: The fetched series, with the long window (``long_views``, ``long_total``).
+        resolved: The topics, for their labels and substitute articles.
+        request: The request: a named period is read on its own.
+        period: The analysed period.
+    """
+    labels = {t.topic_id: t.label or t.query for t in resolved}
+    substitutes = {
+        (t.topic_id, b.project.domain): b.main.title
+        for t in resolved
+        for b in t.bundles
+        if b.status is BundleStatus.SUBSTITUTE and b.main is not None
+    }
+    histories: list[PairHistory] = []
+    for item in loaded:
+        views, total = item.long_views, item.long_total
+        if item.main_views is None or views is None or total is None:
+            continue
+        topic = labels.get(item.topic_id, item.topic_id)
+        substitute = substitutes.get((item.topic_id, item.project.domain))
+        if substitute:
+            topic = f"{topic} (measured through the article «{substitute}»)"
+        by_month = dict(zip(total.periods, total.values, strict=True))
+        histories.append(
+            PairHistory(
+                topic_id=item.topic_id,
+                topic=topic,
+                project=item.project.domain,
+                months=views.periods,
+                views=views.values,
+                edition=tuple(by_month.get(m) for m in views.periods),
+            )
+        )
+    trend_start = period.start if request.period is not None else None
+    return observe(histories, trend_start=trend_start)
+
+
+def outcome_cautions(
+    assessments: Sequence[AssessmentOut], topics: dict[str, str]
+) -> list[Observation]:
+    """Cautions for editions without an article or measured through a substitute.
+
+    Args:
+        assessments: The run's assessments (their outcomes).
+        topics: Topic id -> label.
+    """
+    out: list[Observation] = []
+    for a in assessments:
+        language = a.project.split(".")[0]
+        pair = f"{a.topic_id}/{language}"
+        ed = edition_name(a.project)
+        topic = topics.get(a.topic_id, a.topic_id)
+        if a.outcome == "no_article":
+            text = (
+                f"{ed} has no article on {topic}, so there is nothing to measure there: that is "
+                "no article, not no interest."
+            )
+        elif a.outcome == "substitute":
+            text = (
+                f"{ed} has no article on {topic} itself; it is measured through a broader "
+                f"article ({a.label}), which also counts readers of other things: name the "
+                "substitute whenever this edition is mentioned."
+            )
+        elif a.outcome == "low_trust":
+            text = f"The data for {topic} in {ed} are too weak for a conclusion."
+        else:
+            continue
+        statement = text[0].upper() + text[1:]
+        out.append(Observation(f"caution:{pair}", "caution", pair, Weight.CAUTION, statement))
+    return out
+
+
+def to_out(observations: Sequence[Observation]) -> list[ObservationOut]:
+    """The observations as the summary stores them."""
+    return [
+        ObservationOut(
+            id=o.id,
+            kind=o.kind,
+            pair=o.pair,
+            weight=o.weight.value,
+            statement=o.statement,
+            numbers=[QuotedNumber(value=q.value, percent=q.percent) for q in o.numbers],
+        )
+        for o in observations
+    ]

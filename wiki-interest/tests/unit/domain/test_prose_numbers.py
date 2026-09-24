@@ -1,6 +1,6 @@
 """Numbers in prose: readings, ignored tokens, matching within the author's rounding."""
 
-# ruff: noqa: RUF001  -- the minus sign is intentional.
+# ruff: noqa: RUF001  -- the minus sign and Cyrillic words are intentional.
 
 from __future__ import annotations
 
@@ -27,6 +27,9 @@ def _only(text: str) -> tuple[tuple[float, ...], bool, bool]:
         ("37.9 per million", (37.9,), False, False),
         ("about 1.2k views", (1200.0,), False, False),
         ("+21%", (21.0,), True, True),
+        ("около 18 тысяч просмотров", (18000.0,), False, False),
+        ("1,3 тис. переглядів", (1300.0,), False, False),
+        ("about 18 thousand views", (18000.0,), False, False),
     ],
 )
 def test_readings(text: str, values: tuple[float, ...], percent: bool, signed: bool) -> None:

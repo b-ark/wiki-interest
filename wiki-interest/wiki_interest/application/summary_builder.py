@@ -37,6 +37,7 @@ from wiki_interest.application.insights import (
     season_visibility,
     select_insights,
 )
+from wiki_interest.application.observations import outcome_cautions, to_out
 from wiki_interest.application.question import option_text
 from wiki_interest.application.resolution import ResolvedTopic
 from wiki_interest.contracts.charts import ChartSpec
@@ -90,6 +91,7 @@ from wiki_interest.domain.models import (
     TrendMetrics,
     WikiProject,
 )
+from wiki_interest.domain.observations import Observation
 from wiki_interest.errors import ClarificationNeededError, TopicNotFoundError
 from wiki_interest.i18n import Translator
 
@@ -166,8 +168,18 @@ class SummaryBuilder:
         period: Period,
         resolved: Sequence[ResolvedTopic],
         analysis: AnalysisResult,
+        observations: Sequence[Observation] = (),
     ) -> AnalysisSummary:
-        """Compose the full summary of a successful run."""
+        """Compose the full summary of a successful run.
+
+        Args:
+            request: The request.
+            period: The analysed period.
+            resolved: The resolved topics.
+            analysis: The measured pairs.
+            observations: What the detectors found (:func:`run_observations`); editions
+                without an article or with a substitute add their cautions here.
+        """
         context = self._context
         labels = _TopicLabels(resolved)
         normalised = request.normalization == "per_million"
@@ -184,6 +196,12 @@ class SummaryBuilder:
             else []
         )
         conclusion = conclude(assessments, ranked)
+        assessment_outs = [
+            self._assessment_out(pair, item, labels, season_requested=season_requested)
+            for pair, item in zip(analysis.pairs, assessments, strict=True)
+        ]
+        topics = {t.topic_id: labels.topic(t.topic_id) for t in resolved}
+        cautions = outcome_cautions(assessment_outs, topics)
         return AnalysisSummary(
             status="ok",
             run_id=context.run_id,
@@ -205,13 +223,11 @@ class SummaryBuilder:
                 assessments=assessments,
             ),
             happening=self._happening(assessments, labels, normalised=normalised),
-            assessments=[
-                self._assessment_out(pair, item, labels, season_requested=season_requested)
-                for pair, item in zip(analysis.pairs, assessments, strict=True)
-            ],
+            assessments=assessment_outs,
             decision=self._decision_out(conclusion, assessments, labels),
             data_note=self._data_note(analysis, assessments, labels),
             findings=findings,
+            observations=to_out([*cautions, *observations]),
             limitations=self._limitations(request, period, resolved, labels),
             general_limitations=self._general_limitations(),
             next_steps=self._next_steps(request, period, resolved, analysis, labels),

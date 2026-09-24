@@ -69,9 +69,9 @@ def test_the_page_reads_as_a_decision_memo_in_order(
         "Period: 2024-09 – 2026-08",
         "Metric",  # the key numbers
         "117.8",
-        "What happened",
+        "What is going on",
         "How robust is this conclusion?",
-        "What this means for the decision",
+        "What it means for you",
         "Next step: confirm the signal for cs.wikipedia",
     ]
     # The footer is drawn first (its height decides where the content ends).
@@ -113,7 +113,7 @@ def test_every_language_keeps_its_script_and_the_agent_labels(
     for part in ui.values():
         assert part in text, part
     assert summary.verdict.headline.split()[0] in text
-    assert "What happened" not in text
+    assert "What is going on" not in text
 
 
 def test_many_caveats_are_trimmed_to_keep_one_page(tmp_path: Path, chart_paths: list[Path]) -> None:
@@ -124,7 +124,7 @@ def test_many_caveats_are_trimmed_to_keep_one_page(tmp_path: Path, chart_paths: 
     assert len(reader.pages) == 1
     text = _text(reader)
     assert "39. This limitation" not in text
-    assert "What this means for the decision" in text
+    assert "What it means for you" in text
 
 
 def test_text_is_never_set_below_the_floor(tmp_path: Path, chart_paths: list[Path]) -> None:
@@ -147,7 +147,7 @@ def test_renders_without_charts_or_tables(tmp_path: Path) -> None:
     summary = example_summary().model_copy(update={"comparison": [], "ranking": []})
     reader = _render(summary, [], tmp_path / "report.pdf")
     assert len(reader.pages) == 1
-    assert "What happened" in _text(reader)
+    assert "What is going on" in _text(reader)
 
 
 def test_the_appendix_adds_the_method_on_a_second_page(
@@ -240,7 +240,7 @@ def test_a_long_answer_truncates_without_shrinking(tmp_path: Path, chart_paths: 
     assert len(reader.pages) == 1
     text = reader.pages[0].extract_text()
     assert "summary.md" in text
-    assert "What this means for the decision" not in text, "later sections are dropped"
+    assert "What it means for you" not in text, "later sections are dropped"
 
 
 def test_render_error_when_no_layout_fits(

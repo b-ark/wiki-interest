@@ -346,7 +346,7 @@ MESSAGES: dict[str, str] = {
     "value.per_million": "{value} per million",
     "report.vs_edition": "Is the topic growing faster or slower than its Wikipedia?",
     "report.vs_edition_basis": "Compared: {basis}",
-    "report.decision": "What this means for the decision",
+    "report.decision": "What it means for you",
     "summary.decision": "What this means for the decision",
     "finding.item.season_tentative": "{label}: {peak_month} {peak}, {trough_month} {trough}",
     "limitation.scope": (
@@ -633,7 +633,7 @@ MESSAGES: dict[str, str] = {
     "chart.axis_log": "{unit}, log scale",
     "chart.axis_per_million": "article views per million edition views",
     "chart.season_period": "Computed on {start} – {end}.",
-    "report.happening": "What happened",
+    "report.happening": "What is going on",
     "report.footer_share": (
         "Attention share: article views per 1 million views of the whole edition. Change: {basis}; "
         "recent months: {recent}."

@@ -45,8 +45,10 @@ __all__ = [
     "FindingOut",
     "MetricsOut",
     "MonthOut",
+    "ObservationOut",
     "PointOut",
     "Provenance",
+    "QuotedNumber",
     "RankedRow",
     "ReliabilityOut",
     "SeasonOut",
@@ -409,6 +411,37 @@ class FindingOut(_Model):
     params: dict[str, float | int | str] = Field(default_factory=dict)
 
 
+class QuotedNumber(_Model):
+    """A number an observation states; the text citing the observation may quote it.
+
+    ``percent``: written as a percentage (``-46`` for "-46 %").
+    """
+
+    value: float
+    percent: bool = False
+
+
+class ObservationOut(_Model):
+    """One true statement about the data, for the agent to pick and explain.
+
+    Attributes:
+        id: Stable identifier the text cites in ``uses`` (``season:astronomy/uk``).
+        kind: The detector (``long_term``, ``season``, ``decision``, ``caution``...).
+        pair: ``<topic>/<language>`` it is about; ``None`` when it spans pairs.
+        weight: ``caution`` (must be cited when the text relies on its pair), ``high``,
+            ``medium``, ``context``, ``low``, or ``decision`` (what it implies for a decision).
+        statement: The statement in plain English.
+        numbers: The numbers the statement quotes.
+    """
+
+    id: str
+    kind: str
+    pair: str | None = None
+    weight: Literal["caution", "high", "medium", "context", "low", "decision"]
+    statement: str
+    numbers: list[QuotedNumber] = Field(default_factory=list)
+
+
 class CandidateOut(_Model):
     """A Wikidata entity the user may have meant."""
 
@@ -549,6 +582,8 @@ class AnalysisSummary(_Model):
     """The state of the data in one line when every audience is clean, else a line per
     audience with its concerns."""
     findings: list[FindingOut] = Field(default_factory=list)
+    observations: list[ObservationOut] = Field(default_factory=list)
+    """What the series show, as statements the agent's text picks from and cites."""
     limitations: list[str] = Field(default_factory=list)
     """Limitations specific to this run (missing articles, substitutes, short period...)."""
     general_limitations: list[str] = Field(default_factory=list)

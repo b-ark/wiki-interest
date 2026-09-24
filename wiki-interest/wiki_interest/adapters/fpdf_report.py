@@ -346,6 +346,11 @@ class _Page:
             if not self._paragraph(f"{BULLET}{item}", self._style.body_pt):
                 return
 
+    def _paragraphs(self, items: Sequence[str]) -> None:
+        for item in items:
+            if item and not self._paragraph(item, self._style.body_pt):
+                return
+
     def _gap(self) -> None:
         self.pdf.set_y(self.pdf.get_y() + self._style.section_gap_mm)
 
@@ -513,12 +518,13 @@ class _Page:
         return any(s.id == image.stem and s.size == "half" for s in self._summary.charts)
 
     def _happening(self) -> None:
+        """The story: paragraphs that explain what is going on."""
         items = self._summary.happening
         limit = self._layout.max_happening
         shown = items if limit is None else items[:limit]
         if not shown or not self._heading("report.happening"):
             return
-        self._bullets(shown)
+        self._paragraphs(shown)
 
     def _robustness(self) -> None:
         """How robust the conclusion is per audience, then the state of the data in one line."""
@@ -544,7 +550,7 @@ class _Page:
         *body, next_step = lines
         limit = self._layout.max_decision
         shown = body if limit is None else body[:limit]
-        self._bullets([*shown, next_step])
+        self._paragraphs([*shown, next_step])
 
     # -- footer ------------------------------------------------------------------------------
 

@@ -16,16 +16,18 @@ your answer in the chat.
 
 ## Who does what
 
-The code measures: it fetches the data, computes every number, decides the states (growing,
-steady, robust or not), draws the charts. You write the analysis in the user's language:
-the headline, what happened, how robust it is, what it means for their decision, the next
-step, the caveats. The code then checks your text against its numbers, puts it into the PDF
+The code measures and observes: it fetches up to six years of data, computes every number,
+and writes down what the data show as observations (true statements with their numbers: a
+long decline, a school-year rhythm, a step in October 2024, where the audience is bigger).
+It draws the charts. You explain: pick the observations that answer the user's question and
+connect them into a short story in the user's language, then say what it means for their
+decision. The code checks your text against the observations it cites, puts it into the PDF
 and builds your chat answer from it. Everything you say to the user, questions included, is
 in the language they write in.
 
 So: never compute a number yourself, never call the Wikimedia API, never write analysis
-code. Every number you write is copied from `facts.json` (`numbers[].display`); rounding is
-fine, deriving is not (no ratios, differences, sums, "1 in N").
+code. Every number you write is copied from an observation your paragraph cites; rounding is
+fine, deriving is not (no ratios, "N times", differences, sums, "1 in N").
 
 ## Workflow
 
@@ -76,22 +78,24 @@ which may be read-only.
 5. **Check the topic.** `topics[]` in the output names the entity that was analysed, with
    its description and other meanings. If it is not what the user meant, set `topics[].qid`
    to the right one and rerun.
-6. **Write `narrative.json`** in one go, after reading `facts_json` once: `pairs[]` (states
-   and numbers per edition), `conclusion`, `findings`, `caveats`, and `blocks` and `rules`
-   (how each field is written). `facts.template` is the code's own text in the same schema
-   (in English when the language has no catalog): rewrite it for this user and their
-   question. Fields:
-   - `language` = `facts.language`; `glossary`: your term for each metric, used in every
-     sentence with a number (`{"attention_share": "доля внимания", "article_views": ...,
-     "edition_traffic": ...}`);
-   - `topic`: which item was analysed, one line in the user's language ("ртуть, хімічний
-     елемент"); the chat answer opens with it;
-   - `headline`, `happening[]`, `robustness[]` (one `{"pair": pairs[].id, "text": ...}` per
-     measured pair, naming its edition), `decision[]`, `next_step`;
-   - `caveats[]`: every caveat of `facts.caveats`, one short item each; `covered_caveats`:
-     their ids;
-   - `ui`: the interface labels, in the template in English: translate each value, keep
-     `{placeholders}`.
+6. **Write `narrative.json`** in one go, after reading `facts_json` once. `observations[]`
+   are what the data show, main ones first (`weight`: `caution`, `high`, `medium`, `low`,
+   `context`, `decision`); `rules` say how to write; `example` shows observations and the
+   narrative written from them on a made-up topic (the form only, none of its content).
+   Fields:
+   - `language` = `facts.language`; `topic`: which item was analysed, one line in the
+     user's language ("ртуть, хімічний елемент"); the chat answer opens with it;
+   - `headline`: the answer to the user's question in one sentence, without numbers;
+   - `story`: 2–4 short paragraphs `{"text": ..., "uses": [observation ids]}` that explain
+     what is happening: start from the caution and high observations that answer the
+     question, connect them (why the numbers move, not only that they move), leave the rest
+     out;
+   - `meaning`: `{"text": ..., "uses": [...]}`, what it means for the user's decision,
+     built from the `decision` observations that fit the question;
+   - `check`: one concrete way to check it outside Wikipedia; `limits`: one line (views show
+     curiosity, not willingness to pay; an edition is a language, not a country);
+   - `ui`: the interface labels of `facts.ui`, in English: translate each value, keep
+     `{placeholders}` (nothing to do when `facts.ui` is empty).
    The code builds your chat reply from these blocks; do not write one.
 7. **Render:**
 
@@ -140,18 +144,21 @@ Errors are JSON on stdout with `error`, `exit_code` and `hint`.
 
 ## What your text must get right
 
-The render step checks numbers, metric names, edition labels, caveats and lengths. What it
-cannot check is meaning, so:
+The render step checks that every number comes from an observation the paragraph cites,
+that the story rests on the main observations and carries every caution, and the lengths.
+What it cannot check is meaning, so:
 
 - Say which meaning of the topic was analysed, in one line ("Python, the programming
   language"), even when it seems obvious.
-- Follow the states in `facts.json`: `momentum`, `robustness`, `outcome`, `conclusion`. A
-  declining share is a decline even for the largest audience; when everything declines, say
-  so, then which edition declines least. Do not replace the conclusion with your own.
-- The size of interest is the attention share: views per million views of that edition,
-  not people and not a market size.
-- Wikipedia views measure attention and curiosity, not demand or willingness to pay; a
-  language edition is not a country.
+- Keep each observation's direction and words: "slower than over the year" is not "speeds
+  up"; a step in one edition is not in both. Name periods as the observations do
+  ("September 2020 – August 2021"), never "five years ago".
+- Every cause or guess comes from an observation and keeps its "possibly" or "probably";
+  add no causes of your own and no outside events.
+- Views are how often the article is opened ("the article is opened about 560 times a
+  month"), not people and not a market size; they measure attention and curiosity, not
+  demand or willingness to pay. Name editions by language ("the Polish Wikipedia"), never
+  by country.
 - An edition without an article has "no article", not "no interest"; a substitute
   (`pl.wikipedia (Post)`) is named every time.
 - State any change you made to what the user asked for: a period moved because data starts

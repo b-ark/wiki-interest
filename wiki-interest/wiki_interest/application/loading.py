@@ -3,12 +3,13 @@
 For each (topic, edition) the loader fetches monthly views of the main article and of the
 redirects that lead to it (summed: a reader who typed a redirect's name read the article),
 the edition's monthly total (for normalisation and for the article-against-edition
-comparison), daily views of the main article (for bursts) and, when the analysis filters on
-human traffic, the main article's automated traffic (for bot suspicion). For the main
-article's own title it also fetches its whole monthly history since 2015-07 (seasons are read
-on it, whatever the analysed period) and, when all access methods are analysed, the monthly
-split by access method (the cause of an anomalous month is read from it). Requests are
-independent, so they run on a thread pool; the adapter is
+comparison), both over the longer window the observations read (see ``observe_from``) and
+cut to the analysed period for everything else, daily views of the main article (for bursts)
+and, when the analysis filters on human traffic, the main article's automated traffic (for
+bot suspicion). For the main article's own title it also fetches its whole monthly history
+since 2015-07 (seasons are read on it, whatever the analysed period) and, when all access
+methods are analysed, the monthly split by access method (the cause of an anomalous month is
+read from it). Requests are independent, so they run on a thread pool; the adapter is
 responsible for caching and rate limiting.
 """
 
@@ -32,7 +33,7 @@ from wiki_interest.domain.models import (
     WikiProject,
     Window,
 )
-from wiki_interest.domain.series import combine
+from wiki_interest.domain.series import align, combine
 from wiki_interest.ports.pageviews import PageviewsSource
 
 __all__ = ["LoadSettings", "LoadedSeries", "SeriesLoader"]
@@ -85,6 +86,10 @@ class LoadedSeries:
     """Monthly views of the main title (without redirects) since 2015-07."""
     main_by_access: tuple[tuple[Access, Series], ...] = ()
     """Monthly views of the main title per access method, aligned to the analysis window."""
+    long_views: Series | None = None
+    """``main_views`` over the observation window (see :meth:`SeriesLoader.load`)."""
+    long_total: Series | None = None
+    """``project_total`` over the observation window."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,8 +111,21 @@ class SeriesLoader:
         self._pageviews = pageviews
         self._settings = settings
 
-    def load(self, topics: Sequence[ResolvedTopic], period: Period) -> tuple[LoadedSeries, ...]:
+    def load(
+        self,
+        topics: Sequence[ResolvedTopic],
+        period: Period,
+        *,
+        observe_from: date | None = None,
+    ) -> tuple[LoadedSeries, ...]:
         """Fetch everything for ``topics`` over ``period``.
+
+        Args:
+            topics: The resolved topics.
+            period: The analysed months.
+            observe_from: First month of the longer window the observations read; the
+                article's and the edition's monthly views are fetched from it (one request
+                each, as for the period alone) and cut to ``period`` for the analysis.
 
         Returns:
             One :class:`LoadedSeries` per (topic, edition), in request order.
@@ -117,16 +135,18 @@ class SeriesLoader:
                 would silently bias comparisons, so the whole load fails instead.
         """
         monthly = Window(Granularity.MONTHLY, period.start, period.end)
+        first = max(min(observe_from or period.start, period.start), EARLIEST_MONTH)
+        long = Window(Granularity.MONTHLY, first, period.end)
         daily = Window(Granularity.DAILY, period.start, _last_day_of_month(period.end))
         history = Window(Granularity.MONTHLY, EARLIEST_MONTH, period.end)
         plan = _FetchPlan(tasks={})
         for topic in topics:
             for bundle in topic.bundles:
-                self._plan_bundle(plan, bundle, monthly, daily)
+                self._plan_bundle(plan, bundle, long, monthly, daily)
                 self._plan_extras(plan, bundle, monthly, history)
         results = self._execute(plan)
         return tuple(
-            self._assemble(bundle, topic.topic_id, results)
+            self._assemble(bundle, topic.topic_id, results, monthly)
             for topic in topics
             for bundle in topic.bundles
         )
@@ -134,21 +154,22 @@ class SeriesLoader:
     # -- planning -------------------------------------------------------------------------
 
     def _plan_bundle(
-        self, plan: _FetchPlan, bundle: TopicBundle, monthly: Window, daily: Window
+        self, plan: _FetchPlan, bundle: TopicBundle, long: Window, monthly: Window, daily: Window
     ) -> None:
+        """The monthly series over the long window, the rest over the analysed period."""
         settings = self._settings
         project = bundle.project
         plan.add(
             ("aggregate", project.domain),
             lambda: self._pageviews.aggregate(
-                project, monthly, access=settings.access, agent=settings.agent
+                project, long, access=settings.access, agent=settings.agent
             ),
         )
         for article in bundle.articles:
             for title in (article.title, *article.redirects):
                 plan.add(
                     ("monthly", project.domain, title),
-                    self._article_task(project, title, monthly, settings.agent),
+                    self._article_task(project, title, long, settings.agent),
                 )
         main = bundle.main
         if main is None:
@@ -209,13 +230,18 @@ class SeriesLoader:
     # -- assembly -------------------------------------------------------------------------
 
     def _assemble(
-        self, bundle: TopicBundle, topic_id: str, results: dict[tuple[str, ...], Series]
+        self,
+        bundle: TopicBundle,
+        topic_id: str,
+        results: dict[tuple[str, ...], Series],
+        monthly: Window,
     ) -> LoadedSeries:
         project = bundle.project
-        total = results[("aggregate", project.domain)]
+        long_total = results[("aggregate", project.domain)]
+        total = align(long_total, monthly)
         main = bundle.main
         if main is None:
-            return LoadedSeries(topic_id, project, None, total, None, None)
+            return LoadedSeries(topic_id, project, None, total, None, None, long_total=long_total)
 
         def article_views(article: ArticleRef) -> Series:
             parts = [
@@ -224,11 +250,14 @@ class SeriesLoader:
             ]
             return combine(parts)
 
-        main_views = article_views(main)
+        long_views = article_views(main)
+        main_views = align(long_views, monthly)
         main_daily = results.get(("daily", project.domain, main.title))
         main_automated = results.get(("automated", project.domain, main.title))
         main_user = (
-            results[("monthly", project.domain, main.title)] if main_automated is not None else None
+            align(results[("monthly", project.domain, main.title)], monthly)
+            if main_automated is not None
+            else None
         )
         by_access = tuple(
             (access, series)
@@ -246,6 +275,8 @@ class SeriesLoader:
             main_user,
             main_history=results.get(("history", project.domain, main.title)),
             main_by_access=by_access,
+            long_views=long_views,
+            long_total=long_total,
         )
 
 
