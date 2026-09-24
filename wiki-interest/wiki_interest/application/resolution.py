@@ -154,9 +154,23 @@ class TopicResolver:
         self._settings = settings
 
     def resolve_request(self, request: AnalysisRequest) -> tuple[ResolvedTopic, ...]:
-        """Resolve every topic of a request against its projects, in request order."""
+        """Resolve every topic of a request against its projects, in request order.
+
+        Each topic is named in the report language: a Polish report on a topic searched as
+        "yoga" says "joga".
+        """
         projects = request.project_objects
-        return tuple(self.resolve(topic, projects) for topic in request.topics)
+        resolved = tuple(self.resolve(topic, projects) for topic in request.topics)
+        return tuple(self._in_language(topic, request.report.language) for topic in resolved)
+
+    def _in_language(self, topic: ResolvedTopic, language: str) -> ResolvedTopic:
+        """``topic`` with its item's label in ``language``, when Wikidata has one."""
+        if topic.qid is None:
+            return topic
+        label = self._wikidata.labels([topic.qid], language, fallback=False).get(topic.qid)
+        if not label or label == topic.label:
+            return topic
+        return replace(topic, label=label)
 
     def resolve(self, topic: TopicSpec, projects: Sequence[WikiProject]) -> ResolvedTopic:
         """Resolve one topic in the given editions.

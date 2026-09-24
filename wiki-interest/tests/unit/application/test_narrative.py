@@ -108,6 +108,14 @@ class TestFacts:
         assert facts.template.language == "ru"
         assert not (run_dir / "narrative.template.json").exists()  # one file to read
 
+    @pytest.mark.parametrize(("language", "label"), [("uk", "астрономія"), ("en", "astronomy")])
+    def test_the_topic_is_named_in_the_report_language(
+        self, tmp_path: Path, language: str, label: str
+    ) -> None:
+        """The topic was searched in English; the report names it as its reader would."""
+        _, run_dir = _run(tmp_path, language)
+        assert _facts(run_dir).topics[0].startswith(f"astronomy: {label} (Q333)")
+
     def test_english_needs_no_interface_labels(self, tmp_path: Path) -> None:
         _, run_dir = _run(tmp_path, "en")
         assert _facts(run_dir).template.ui == {}

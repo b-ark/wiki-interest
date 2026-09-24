@@ -7,7 +7,7 @@
   "projects": ["uk.wikipedia"],
   "report": {
     "language": "uk",
-    "audience_note": "Educational app considering an astronomy course"
+    "audience_note": "Освітній застосунок думає про курс з астрономії"
   },
   "session": "astronomy-uk"
 }

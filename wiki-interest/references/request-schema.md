@@ -56,7 +56,7 @@ Unknown keys are rejected on purpose: a misspelled field would otherwise be sile
 |---|---|---|---|
 | `language` | language code (`ru`, `de`, `es`...) | `en` | The language the user writes in: you write the report text in it. Only `en` has built-in interface labels; for any other language `facts.json` lists the labels (`template.ui`) for you to translate in `narrative.json` (once per session: later runs reuse them). |
 | `title` | string | derived | Report title. |
-| `audience_note` | string | none | One line of context that goes into the report ("educational app considering an astronomy course"). |
+| `audience_note` | string | none | One line of context that goes into the report, in the report language ("освітній застосунок, курс з астрономії"). |
 | `seasonality` | `auto` / `show` | `auto` | `show` when the user asks about timing (which months, seasons, when to launch): the seasonal pattern is then always reported and charted, with a caveat if it is not solid. `auto` states it only when it is solid on the article's whole history (5+ full years, repeated in 80 % of years, material). |
 | `appendix` | `true` / `false` | `false` | `true` adds a second PDF page with the method and data checks (the content of `method.md`, which every run writes next to the report). The report is one page otherwise. |
 
@@ -82,7 +82,7 @@ Assess one topic with default period (`assets/examples/assess-astronomy-uk.json`
   "question_type": "assess",
   "topics": [{ "query": "астрономія", "query_language": "uk", "id": "astronomy" }],
   "projects": ["uk.wikipedia"],
-  "report": { "language": "uk", "audience_note": "Educational app considering an astronomy course" },
+  "report": { "language": "uk", "audience_note": "Освітній застосунок думає про курс з астрономії" },
   "session": "astronomy-uk"
 }
 ```
