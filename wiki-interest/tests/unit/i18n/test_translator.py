@@ -129,6 +129,17 @@ def test_share_is_rendered_as_whole_percent() -> None:
     assert "23%" in text
 
 
+def test_a_share_in_a_template_reads_like_the_other_percentages() -> None:
+    share = 0.234
+    assert (
+        Translator("en")
+        .t("automated.low", share=share)
+        .startswith(f"Automated traffic is {format_percent(share, style_for('en'))}:")
+    )
+    ukrainian = Translator("uk").t("automated.low", share=share)
+    assert f"23{NARROW_NO_BREAK_SPACE}%" in ukrainian
+
+
 def test_p_value_has_three_decimals() -> None:
     text = Translator("en").t("trend.not_significant", p_value=0.04567)
     assert "p = 0.046" in text

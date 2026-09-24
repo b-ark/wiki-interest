@@ -19,8 +19,9 @@ your answer in the chat.
 The code measures: it fetches the data, computes every number, decides the states (growing,
 steady, robust or not), draws the charts. You write the analysis in the user's language:
 the headline, what happened, how robust it is, what it means for their decision, the next
-step, the chat answer. The code then checks your text against its numbers and puts it into
-the PDF.
+step, the caveats. The code then checks your text against its numbers, puts it into the PDF
+and builds your chat answer from it. Everything you say to the user, questions included, is
+in the language they write in.
 
 So: never compute a number yourself, never call the Wikimedia API, never write analysis
 code. Every number you write is copied from `facts.json` (`numbers[].display`); rounding is
@@ -35,11 +36,12 @@ which may be read-only.
 1. **Decide what the user means before running anything.** Many names have several
    meanings: "Mercury" is a planet, a chemical element, a god, a singer. If the conversation
    settles it ("our chemistry app"), write that meaning into the request (step 3) and use the
-   name that has that meaning as `query`. If it does not, list the common meanings and ask; do
-   not run. Search goes by spelling, not meaning: Ukrainian "Меркурій" finds the planet first,
-   the element is "ртуть". Interest in learning or teaching a subject ("learning English",
-   "an astronomy course") is measured on the subject itself: `query` is "English language",
-   "astronomy"; articles about learning it are missing from most editions.
+   name that has that meaning as `query`. If it does not, list the common meanings and ask,
+   in the user's language; do not run. Search goes by spelling, not meaning: Ukrainian
+   "Меркурій" finds the planet first, the element is "ртуть". Interest in learning or
+   teaching a subject ("learning English", "an astronomy course") is measured on the subject
+   itself: `query` is "English language", "astronomy"; articles about learning it are missing
+   from most editions.
 2. **Needs only `uv`.** The first run creates the Python environment by itself (about ten
    seconds). If `uv` is missing, run `<skill>/scripts/setup.sh` (Windows:
    `<skill>/scripts/setup.ps1`) once.
@@ -67,9 +69,9 @@ which may be read-only.
    uv run --project "<skill>" "<skill>/scripts/run.py" request.json
    ```
 
-   It prints one JSON object on stdout (ignore stderr) with `run_dir` and `facts_json`.
-   A first run can take a few minutes: give the command a 10-minute
-   timeout (600000 ms) and wait for it; never send it to the background.
+   It prints one JSON object on stdout (ignore stderr) with `run_dir` and `facts_json`. A
+   first run can take a few minutes: give the command a 10-minute timeout (600000 ms) and
+   wait for it; never send it to the background.
 5. **Check the topic.** `topics[]` in the output names the entity that was analysed, with
    its description and other meanings. If it is not what the user meant, set `topics[].qid`
    to the right one and rerun.

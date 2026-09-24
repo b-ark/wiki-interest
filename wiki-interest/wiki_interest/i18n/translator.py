@@ -10,6 +10,7 @@ the agent translates the labels a report uses, and :meth:`Translator.override` a
 from __future__ import annotations
 
 import datetime as dt
+import re
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from string import Formatter
@@ -37,6 +38,8 @@ CATALOGS: Mapping[str, Mapping[str, str]] = {
     "en": en.MESSAGES,
 }
 
+_PERCENT_SPEC = re.compile(r"(?P<sign>\+)?\.(?P<decimals>\d)%")
+"""A percentage field of a template (``.0%``, ``+.1%``): formatted in the report's style."""
 _ENUM_PARAMS: Mapping[str, str] = {"direction": "direction"}
 """Template parameters whose raw value is an enum member; they are replaced by the label
 ``<namespace>.<value>`` so a translated sentence never contains the raw value ``rising``."""
@@ -63,6 +66,16 @@ class _MessageFormatter(Formatter):
         return value, key
 
     def format_field(self, value: Any, format_spec: str) -> Any:
+        percent = _PERCENT_SPEC.fullmatch(format_spec)
+        if percent is not None and isinstance(value, int | float):
+            # "{share:.0%}" reads as the numbers do elsewhere in the report ("23 %" in the
+            # comma styles), not as Python writes it ("23%").
+            return format_percent(
+                value,
+                self._translator.number_style,
+                int(percent["decimals"]),
+                signed=bool(percent["sign"]),
+            )
         try:
             text = super().format_field(value, format_spec)
         except (ValueError, TypeError):

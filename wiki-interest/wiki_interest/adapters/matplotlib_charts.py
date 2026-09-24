@@ -22,7 +22,7 @@ matplotlib.use("Agg")  # Must precede any pyplot/figure import: never rely on a 
 import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
 from matplotlib.typing import RcKeyType
 
 from wiki_interest.adapters.report_theme import ReportTheme
@@ -93,6 +93,14 @@ DASHED_WIDTH = 0.9
 PANEL_ROW_HEIGHT = 1.25
 """A one-row panel chart is this many times a wide chart's height: header, legend, ticks."""
 MIN_PANEL_TICKS = 3
+MAX_NOTE_LINES = 2
+"""Lines of month notes under a panel title; what does not fit ends in an ellipsis."""
+PANEL_SPACING_SHARE = 0.9
+"""Share of a column a panel's plot takes; the rest is the gap between panels."""
+LOG_TICK_STEPS = (1.0, 2.0, 3.0, 5.0, 7.0)
+"""Where a log axis is labelled within each decade: round values, never two crowding."""
+SCATTER_MARGIN = 0.12
+"""Room around the outermost points of a scatter, so they and their labels are not cut."""
 LEGEND_ROW_MM = 7.0
 RING_SCALE = 2.2
 DUMBBELL_LINE_WIDTH = 2.0
@@ -428,13 +436,20 @@ class MatplotlibChartRenderer:
     def _value_label(self, value: float, suffix: str) -> str:
         """``-36 %``-style label: whole percents, else precision by magnitude, local separators."""
         text = f"{value:,.0f}" if suffix == "%" else _compact_number(value)
+        return self._localised(text) + suffix
+
+    def _tick_label(self, value: float) -> str:
+        """A round axis value as the report writes numbers: ``50``, ``1 000``, ``0,5``."""
+        return self._localised(f"{value:,.0f}" if value >= 1 else f"{value:g}")
+
+    def _localised(self, text: str) -> str:
+        """``text`` written with ``,`` and ``.`` switched to the report's separators."""
         placeholder = "\0"
-        text = (
+        return (
             text.replace(",", placeholder)
             .replace(".", self._decimal_sep)
             .replace(placeholder, self._thousands_sep)
         )
-        return text + suffix
 
     def _draw_trend(self, axes: Axes, spec: ChartSpec) -> None:
         theme = self._theme
@@ -484,8 +499,10 @@ class MatplotlibChartRenderer:
         grid = figure.subplots(rows, columns, sharey=True, squeeze=False)
         cells = [axes for row in grid for axes in row]
         ticks = max(MIN_PANEL_TICKS, chart.max_x_ticks // (2 * columns))
+        panel_mm = (chart.width_mm - FRAME_LEFT_MM - FRAME_RIGHT_MM) / columns
+        note_chars = int(panel_mm * PANEL_SPACING_SHARE / (chart.small_size_pt * CHAR_MM_PER_PT))
         for axes, panel in zip(cells, spec.panels, strict=False):
-            self._draw_panel(axes, panel, spec, ticks)
+            self._draw_panel(axes, panel, spec, ticks, note_chars)
         for axes in cells[count:]:
             axes.set_visible(False)
         # One axis label and one legend for all panels, the legend under them.
@@ -523,14 +540,21 @@ class MatplotlibChartRenderer:
             y=(top + bottom) / 2,
         )
 
-    def _draw_panel(self, axes: Axes, panel: ChartPanel, spec: ChartSpec, ticks: int) -> None:
-        """One edition; months that stand out are ringed and listed under the panel title."""
+    def _draw_panel(
+        self, axes: Axes, panel: ChartPanel, spec: ChartSpec, ticks: int, note_chars: int
+    ) -> None:
+        """One edition; months that stand out are ringed and listed under the panel title.
+
+        The list wraps to the panel's width (``note_chars`` characters a line), at most
+        :data:`MAX_NOTE_LINES` lines: in three columns one line held two months at most.
+        """
         theme = self._theme
         small = theme.chart.small_size_pt
         pad = TITLE_PAD_PT
         if panel.notes:
+            lines = _note_lines([note.text for note in panel.notes], note_chars)
             axes.annotate(
-                " · ".join(note.text for note in panel.notes),
+                "\n".join(lines),
                 xy=(0, 1),
                 xycoords="axes fraction",
                 xytext=(0, TITLE_PAD_PT / 2),
@@ -540,7 +564,7 @@ class MatplotlibChartRenderer:
                 ha="left",
                 va="bottom",
             )
-            pad += small * SUBTITLE_LINE_HEIGHT
+            pad += len(lines) * small * SUBTITLE_LINE_HEIGHT
         axes.set_title(panel.title, fontsize=theme.chart.font_size_pt, loc="left", pad=pad)
         axes.grid(True, axis="y", color=theme.grid_color, linewidth=0.6)
         axes.set_axisbelow(True)
@@ -660,11 +684,14 @@ class MatplotlibChartRenderer:
                 textcoords="offset points",
                 fontsize=theme.chart.small_size_pt,
             )
+        axes.margins(x=SCATTER_MARGIN, y=SCATTER_MARGIN * 2)
         if spec.log_x:
             axes.set_xscale("log")
-            # Plain numbers ("40", "100") instead of "4 x 10^1".
-            axes.xaxis.set_major_formatter(FuncFormatter(lambda v, _: _compact_number(v)))
-            axes.xaxis.set_minor_formatter(FuncFormatter(lambda v, _: _compact_number(v)))
+            # Round values in the report's number style ("50", "70", "100"), not "4 x 10^1"
+            # or matplotlib's minor labels, which put "90.0" against "100".
+            axes.xaxis.set_major_locator(LogLocator(subs=LOG_TICK_STEPS))
+            axes.xaxis.set_major_formatter(FuncFormatter(lambda v, _: self._tick_label(v)))
+            axes.xaxis.set_minor_formatter(NullFormatter())
             axes.tick_params(axis="x", which="both", labelsize=theme.chart.small_size_pt)
         if spec.x_label:
             axes.set_xlabel(spec.x_label, fontsize=theme.chart.small_size_pt)
@@ -692,6 +719,23 @@ class MatplotlibChartRenderer:
         figure.savefig(png, format="png", dpi=self._theme.chart.dpi, metadata=PNG_METADATA)
         figure.savefig(svg, format="svg", metadata=SVG_METADATA)
         return [png, svg]
+
+
+def _note_lines(notes: Sequence[str], width: int) -> list[str]:
+    """Notes joined by " · " into lines of at most ``width`` characters.
+
+    The last line ends in an ellipsis when notes are left over.
+    """
+    lines: list[str] = []
+    for note in notes:
+        if lines and len(lines[-1]) + len(" · ") + len(note) <= width:
+            lines[-1] += f" · {note}"
+        elif len(lines) < MAX_NOTE_LINES:
+            lines.append(note)
+        else:
+            lines[-1] += " …"
+            break
+    return lines
 
 
 def _taller(figure: Figure) -> float | None:
