@@ -226,6 +226,11 @@ class TestStatements:
         for o in observe([_history(_flat(), topic="шахматы")]):
             assert o.statement[0].isupper(), o.statement
 
+    def test_the_size_gives_the_attention_share_per_million(self) -> None:
+        size = _by_id(observe([_history(_flat(5_000.0))]))["size:astronomy/uk"]
+        assert size.weight is Weight.HIGH
+        assert "50.0 views per million views of the edition" in size.statement
+
     def test_editions_are_named_by_their_language(self) -> None:
         assert edition_name("pl.wikipedia") == "the Polish Wikipedia"
         assert edition_name("xx.wikipedia") == "xx.wikipedia"

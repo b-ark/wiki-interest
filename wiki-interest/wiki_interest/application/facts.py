@@ -56,7 +56,7 @@ LIMITS: Mapping[str, int] = {
 """Longest text of each block, in characters (a story paragraph each; the whole story)."""
 STORY_PARAGRAPHS = (2, 4)
 """Fewest and most paragraphs of the story (one is allowed when little was observed)."""
-PARAGRAPH_PERCENTAGES = 3
+PARAGRAPH_PERCENTAGES = 4
 """Most percentages in a paragraph: more is the observations translated, not explained."""
 
 RULES: tuple[str, ...] = (
@@ -81,8 +81,9 @@ RULES: tuple[str, ...] = (
     "not willingness to pay; an edition is a language, not a country.",
     "Numbers: only those of the observations a paragraph cites (rounding is fine); never "
     "compute a new one (no ratios, 'N times', sums or differences). Prefer the words and "
-    "counts given ('about half', 'about 560 times a month'); at most three percentages in a "
-    "paragraph.",
+    "counts given ('about half', 'about 560 times a month'); at most four percentages in a "
+    "paragraph. Say how big the interest is: the attention share per million views of the "
+    "size observation.",
     "Name periods as the observations do ('September 2020 – August 2021', 'over the last "
     "year'), never 'N years ago'.",
     "Views are how often the article is opened ('the article is opened about 560 times a "

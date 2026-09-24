@@ -62,13 +62,13 @@ _SPEEDS_UP = re.compile(
 )
 """A change said to speed up: only an observation that says so ("speeds up") allows it. A cheap
 model read "the article lost more than the edition" as the fall speeding up (2026-09-25)."""
-_NOT_AN_EDITION = r"(?!\s+[Ww]ikipedi)"
+_NAMED = re.compile(r"«([^»]+)»")
+"""An article a caution names (a substitute): the text must name it too."""
 _COUNTRIES: Mapping[str, str] = {
     "ru": r"\bRussia\b|\bРосси|\bРосі[їяю]\b|\bRosj[aię]\b|\bRusk[oua]\b|\bRussland\b",
     "uk": r"\bUkraine\b|\bУкраин[аеуы]\b|\bУкраїн[аиіу]\b|\bUkrain(?:a|ie|y|ę)\b"
     r"|\bUkrajin[aěuy]\b",
-    "pl": rf"\bPoland\b|\bPols(?:ka|ki)\b{_NOT_AN_EDITION}|\bPols(?:ce|kę|ko|ku)\b"
-    r"|\bПольш[аеиу]\b|\bПольщ[аіу]\b|\bPolen\b",
+    "pl": r"\bPoland\b|\bPols(?:ce|kę)\b|\bПольш[аеиу]\b|\bПольщ[аіу]\b|\bPolen\b",
     "cs": r"\bCzech Republic\b|\bCzechia\b|\bCzech(?:y|ach|ami)\b|\bČesk[ou]\b"
     r"|\bČeské republi|\bЧехи[яиюей]\b|\bЧехі[яїю]\b|\bTschechien\b",
     "de": r"\bGermany\b|\bDeutschland\b|\bГермани[яиюей]\b|\bНімеччин[аиіу]\b"
@@ -79,7 +79,8 @@ _COUNTRIES: Mapping[str, str] = {
 }
 """Country names of an edition's language, in the languages the skill knows. Adjectives of
 the language are lower case in these languages ("polska Wikipedia"), names of the country
-capitalised, except Polish, where "Polska Wikipedia" opening a sentence is the edition."""
+capitalised; Polish "Polska" and "Polski" are left out: opening a sentence they are the
+language ("Polska Wikipedia", "Polska edycja") as often as the country (2026-09-25)."""
 _JARGON: Mapping[str, str] = {
     "en": r"statistical(?:ly)? significan",
     "ru": r"статистическ\w* значим",
@@ -223,6 +224,7 @@ class _Checker:
                 "Build the meaning on the decision observations that fit the question and "
                 f"cite them in 'uses' ({', '.join(o.id for o in decisions[:4])}).",
             )
+        text = " ".join(p.text for _, p in self.paragraphs())
         for caution in by_weight.get("caution", []):
             if caution.id not in cited:
                 self.add(
@@ -230,6 +232,13 @@ class _Checker:
                     f"Carry the caution '{caution.id}' in the story and cite it: "
                     f"{caution.statement}",
                 )
+            for name in dict.fromkeys(_NAMED.findall(caution.statement)):
+                if name not in text:
+                    self.add(
+                        "story",
+                        f"Name the article «{name}» where the text talks about its edition: "
+                        f"{caution.statement}",
+                    )
 
     def _by_weight(self) -> dict[str, list[ObservationOut]]:
         out: dict[str, list[ObservationOut]] = {}

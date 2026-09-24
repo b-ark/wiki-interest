@@ -317,7 +317,11 @@ class TestRejections:
             ("Уровень пяти лет назад был выше.", [VS_UK], "not counted back from today"),
             ("За последний год спад ускорился.", [VS_UK], "says the change speeds up"),
             ("Україна Wikipedia читає менше.", [VS_UK], "not a country"),
-            ("Доля +21 %, просмотры +21 %, раздел +0 %, снова +21 %.", [VS_UK], "percentages"),
+            (
+                "Доля +21 %, просмотры +21 %, раздел +0 %, снова +21 %, и +21 %.",
+                [VS_UK],
+                "percentages",
+            ),
             ("Тема растёт.", ["season:astronomy/xx"], "not an observation of facts.json"),
             ("Тема растёт.", [], "List in 'uses'"),
         ],
@@ -378,7 +382,9 @@ class TestRejections:
         minor = narrative.model_copy(
             update={
                 "story": [
-                    Paragraph(text="Статью открывают около 4 200 раз.", uses=["size:astronomy/uk"])
+                    Paragraph(
+                        text="Последние месяцы продолжают рост.", uses=["recent:astronomy/uk"]
+                    )
                 ]
             }
         )
@@ -402,6 +408,22 @@ class TestRejections:
         assert any("caution:astronomy/cs" in m for m in _messages(with_caution, narrative))
         carried = _add_to_story(narrative, "Чешский раздел измерен по общей статье.", [caution.id])
         assert _messages(with_caution, carried) == []
+
+    def test_a_substitute_article_is_named_in_the_text(self, ru: tuple[Facts, Narrative]) -> None:
+        facts, narrative = ru
+        caution = ObservationOut(
+            id="caution:astronomy/cs",
+            kind="caution",
+            pair="astronomy/cs",
+            weight="caution",
+            statement="The Czech Wikipedia has no article on astronomy itself; its numbers come "
+            "from the broader article «Vesmír»: name «Vesmír» whenever this edition is mentioned.",
+        )
+        facts = facts.model_copy(update={"observations": [*facts.observations, caution]})
+        unnamed = _add_to_story(narrative, "Чешский раздел измерен по общей статье.", [caution.id])
+        assert any("«Vesmír»" in m for m in _messages(facts, unnamed))
+        named = _add_to_story(narrative, "Чешский раздел измерен по статье «Vesmír».", [caution.id])
+        assert _messages(facts, named) == []
 
     def test_headline_is_one_sentence_without_numbers(self, ru: tuple[Facts, Narrative]) -> None:
         facts, narrative = ru

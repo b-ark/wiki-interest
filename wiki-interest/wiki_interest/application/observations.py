@@ -9,6 +9,7 @@ article, or without an article, get a caution the text must carry.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from datetime import date
 
@@ -29,6 +30,8 @@ from wiki_interest.domain.observations import (
 __all__ = ["observation_start", "outcome_cautions", "run_observations", "to_out"]
 
 _YEAR = 12
+_SUBSTITUTE = re.compile(r"\((.+)\)\s*$")
+"""The substitute article in a pair label: ``pl.wikipedia (Post)``."""
 
 
 def observation_start(
@@ -87,7 +90,21 @@ def run_observations(
             )
         )
     trend_start = period.start if request.period is not None else None
-    return observe(histories, trend_start=trend_start)
+    found = observe(histories, trend_start=trend_start)
+    if request.normalization == "absolute":
+        found.insert(0, _RAW_VIEWS)
+    return found
+
+
+_RAW_VIEWS = Observation(
+    "caution:raw_views",
+    "caution",
+    None,
+    Weight.CAUTION,
+    "The user asked for raw views: the report's charts and table show the article's own views, "
+    "not adjusted for the size of each edition, so a bigger edition shows more views without "
+    "more interest. The observations still read the attention share, which is adjusted.",
+)
 
 
 def outcome_cautions(
@@ -111,10 +128,12 @@ def outcome_cautions(
                 "no article, not no interest."
             )
         elif a.outcome == "substitute":
+            title = _SUBSTITUTE.search(a.label)
+            article = f"«{title.group(1)}»" if title else f"({a.label})"
             text = (
-                f"{ed} has no article on {topic} itself; it is measured through a broader "
-                f"article ({a.label}), which also counts readers of other things: name the "
-                "substitute whenever this edition is mentioned."
+                f"{ed} has no article on {topic} itself; its numbers come from the broader "
+                f"article {article}, which also counts readers of other things: name "
+                f"{article} whenever this edition is mentioned."
             )
         elif a.outcome == "low_trust":
             text = f"The data for {topic} in {ed} are too weak for a conclusion."

@@ -284,6 +284,12 @@ class _Words:
             return "about twice as much"
         return f"about {self._plain(round(r), percent=False)} times as much"
 
+    def per_million(self, value: float) -> str:
+        """An attention share: "19.2", "145"."""
+        rounded = round(value, 1) if value < 100 else round(value)  # noqa: PLR2004
+        self.quoted.append(Quoted(rounded))
+        return f"{rounded:,}"
+
     def _plain(self, value: int, *, percent: bool = True) -> str:
         self.quoted.append(Quoted(value, percent=percent))
         return str(value)
@@ -520,15 +526,21 @@ class _Detector:
             f"In {self.ed} the article on {self.topic} is opened {w.count(now)} times a month "
             f"now ({_span(months, p.n - _YEAR, p.n - 1)})"
         )
+        share = p.share(p.n - _YEAR, p.n)
+        if share:
+            text += (
+                f": {w.per_million(share)} views per million views of the edition (its "
+                "attention share, the size of interest comparable across editions)"
+            )
         if p.years >= 2:  # noqa: PLR2004
             first = p.n - p.years * _YEAR
             then = p.views_mean(first, first + _YEAR)
             if then:
                 text += (
-                    f"; in {_span(months, first, first + _YEAR - 1)} it was {w.count(then)} a "
-                    f"month: {w.ratio(now / then)}"
+                    f". In {_span(months, first, first + _YEAR - 1)} it was opened "
+                    f"{w.count(then)} times a month: {w.ratio(now / then)}"
                 )
-        self.add("size", Weight.CONTEXT, w, text + ".")
+        self.add("size", Weight.HIGH, w, text + ".")
 
     def long_term(self) -> None:
         p, s = self.p, self.s
@@ -910,8 +922,10 @@ def _editions(a: _Standing, b: _Standing, settings: ObservationSettings) -> list
 
     text = (
         f"Relative to the size of each edition, {topic} gets {w.times(lead.share / other.share)} "
-        f"attention in {name(lead)} as in {name(other)}. In absolute numbers {name(big)} is the "
-        f"bigger audience ({w.count(big.views)} views a month against {w.count(small.views)})."
+        f"attention in {name(lead)} as in {name(other)} ({w.per_million(lead.share)} against "
+        f"{w.per_million(other.share)} views per million views of the edition). In absolute "
+        f"numbers {name(big)} is the bigger audience ({w.count(big.views)} views a month "
+        f"against {w.count(small.views)})."
     )
     if a.change is not None and b.change is not None:
         up, down = (a, b) if a.change >= b.change else (b, a)
