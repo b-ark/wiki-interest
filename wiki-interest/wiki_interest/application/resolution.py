@@ -268,6 +268,10 @@ class TopicResolver:
                     "the user which one they mean."
                 ),
             )
+        if not in_english and self._doubtful(chosen, projects):
+            titled = self._titled(topic, covering=projects)
+            if titled.qid is not None and titled.qid != chosen.qid:
+                return replace(titled, alternatives=tuple(candidates))
         label = chosen.label
         if in_english:
             local = self._wikidata.labels([chosen.qid], topic.query_language).get(chosen.qid)
@@ -305,20 +309,35 @@ class TopicResolver:
             qid=qid, label=summary.label, description=summary.description, method="pinned"
         )
 
-    def _titled(self, topic: TopicSpec) -> _Entity:
+    def _titled(self, topic: TopicSpec, *, covering: Sequence[WikiProject] = ()) -> _Entity:
         """The item of the article titled like the query in the query's own Wikipedia.
 
         Wikidata search matches labels and aliases, so an inflected wording finds nothing
         ("криптовалюты", plural), while that Wikipedia redirects it to the article
         ("Криптовалюта"). A page without an item gives nothing, and so does a redirect to a
         section: it points into a broader article ("Post przerywany" -> "Głodówka#Post
-        przerywany"), whose item is not the topic.
+        przerywany"), whose item is not the topic. With ``covering``, only an item with an
+        article in one of those editions counts.
         """
         project = WikiProject(topic.query_language)
         info = self._mediawiki.page_info(project, [topic.query]).get(topic.query)
         if info is None or info.qid is None or info.fragment:
             return _Entity()
+        if covering and not self._wikidata.sitelinks([info.qid], covering).get(info.qid):
+            return _Entity()
         return replace(self._pinned(info.qid, topic.query_language), method="title")
+
+    def _doubtful(self, chosen: EntityCandidate, projects: Sequence[WikiProject]) -> bool:
+        """Whether a search pick is weak enough to ask the query's Wikipedia instead.
+
+        A single hit is taken even when it only contains the query ("Біткоїн" found only
+        "біткойн-міксер"), and an exact label can belong to something no requested edition
+        covers ("Python Programming", a course). Wikipedia's own redirect from the query then
+        names the topic better: "Біткоїн" leads to "Біткойн".
+        """
+        if not chosen.exact_label_match:
+            return True
+        return not self._wikidata.sitelinks([chosen.qid], projects).get(chosen.qid)
 
     def _linked(self, topic: TopicSpec, project: WikiProject, title: str) -> _Entity:
         """The item of the article the user linked; the article itself if it has none."""

@@ -19,6 +19,7 @@ from wiki_interest.errors import ClarificationNeededError, TopicNotFoundError
 UK = WikiProject("uk")
 CS = WikiProject("cs")
 PL = WikiProject("pl")
+EN = WikiProject("en")
 
 
 def _world() -> tuple[FakeWikidata, FakeMediaWiki]:
@@ -404,6 +405,33 @@ class TestEnglishFallbackAndLocalTerms:
         resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK, CS])
         assert (resolved.qid, resolved.method) == ("Q333", "title")
         assert resolved.bundle_for(CS).main is not None
+
+    def test_a_single_hit_that_only_contains_the_query_gives_way_to_its_article(self) -> None:
+        """ "Біткоїн" found only "біткойн-міксер"; uk.wikipedia redirects it to "Біткойн"."""
+        wikidata, mediawiki = _world()
+        wikidata.add(
+            FakeEntity("Q55", {"uk": "астрономічна обсерваторія"}, sitelinks={UK: "Обсерваторія"})
+        )
+        mediawiki.add_page(UK, FakePage("Астрономія", qid="Q333", redirects=["Астрономічна"]))
+        topic = _topic(query="Астрономічна", query_language="uk")
+        resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK])
+        assert (resolved.qid, resolved.method) == ("Q333", "title")
+        assert [c.qid for c in resolved.alternatives] == ["Q55"]
+
+    def test_an_exact_hit_no_edition_covers_gives_way_to_its_article(self) -> None:
+        """ "Python programming" is also a course with no article in any requested edition."""
+        wikidata, mediawiki = _world()
+        wikidata.add(FakeEntity("Q66", {"en": "astronomy course"}))
+        mediawiki.add_page(EN, FakePage("Astronomy", qid="Q333", redirects=["astronomy course"]))
+        topic = _topic(query="astronomy course", meaning="the science")
+        resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK, CS])
+        assert (resolved.qid, resolved.method) == ("Q333", "title")
+
+    def test_an_exact_covered_hit_stays(self) -> None:
+        wikidata, mediawiki = _world()
+        mediawiki.add_page(EN, FakePage("Astrology", qid="Q999", redirects=["astronomy"]))
+        resolved = TopicResolver(wikidata, mediawiki).resolve(_topic(), [UK])
+        assert (resolved.qid, resolved.method) == ("Q333", "unique")
 
     def test_redirect_to_a_section_does_not_name_the_topic(self) -> None:
         """A section of a broader article is a substitute to offer, not the topic's item."""
