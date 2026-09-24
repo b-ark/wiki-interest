@@ -122,7 +122,8 @@ which may be read-only.
    | "growth matters most" | `ranking_weights` |
    | "how exactly was this computed", "show the method" | `report.appendix: true` (a second PDF page); `method.md` is always in the run directory |
 
-   To explain what the change did, compare the two runs:
+   The chat answer of a follow-up says itself what changed against the run before it. For
+   more detail, compare the two runs:
    `uv run --project "<skill>" "<skill>/scripts/run.py" --diff <run_dir-a> <run_dir-b>`.
 
 ## Exit codes of run.py

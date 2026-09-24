@@ -92,6 +92,10 @@ MESSAGES: dict[str, str] = {
     "chat.follow_up.method_page": "I can add a page with the method and the data checks",
     "chat.instant": "instant: the data are already loaded",
     "chat.pdf": "PDF report: {path}",
+    "chat.previous": "Against the previous run ({period}):",
+    "chat.previous_share": "attention share {before} → {after} per million",
+    "chat.previous_change": "its change {before} → {after}",
+    "chat.previous_added": "Editions added: {projects}.",
     # -- charts ----------------------------------------------------------------------------
     "chart.axis_views": "views per month",
     "chart.no_data": "No data for this period",

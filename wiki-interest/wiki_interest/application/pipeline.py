@@ -25,6 +25,7 @@ from wiki_interest.application.facts import (
 from wiki_interest.application.loading import SeriesLoader
 from wiki_interest.application.narrative_check import check_narrative
 from wiki_interest.application.resolution import TopicResolver
+from wiki_interest.application.runs import previous_run
 from wiki_interest.application.summary_builder import (
     ProvenanceInput,
     RunContext,
@@ -366,7 +367,8 @@ class Pipeline:
             final = summary.model_copy(update={"artifacts": artifacts})
             renderers.report_pdf.render(final, png_files, run_dir / REPORT_PDF)
             items = template_caveats(final, translator) if caveats is None else caveats
-            final = final.model_copy(update={"chat_answer": compose_chat(final, items, translator)})
+            chat = compose_chat(final, items, translator, previous_run(run_dir))
+            final = final.model_copy(update={"chat_answer": chat})
         renderers.agent_summary.render(final, png_files, run_dir / SUMMARY_MD)
         if renderers.method is not None:
             renderers.method.render(final, png_files, run_dir / METHOD_MD)

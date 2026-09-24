@@ -538,7 +538,12 @@ def template_caveats(summary: AnalysisSummary, translator: Translator) -> list[s
     ]
 
 
-def compose_chat(summary: AnalysisSummary, caveats: Sequence[str], translator: Translator) -> str:
+def compose_chat(
+    summary: AnalysisSummary,
+    caveats: Sequence[str],
+    translator: Translator,
+    previous: AnalysisSummary | None = None,
+) -> str:
     """The answer the agent sends to the chat as it is, built from the report text.
 
     The agent's blocks are already checked and in the user's language; the code only lays
@@ -551,6 +556,7 @@ def compose_chat(summary: AnalysisSummary, caveats: Sequence[str], translator: T
         summary: The summary as rendered, with the agent's text when it was accepted.
         caveats: The caveat items, the agent's or :func:`template_caveats`.
         translator: The report-language translator, with the agent's interface labels.
+        previous: The session's run before this one: a follow-up says what changed.
     """
     t = translator
     decision = summary.decision
@@ -558,6 +564,8 @@ def compose_chat(summary: AnalysisSummary, caveats: Sequence[str], translator: T
         *([summary.topic_line] if summary.topic_line else _topic_lines(summary, t)),
         "",
         f"**{summary.verdict.headline}**",
+        "",
+        *_change_lines(summary, previous, t),
         "",
         *(f"- {line}" for line in summary.happening),
         "",
@@ -609,6 +617,58 @@ def _topic_lines(summary: AnalysisSummary, t: Translator) -> list[str]:
             line = f"«{label}»{tail} ({topic.qid})"
         lines.append(line)
     return lines
+
+
+def _change_lines(
+    summary: AnalysisSummary, previous: AnalysisSummary | None, t: Translator
+) -> list[str]:
+    """What a follow-up changed against the session's run before it, pair by pair.
+
+    The agent sends the chat answer as it is and cannot add the comparison itself, so the
+    code states it: the attention share and its change before and after, and the editions
+    the follow-up added. Nothing when the runs share no topic.
+    """
+    if previous is None:
+        return []
+    if not {a.topic_id for a in summary.assessments} & {a.topic_id for a in previous.assessments}:
+        return []
+    before = {(a.topic_id, a.project): a for a in previous.assessments}
+    items: list[str] = []
+    for now in summary.assessments:
+        then = before.get((now.topic_id, now.project))
+        if not now.measured or then is None or not then.measured:
+            continue
+        parts: list[str] = []
+        if now.per_million is not None and then.per_million is not None:
+            parts.append(
+                t.t(
+                    "chat.previous_share",
+                    before=t.number(then.per_million, 1),
+                    after=t.number(now.per_million, 1),
+                )
+            )
+        if now.change is not None and then.change is not None:
+            parts.append(
+                t.t(
+                    "chat.previous_change",
+                    before=t.percent(then.change, 0, signed=True),
+                    after=t.percent(now.change, 0, signed=True),
+                )
+            )
+        if parts:
+            items.append(f"{now.label}: {', '.join(parts)}")
+    added = [a.label for a in summary.assessments if (a.topic_id, a.project) not in before]
+    if not items and not added:
+        return []
+    period = f"{previous.period.start:%Y-%m} – {previous.period.end:%Y-%m}"
+    line = t.t("chat.previous", period=period)
+    if items:
+        line += " " + "; ".join(items) + "."
+    if added:
+        line += " " + t.t("chat.previous_added", projects=", ".join(added))
+    keys = ["chat.previous", "chat.previous_share", "chat.previous_change"]
+    keys += ["chat.previous_added"] if added else []
+    return [line] if _translated(t, *keys) else []
 
 
 def _months_line(summary: AnalysisSummary, t: Translator) -> list[str]:

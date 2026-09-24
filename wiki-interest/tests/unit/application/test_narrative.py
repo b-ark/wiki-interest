@@ -259,6 +259,21 @@ class TestChatBrief:
         assert "DE I can look at a longer period" in brief
         assert "months of the year" not in brief
 
+    def test_a_follow_up_says_what_changed_against_the_run_before(self, tmp_path: Path) -> None:
+        """The answer is sent as it is: the code, not the agent, states the comparison."""
+        _run(tmp_path, "en", {"question_type": "assess", "projects": ["uk"]})
+        pipeline, run_dir = _run(tmp_path, "en", run_id="r2")
+        assert pipeline.narrate(run_dir, _template(run_dir)).status == "accepted"
+        brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8")
+        assert "Against the previous run (2024-09 – 2026-08):" in brief
+        assert "uk.wikipedia: attention share 37.9 → 37.9 per million" in brief
+        assert "Editions added: cs.wikipedia." in brief
+
+    def test_a_first_run_has_nothing_to_compare(self, tmp_path: Path) -> None:
+        pipeline, run_dir = _run(tmp_path, "en")
+        assert pipeline.narrate(run_dir, _template(run_dir)).status == "accepted"
+        assert "previous run" not in (run_dir / "chat_brief.md").read_text(encoding="utf-8")
+
     def test_a_text_with_no_translated_label_is_rejected(self, tmp_path: Path) -> None:
         _, run_dir = _run(tmp_path, "de")
         facts = _facts(run_dir)

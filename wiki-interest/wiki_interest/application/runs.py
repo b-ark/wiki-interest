@@ -19,6 +19,7 @@ __all__ = [
     "RunDiff",
     "diff_runs",
     "load_summary",
+    "previous_run",
 ]
 
 SUMMARY_FILENAME = "summary.json"
@@ -44,6 +45,27 @@ def load_summary(run_dir: Path) -> AnalysisSummary:
     """
     path = run_dir / SUMMARY_FILENAME
     return AnalysisSummary.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def previous_run(run_dir: Path) -> AnalysisSummary | None:
+    """The latest earlier run of the same session with a finished analysis, if any.
+
+    Run directories of a session are named by their start time, so the name orders them.
+    """
+    session = run_dir.parent
+    if not session.is_dir():
+        return None
+    earlier = sorted(
+        (d for d in session.iterdir() if d.is_dir() and d.name < run_dir.name), reverse=True
+    )
+    for directory in earlier:
+        try:
+            summary = load_summary(directory)
+        except (OSError, ValueError):  # no summary yet, or one of an older schema
+            continue
+        if summary.status == "ok":
+            return summary
+    return None
 
 
 # ---------------------------------------------------------------------------
