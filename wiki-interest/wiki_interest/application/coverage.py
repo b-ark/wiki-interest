@@ -14,7 +14,9 @@ Options, in the order they are offered:
    section of a broader article. Pageviews of the redirect itself are people who arrived by
    that exact name.
 2. **Broader article**: the article of a Wikidata parent (``subclass of``, ``part of``).
-3. **Mention**: articles whose text contains the topic's local name as a phrase.
+3. **Mention**: articles whose text contains the topic's local name as a phrase, offered
+   only when there is no redirect and no broader article: winter swimming mentions
+   intermittent fasting, but its readers did not come for it.
 4. **Skip**: leave the edition out and report "no article".
 
 Local names come from the request (``topics[].local_terms``, typically the agent's
@@ -204,7 +206,8 @@ class CoverageAdvisor:
         options += self._redirects(project, terms)
         if topic.qid is not None:
             options += self._broader(project, topic.qid, _titles(options))
-        options += self._mentions(project, terms, _titles(options))
+        if not options:
+            options += self._mentions(project, terms, set())
         measured = [self._with_views(project, option, window, traffic) for option in options]
         return CoverageGap(
             topic_id=topic.topic_id,

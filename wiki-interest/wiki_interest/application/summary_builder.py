@@ -342,6 +342,11 @@ class SummaryBuilder:
             question += " " + t.t("gap.searched", terms=searched)
         else:
             question += " " + t.t("gap.no_terms")
+        kinds = {option.kind for option in gap.options}
+        if kinds & {"redirect", "broader"}:
+            question += " " + t.t("gap.broader_intro")
+        elif "mention" in kinds:
+            question += " " + t.t("gap.mention_intro")
         entity = gap.entity
         return CoverageGapOut(
             topic_id=gap.topic_id,
@@ -388,17 +393,22 @@ class SummaryBuilder:
         t = self._t
         views = t.number(option.views_avg) if option.views_avg is not None else t.t("value.na")
         choose: dict[str, SubstituteChoice]
+        url: str | None = None
         if option.kind == "skip" or option.title is None:
             description = t.t("option.skip", project=domain)
             choose = {domain: "skip"}
         else:
             section = t.t("option.section", section=option.section) if option.section else ""
+            # The article a reader would open: a redirect's target, at its section.
+            article = option.target or option.title
+            url = WikiProject.parse(domain).article_url(article, option.section)
             description = t.t(
                 f"option.{option.kind}",
                 title=option.title,
                 target=option.target or "",
                 section=section,
                 views=views,
+                url=url,
             )
             if option.snippet:
                 description += " " + t.t("option.snippet", snippet=option.snippet)
@@ -412,6 +422,7 @@ class SummaryBuilder:
             snippet=option.snippet,
             views_avg=option.views_avg,
             description=description,
+            url=url,
             choose=choose,
         )
 

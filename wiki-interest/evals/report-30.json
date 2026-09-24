@@ -13,7 +13,7 @@
         "Порівняй зростання інтересу до інтервального голодування в польськомовній та чеськомовній Wikipedia за останні два роки.",
         "Польську пропусти, порівняй те, що є."
       ],
-      "expected": "First run stops before measuring: pl.wikipedia has no article, so the agent shows the options (broader article, mentions, skip) and asks. After the user says to skip Polish, the agent reruns with substitutes {pl: skip}, relays summary.md in Ukrainian and says Polish Wikipedia has no article on the topic (not zero interest); PDF attached.",
+      "expected": "First run stops before measuring: pl.wikipedia has no article, so the agent says so and shows the options (broader articles with their links, or skip) and asks. After the user says to skip Polish, the agent reruns with substitutes {pl: skip}, relays summary.md in Ukrainian and says Polish Wikipedia has no article on the topic (not zero interest); PDF attached.",
       "assertions": [
         {
           "type": "tool_called",
@@ -2063,7 +2063,7 @@
       "turns": [
         "Как меняется интерес к комбуче в украинской и польской Википедии?"
       ],
-      "expected": "The topic resolves, but uk.wikipedia has no article; the run stops with the options (broader article, mentions, skip) and the agent asks which to use.",
+      "expected": "The topic resolves, but uk.wikipedia has no article; the run stops with the options (broader articles with their links, or skip; mentions only when no broader article exists) and the agent asks which to use.",
       "assertions": [
         {
           "type": "tool_called",

@@ -12,6 +12,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from enum import StrEnum
+from urllib.parse import quote
 
 __all__ = [
     "Access",
@@ -166,6 +167,11 @@ class WikiProject:
     def host(self) -> str:
         """Host name of the MediaWiki API, e.g. ``"uk.wikipedia.org"``."""
         return f"{self.language}.wikipedia.org"
+
+    def article_url(self, title: str, section: str | None = None) -> str:
+        """Address of an article, or of one of its sections, for a reader to open."""
+        url = f"https://{self.host}/wiki/{quote(title.replace(' ', '_'))}"
+        return f"{url}#{quote(section.replace(' ', '_'))}" if section else url
 
     @property
     def site_id(self) -> str:

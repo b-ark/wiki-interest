@@ -430,7 +430,8 @@ class CoverageOptionOut(_Model):
         section: Section of ``target`` a redirect points into.
         snippet: Passage that mentions the topic, for ``mention``.
         views_avg: Mean monthly views of ``title`` over the last 12 complete months.
-        description: The option in one localised sentence, views included.
+        description: The option in one localised sentence, views and the link included.
+        url: The article to open to see what would be measured; ``None`` for ``skip``.
         choose: The exact value to merge into ``topics[].substitutes`` when the user picks
             this option; the agent copies it instead of composing it.
     """
@@ -443,6 +444,7 @@ class CoverageOptionOut(_Model):
     snippet: str | None = None
     views_avg: float | None = None
     description: str
+    url: str | None = None
     choose: dict[str, SubstituteChoice]
 
 

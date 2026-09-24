@@ -93,7 +93,7 @@ class TestWhenToAsk:
 
 
 class TestOptions:
-    def test_order_redirect_broader_mention_skip_with_views(self) -> None:
+    def test_order_redirect_broader_skip_with_views(self) -> None:
         world = _World()
         world.mediawiki.add_mentions(
             PL,
@@ -102,19 +102,30 @@ class TestOptions:
         )
         (gap,) = world.gaps(local_terms={"pl": "Post przerywany"})
         assert gap.terms == ("Post przerywany",)
+        # A mention is not offered next to broader articles: its readers came for something
+        # else ("Insulinooporność" mentions fasting in passing).
         assert _kinds(gap.options) == [
             ("redirect", "Post przerywany"),
             ("broader", "Post"),
-            ("mention", "Insulinooporność"),
             ("skip", None),
         ]
-        redirect, broader, mention, skip = gap.options
+        redirect, broader, skip = gap.options
         assert (redirect.target, redirect.section) == ("Głodówka", "Odmiany")
         assert redirect.views_avg == 30.0  # views before the 12-month window are ignored
         assert broader.views_avg == 1500.0
+        assert skip.views_avg is None
+
+    def test_mentions_are_offered_when_no_broader_article_covers_the_topic(self) -> None:
+        world = _World()
+        world.wikidata.entities["Q1666254"].claims.clear()
+        world.mediawiki.add_mentions(
+            PL, "Przerywany post", [Mention("Insulinooporność", "stosować post przerywany")]
+        )
+        (gap,) = world.gaps(local_terms={"pl": "Przerywany post"})
+        assert _kinds(gap.options) == [("mention", "Insulinooporność"), ("skip", None)]
+        mention = gap.options[0]
         assert mention.snippet == "stosować post przerywany"
         assert mention.views_avg == 800.0
-        assert skip.views_avg is None
 
     def test_option_views_use_the_last_twelve_full_months_and_request_filters(self) -> None:
         world = _World()
@@ -154,6 +165,7 @@ class TestOptions:
 
     def test_mentions_are_capped_across_terms(self) -> None:
         world = _World()
+        world.wikidata.entities["Q1666254"].claims.clear()
         world.mediawiki.add_mentions(PL, "one", [Mention(f"M{i}", "") for i in range(2)])
         world.mediawiki.add_mentions(PL, "two", [Mention("M1", ""), Mention("M9", "")])
         (gap,) = world.gaps(

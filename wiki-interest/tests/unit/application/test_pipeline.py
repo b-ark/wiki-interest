@@ -179,7 +179,11 @@ class TestMissingArticle:
         assert json.dumps(payload)
         run_dir = Path(outcome.summary.artifacts.run_dir)
         text = (run_dir / "summary.md").read_text(encoding="utf-8")
-        assert "Nauka" in text
+        # The user sees the broader article with a link to open it before choosing.
+        assert "Broader articles there cover it:" in text
+        assert "[Nauka](https://pl.wikipedia.org/wiki/Nauka)" in text
+        assert gap.options[0].url == "https://pl.wikipedia.org/wiki/Nauka"
+        assert gap.options[1].url is None
         assert not (run_dir / "report.pdf").exists()
 
     def test_the_chosen_substitute_is_measured_and_named_but_never_leads(

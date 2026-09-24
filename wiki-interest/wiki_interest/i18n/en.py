@@ -165,18 +165,19 @@ MESSAGES: dict[str, str] = {
         "The topic's name in this language is unknown, so no redirects or mentions were searched; "
         "give it as local_terms to search for them."
     ),
+    "gap.broader_intro": "Broader articles there cover it:",
+    "gap.mention_intro": "No broader article covers it, but these articles mention it:",
     "option.redirect": (
-        'The redirect "{title}" leads to the article "{target}"{section}: {views} views/month. '
-        "Counts only visits under this exact name, so it is a lower bound."
+        '[{target}]({url}){section} covers it; the name "{title}" leads there: {views} '
+        "views/month under this name. A lower bound: it counts only visits by this exact name."
     ),
     "option.section": ', section "{section}"',
     "option.broader": (
-        'The broader article "{title}": {views} views/month. An upper bound: most readers came for '
-        "the wider subject."
+        "[{title}]({url}), the wider subject: {views} views/month. An upper bound: most readers "
+        "came for the wider subject."
     ),
     "option.mention": (
-        'The article "{title}" mentions the topic: {views} views/month. The topic is a small part '
-        "of it."
+        "[{title}]({url}) mentions it: {views} views/month. The topic is a small part of it."
     ),
     "option.snippet": 'Passage: "…{snippet}…"',
     "option.skip": 'Leave {project} out: the report will say "no article", not zero interest.',
@@ -272,7 +273,8 @@ MESSAGES: dict[str, str] = {
         "subject, so they are not compared with the other editions."
     ),
     "summary.missing_hint": (
-        "Stop here: show these options to the user and ask which one to use for each edition, and "
+        "Stop here: tell the user in their language that the edition has no article on the "
+        "topic, show these options with their links, ask which one to use for each edition, and "
         "end your answer with that question. Do not choose for the user and do not run again until "
         "they have answered. Then merge the chosen option's value from the block below into "
         "topics[].substitutes in request.json and run again."

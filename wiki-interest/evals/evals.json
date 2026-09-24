@@ -13,7 +13,7 @@
         "Порівняй зростання інтересу до інтервального голодування в польськомовній та чеськомовній Wikipedia за останні два роки.",
         "Польську пропусти, порівняй те, що є."
       ],
-      "expected": "First run stops before measuring: pl.wikipedia has no article, so the agent shows the options (broader article, mentions, skip) and asks. After the user says to skip Polish, the agent reruns with substitutes {pl: skip}, relays summary.md in Ukrainian and says Polish Wikipedia has no article on the topic (not zero interest); PDF attached.",
+      "expected": "First run stops before measuring: pl.wikipedia has no article, so the agent says so and shows the options (broader articles with their links, or skip) and asks. After the user says to skip Polish, the agent reruns with substitutes {pl: skip}, relays summary.md in Ukrainian and says Polish Wikipedia has no article on the topic (not zero interest); PDF attached.",
       "assertions": [
         {
           "type": "tool_called",
