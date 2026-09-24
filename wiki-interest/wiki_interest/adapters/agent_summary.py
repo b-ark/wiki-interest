@@ -138,6 +138,8 @@ class AgentSummaryRenderer:
             "",
             summary.verdict.headline,
         ]
+        if clarification.ask_user:
+            lines += ["", f"## {t.t('summary.ask_user')}", "", clarification.ask_user]
         noted: set[str] = set()
         for gap in clarification.gaps:
             if gap.topic_id not in noted:

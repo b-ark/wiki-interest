@@ -186,6 +186,75 @@ class TestMissingArticle:
         assert gap.options[1].url is None
         assert not (run_dir / "report.pdf").exists()
 
+    def test_the_question_to_the_user_is_composed_by_the_code(self, tmp_path: Path) -> None:
+        """In English it is ready at once: the agent sends it word for word."""
+        pipeline = _world_with_polish_gap(tmp_path)
+        request = _request(projects=["uk", "pl"], report={"language": "en"})
+        outcome = pipeline.run(request, _context(tmp_path))
+        clarification = outcome.summary.clarification
+        assert clarification is not None
+        assert clarification.ui == {}
+        assert clarification.ask_user is not None
+        assert 'pl.wikipedia has no article on "astronomy".' in clarification.ask_user
+        assert "1. [Nauka](https://pl.wikipedia.org/wiki/Nauka), the wider subject" in (
+            clarification.ask_user
+        )
+        assert clarification.ask_user.endswith(
+            "Which option should I use for pl.wikipedia? Reply with its number."
+        )
+        details = outcome.to_dict()["clarification"]
+        assert isinstance(details, dict)
+        assert details["ask_user"] == clarification.ask_user
+
+    def test_another_language_gets_the_question_after_its_labels(self, tmp_path: Path) -> None:
+        """The labels are asked for first; with them the question reads in the user's language."""
+        pipeline = _world_with_polish_gap(tmp_path)
+        request = _request(projects=["uk", "pl"], report={"language": "de"})
+        outcome = pipeline.run(request, _context(tmp_path))
+        clarification = outcome.summary.clarification
+        assert clarification is not None
+        assert clarification.ask_user is None
+        assert "gap.question" in clarification.ui
+        assert "translated into de" in clarification.question
+        run_dir = Path(outcome.summary.artifacts.run_dir)
+        labels = {key: f"DE {text}" for key, text in clarification.ui.items()}
+        asked = pipeline.ask(run_dir, labels)
+        assert asked.status == "accepted"
+        question = load_summary(run_dir).clarification
+        assert question is not None
+        assert question.ask_user is not None
+        assert question.ask_user.startswith("DE Topic:")
+        assert "DE Which option should I use" in question.ask_user
+        assert asked.to_dict()["ask_user"] == question.ask_user
+
+    def test_labels_that_lost_a_placeholder_are_sent_back(self, tmp_path: Path) -> None:
+        pipeline = _world_with_polish_gap(tmp_path)
+        request = _request(projects=["uk", "pl"], report={"language": "de"})
+        outcome = pipeline.run(request, _context(tmp_path))
+        clarification = outcome.summary.clarification
+        assert clarification is not None
+        labels = dict(clarification.ui)
+        labels["gap.question"] = "Kein Artikel."
+        del labels["ask.which"]
+        asked = pipeline.ask(Path(outcome.summary.artifacts.run_dir), labels)
+        assert asked.status == "rejected"
+        assert asked.exit_code == 2
+        assert any("ui.ask.which: missing" in p for p in asked.problems)
+        assert any("{project}, {topic}" in p for p in asked.problems)
+
+    def test_the_session_remembers_the_labels(self, tmp_path: Path) -> None:
+        """A second question in the same conversation needs no translation round."""
+        pipeline = _world_with_polish_gap(tmp_path)
+        request = _request(projects=["uk", "pl"], report={"language": "de"})
+        first = pipeline.run(request, _context(tmp_path)).summary.clarification
+        assert first is not None
+        run_dir = tmp_path / "runs" / "astro" / "run-1"
+        pipeline.ask(run_dir, {key: f"DE {text}" for key, text in first.ui.items()})
+        second = pipeline.run(request, _context(tmp_path, "run-2")).summary.clarification
+        assert second is not None
+        assert second.ui == {}
+        assert second.ask_user is not None
+
     def test_the_chosen_substitute_is_measured_and_named_but_never_leads(
         self, tmp_path: Path
     ) -> None:

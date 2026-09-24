@@ -37,6 +37,7 @@ from wiki_interest.application.insights import (
     season_visibility,
     select_insights,
 )
+from wiki_interest.application.question import option_text
 from wiki_interest.application.resolution import ResolvedTopic
 from wiki_interest.contracts.charts import ChartSpec
 from wiki_interest.contracts.request import (
@@ -353,6 +354,8 @@ class SummaryBuilder:
             query=gap.query,
             project=domain,
             qid=entity.qid if entity else None,
+            label=entity.label if entity else None,
+            description=entity.description if entity else None,
             article_languages=list(entity.languages) if entity else [],
             matched_in_english=gap.matched_in_english,
             topic_note=self._topic_note(gap, requested),
@@ -390,30 +393,16 @@ class SummaryBuilder:
         return note
 
     def _option_out(self, number: int, domain: str, option: CoverageOption) -> CoverageOptionOut:
-        t = self._t
-        views = t.number(option.views_avg) if option.views_avg is not None else t.t("value.na")
         choose: dict[str, SubstituteChoice]
         url: str | None = None
         if option.kind == "skip" or option.title is None:
-            description = t.t("option.skip", project=domain)
             choose = {domain: "skip"}
         else:
-            section = t.t("option.section", section=option.section) if option.section else ""
             # The article a reader would open: a redirect's target, at its section.
             article = option.target or option.title
             url = WikiProject.parse(domain).article_url(article, option.section)
-            description = t.t(
-                f"option.{option.kind}",
-                title=option.title,
-                target=option.target or "",
-                section=section,
-                views=views,
-                url=url,
-            )
-            if option.snippet:
-                description += " " + t.t("option.snippet", snippet=option.snippet)
             choose = {domain: SubstituteSpec(title=option.title, kind=option.kind)}
-        return CoverageOptionOut(
+        out = CoverageOptionOut(
             number=number,
             kind=option.kind,
             title=option.title,
@@ -421,10 +410,11 @@ class SummaryBuilder:
             section=option.section,
             snippet=option.snippet,
             views_avg=option.views_avg,
-            description=description,
+            description="",
             url=url,
             choose=choose,
         )
+        return out.model_copy(update={"description": option_text(out, domain, self._t)})
 
     # -- resolution -----------------------------------------------------------------------
 

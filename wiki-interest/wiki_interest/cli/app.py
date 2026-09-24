@@ -133,6 +133,25 @@ def _misplaced_hint(error: ErrorDetails) -> str | None:
     return f"`{field}` belongs to each topic: move it into topics[] (topics[].{field})."
 
 
+def load_labels(path: Path) -> dict[str, str]:
+    """Read the agent's label translations: ``{"ui": {key: text}}``, or the bare mapping.
+
+    Raises:
+        RequestValidationError: For unreadable JSON or anything but string labels.
+    """
+    hint = 'Write question.json as {"ui": {"<key>": "<translation>", ...}}.'
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError as exc:
+        msg = f"{path} is not valid JSON: {exc}"
+        raise RequestValidationError(msg, hint=hint) from exc
+    labels = data.get("ui", data) if isinstance(data, dict) else None
+    if not isinstance(labels, dict) or not all(isinstance(v, str) for v in labels.values()):
+        msg = f"{path} does not hold label translations"
+        raise RequestValidationError(msg, hint=hint)
+    return {str(k): v for k, v in labels.items() if k != "language"}
+
+
 def load_narrative(path: Path) -> Narrative:
     """Read the agent's report text.
 
@@ -206,11 +225,21 @@ def render(
             "--narrative", help="The agent's report text (narrative.json) to check and render."
         ),
     ] = None,
+    ui: Annotated[
+        Path | None,
+        typer.Option(
+            "--ui", help="The agent's translation of the question's labels (question.json)."
+        ),
+    ] = None,
 ) -> None:
     """Re-render charts and reports from a saved summary.json, or with the agent's text."""
     # "render.py ." from inside the run directory put "report.pdf" in the chat answer.
     run_dir = run_dir.resolve()
     with _guarded(), build_container() as container:
+        if ui is not None:
+            question = container.pipeline().ask(run_dir, load_labels(ui))
+            _emit(question.to_dict())
+            raise typer.Exit(code=question.exit_code)
         if narrative is not None:
             outcome = container.pipeline().narrate(run_dir, load_narrative(narrative))
             _emit(outcome.to_dict())

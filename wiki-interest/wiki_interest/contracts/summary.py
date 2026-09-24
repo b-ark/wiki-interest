@@ -459,6 +459,10 @@ class CoverageGapOut(_Model):
     query: str
     project: str
     qid: str | None = None
+    label: str | None = None
+    """The item's name in the report language, if Wikidata has one."""
+    description: str | None = None
+    """The item's Wikidata description, so the user can tell it from its homonyms."""
     article_languages: list[str] = Field(default_factory=list)
     matched_in_english: bool = False
     topic_note: str
@@ -480,8 +484,15 @@ class Clarification(_Model):
     topic_id: str
     query: str
     question: str
+    """What the agent does next, in English."""
     candidates: list[CandidateOut] = Field(default_factory=list)
     gaps: list[CoverageGapOut] = Field(default_factory=list)
+    ask_user: str | None = None
+    """For ``missing_article``: the message to send the user word for word, composed by the
+    code; ``None`` while ``ui`` still has labels to translate."""
+    ui: dict[str, str] = Field(default_factory=dict)
+    """Labels of ``ask_user`` still in English (``key: template``), for the agent to translate
+    with ``render.py <run_dir> --ui``."""
 
 
 class Artifacts(_Model):

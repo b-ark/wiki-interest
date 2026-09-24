@@ -158,6 +158,7 @@ MESSAGES: dict[str, str] = {
     "bundle_status.substitute": "substitute",
     "summary.missing_needed": "Decision needed: no article",
     "summary.apply_choice": "For the agent: value to put into topics[].substitutes",
+    "summary.ask_user": "For the agent: the question to send word for word",
     "gap.headline": (
         "Nothing has been measured yet: there is no article on the topic in {projects}. Choose "
         "what to measure there first."
@@ -278,13 +279,24 @@ MESSAGES: dict[str, str] = {
         "subject, so they are not compared with the other editions."
     ),
     "summary.missing_hint": (
-        "Stop here: tell the user in the language they write in (report.language: {language}; "
-        "not the language of the edition or of the article titles) that the edition has no "
-        "article on the topic, show these options with their links, ask which one to use for "
-        "each edition, and end your answer with that question. Do not choose for the user and do "
-        "not run again until they have answered. Then merge the chosen option's value from the "
-        "block below into topics[].substitutes in request.json and run again."
+        "Stop here: send clarification.ask_user to the user word for word as your whole message "
+        "and end your turn. Do not choose for the user and do not run again until they have "
+        "answered. Then copy the chosen option's choose value (in gaps, or in summary.md) into "
+        "topics[].substitutes in request.json and run again."
     ),
+    "summary.missing_translate_hint": (
+        "Stop here: the question to the user is ready but its labels are in English. Write "
+        'question.json as {{"ui": {{...}}}} with every label of clarification.ui translated into '
+        "{language}, the language the user writes in (keep each {{placeholder}}), run "
+        "render.py <run_dir> --ui question.json, and send its ask_user word for word as your "
+        "whole message. Do not choose for the user and do not run again until they have "
+        "answered."
+    ),
+    "ask.local_name": (
+        "If you know what the topic is called in {project}'s language, tell me and I will look "
+        "for it there."
+    ),
+    "ask.which": "Which option should I use for {projects}? Reply with its number.",
     "answer.conclusion.unknown": "Extend the period before deciding.",
     "answer.conclusion.low_trust": (
         "The data are too weak for a conclusion; treat the numbers as indicative only."

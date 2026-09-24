@@ -78,6 +78,9 @@
         },
         {
           "type": "chat_answer_relayed"
+        },
+        {
+          "type": "question_relayed"
         }
       ],
       "rubric": [
@@ -232,6 +235,9 @@
         },
         {
           "type": "chat_answer_relayed"
+        },
+        {
+          "type": "question_relayed"
         }
       ],
       "rubric": [
@@ -831,6 +837,9 @@
         },
         {
           "type": "chat_answer_relayed"
+        },
+        {
+          "type": "question_relayed"
         }
       ],
       "rubric": [

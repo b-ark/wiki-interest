@@ -8,7 +8,7 @@ receives from the composition root, so the whole thing runs against in-memory fa
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -25,6 +25,7 @@ from wiki_interest.application.facts import (
 )
 from wiki_interest.application.loading import SeriesLoader
 from wiki_interest.application.narrative_check import check_narrative
+from wiki_interest.application.question import compose_question, label_problems
 from wiki_interest.application.resolution import TopicResolver
 from wiki_interest.application.runs import ATTEMPTS_FILENAME, CHAT_BRIEF_FILENAME, previous_run
 from wiki_interest.application.summary_builder import (
@@ -174,6 +175,10 @@ class PipelineOutcome:
                     }
                     for gap in clarification.gaps
                 ]
+            if clarification.ask_user is not None:
+                details["ask_user"] = clarification.ask_user
+            if clarification.ui:
+                details["ui"] = clarification.ui
             payload["clarification"] = details
             payload["hint"] = clarification.question
         if self.summary.status == "topic_resolved":
@@ -226,6 +231,41 @@ class NarrationOutcome:
         return payload
 
 
+@dataclass(frozen=True, slots=True)
+class QuestionOutcome:
+    """The question to the user after the agent translated its labels.
+
+    Attributes:
+        summary: The run's summary; ``clarification.ask_user`` holds the question once
+            ``status`` is ``accepted``.
+        status: ``accepted``, or ``rejected`` (fix the labels named in ``problems``).
+        problems: Labels missing or with lost placeholders.
+    """
+
+    summary: AnalysisSummary
+    status: Literal["accepted", "rejected"]
+    problems: tuple[str, ...] = ()
+
+    @property
+    def exit_code(self) -> int:
+        """2 while the agent has to fix its labels, else 0."""
+        return EXIT_INVALID if self.status == "rejected" else EXIT_OK
+
+    def to_dict(self) -> dict[str, object]:
+        """JSON for stdout: the question to send, or the problems."""
+        clarification = self.summary.clarification
+        payload: dict[str, object] = {"status": self.status, "exit_code": self.exit_code}
+        if self.problems:
+            payload["problems"] = list(self.problems)
+            payload["hint"] = "Fix every label named in problems and run render.py --ui again."
+        elif clarification is not None and clarification.ask_user is not None:
+            payload["ask_user"] = clarification.ask_user
+            payload["hint"] = (
+                "Send ask_user to the user word for word as your whole message, and stop."
+            )
+        return payload
+
+
 class Pipeline:
     """Runs analyses end to end and re-renders saved ones."""
 
@@ -266,6 +306,7 @@ class Pipeline:
         gaps = services.coverage.gaps(request, resolved, self._clock.today())
         if gaps:
             summary = builder.build_coverage_question(request=request, period=period, gaps=gaps)
+            summary = _with_question(summary, context.run_dir, services.translator)
             self._write_clarification(summary, context.run_dir, services.renderers)
             return PipelineOutcome(summary, EXIT_CLARIFICATION)
         if services.stop_after_resolve:
@@ -292,6 +333,31 @@ class Pipeline:
             self._write_clarification(summary, run_dir, renderers)
             return summary
         return self._render(summary, run_dir, renderers, translator)
+
+    def ask(self, run_dir: Path, ui: Mapping[str, str]) -> QuestionOutcome:
+        """Compose the missing-article question with the agent's translation of its labels.
+
+        The translations are kept for the session, as the report text's are.
+
+        Raises:
+            FileNotFoundError: If the run has no ``summary.json``.
+            RequestValidationError: If the run did not stop on a missing article.
+        """
+        summary = load_run_summary(run_dir)
+        clarification = summary.clarification
+        if clarification is None or clarification.kind != "missing_article":
+            msg = f"{run_dir} did not stop on a missing article: there is no question to compose"
+            raise RequestValidationError(msg, hint="Use --ui only after run.py asked for it.")
+        problems = label_problems(clarification.ui, ui)
+        if problems:
+            return QuestionOutcome(summary, "rejected", tuple(problems))
+        language = summary.request.report.language
+        cache = _ui_cache_path(run_dir, language)
+        _write_json(cache, {**_read_ui(cache), **{k: v for k, v in ui.items() if v.strip()}})
+        translator, renderers = self._factory.renderers_for(language)
+        final = _with_question(summary, run_dir, translator)
+        self._write_clarification(final, run_dir, renderers)
+        return QuestionOutcome(final, "accepted")
 
     def narrate(self, run_dir: Path, narrative: Narrative) -> NarrationOutcome:
         """Check the agent's text against the run's facts and, if it holds, render with it.
@@ -424,6 +490,37 @@ def _read_ui(path: Path) -> dict[str, str]:
         return {}
     data = json.loads(path.read_text(encoding="utf-8"))
     return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+
+
+def _with_question(
+    summary: AnalysisSummary, run_dir: Path, translator: Translator
+) -> AnalysisSummary:
+    """``summary`` with the missing-article question composed, or the labels it still needs.
+
+    The question goes to the user word for word, so it is given only when every label reads
+    in the user's language: the catalog's, or the session's translations.
+    """
+    clarification = summary.clarification
+    assert clarification is not None
+    if not translator.has_catalog:
+        translator.override(_read_ui(_ui_cache_path(run_dir, translator.requested)))
+    with translator.recording() as used:
+        text = compose_question(clarification, translator)
+    pending = {k: translator.english(k) for k in sorted(used) if not translator.translates(k)}
+    language = summary.request.report.language
+    if pending:
+        update = {
+            "ask_user": None,
+            "ui": pending,
+            "question": translator.t("summary.missing_translate_hint", language=language),
+        }
+    else:
+        update = {
+            "ask_user": text,
+            "ui": {},
+            "question": translator.t("summary.missing_hint", language=language),
+        }
+    return summary.model_copy(update={"clarification": clarification.model_copy(update=update)})
 
 
 def _period(request: AnalysisRequest, today: date) -> Period:

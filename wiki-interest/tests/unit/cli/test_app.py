@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 from fakes import astronomy_world, fake_container
 from wiki_interest.cli import app as cli
 from wiki_interest.cli.container import Container
+from wiki_interest.errors import RequestValidationError
 
 REQUEST: dict[str, object] = {
     "question_type": "compare",
@@ -146,6 +147,27 @@ class TestOtherCommands:
         code, payload = _invoke("diff", str(tmp_path / "a"), str(tmp_path / "b"))
         assert code == 2
         assert "not found" in str(payload["error"]).lower()
+
+
+class TestRenderQuestion:
+    def test_labels_for_a_run_without_a_question_are_a_request_error(
+        self, tmp_path: Path, fakes: Container
+    ) -> None:
+        code, payload = _invoke("run", str(_write_request(tmp_path, REQUEST)))
+        assert code == 0, payload
+        labels = _write_request(tmp_path, {"ui": {"ask.which": "?"}}, "question.json")
+        code, asked = _invoke("render", str(payload["run_dir"]), "--ui", str(labels))
+        assert code == 2
+        assert "no question to compose" in str(asked["error"])
+
+    @pytest.mark.parametrize("data", [{"ui": {"a": "b"}}, {"a": "b"}, {"language": "de", "a": "b"}])
+    def test_labels_are_read_wrapped_or_bare(self, tmp_path: Path, data: dict[str, object]) -> None:
+        assert cli.load_labels(_write_request(tmp_path, data, "question.json")) == {"a": "b"}
+
+    def test_labels_that_are_not_text_are_a_request_error(self, tmp_path: Path) -> None:
+        path = _write_request(tmp_path, {"ui": {"a": 1}}, "question.json")
+        with pytest.raises(RequestValidationError, match="label translations"):
+            cli.load_labels(path)
 
 
 class TestRenderNarrative:
