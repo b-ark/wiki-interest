@@ -181,6 +181,8 @@ def _numbers_grounded(a: NumbersGrounded, ctx: GradeContext) -> GradeOutcome:
     if not docs:
         return _outcome(a, False, "no summary.json to ground numbers against")
     leaves = [leaf for doc in docs for leaf in summary_numeric_leaves(doc)]
+    # "Per 1 million views" names the attention share's unit; it is not a finding.
+    leaves.append(1_000_000.0)
     report = ground_numbers(
         ctx.trajectory.final_answer,
         leaves,
