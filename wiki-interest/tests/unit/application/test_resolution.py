@@ -397,6 +397,30 @@ class TestEnglishFallbackAndLocalTerms:
         searches = [args for name, args in wikidata.calls if name == "search_entities"]
         assert [(q, lang) for q, lang, _ in searches] == [("astronomia", "en"), ("astronomy", "en")]
 
+    def test_wording_no_label_matches_resolves_through_the_article_it_names(self) -> None:
+        """An inflected wording ("криптовалюты") is a redirect in its Wikipedia, not a label."""
+        wikidata, mediawiki = _world()
+        topic = _topic(query="Астрономічна наука", query_language="uk")
+        resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK, CS])
+        assert (resolved.qid, resolved.method) == ("Q333", "title")
+        assert resolved.bundle_for(CS).main is not None
+
+    def test_redirect_to_a_section_does_not_name_the_topic(self) -> None:
+        """A section of a broader article is a substitute to offer, not the topic's item."""
+        wikidata, mediawiki = _world()
+        mediawiki.add_page(
+            UK,
+            FakePage(
+                "Наука",
+                qid="Q336",
+                redirects=["Зоряна наука"],
+                redirect_sections={"Зоряна наука": "Астрономія"},
+            ),
+        )
+        topic = _topic(query="Зоряна наука", query_language="uk")
+        with pytest.raises(TopicNotFoundError):  # not resolved as "Наука" (Q336)
+            TopicResolver(wikidata, mediawiki).resolve(topic, [UK])
+
     def test_label_prefers_the_query_language_after_an_english_match(self) -> None:
         wikidata, mediawiki = _world()
         topic = _topic(query="астрономия", query_language="uk", query_en="astronomy")

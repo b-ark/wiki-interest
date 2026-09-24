@@ -82,7 +82,8 @@ class ResolvedTopic:
             report lists them so a typo never silently drops an edition.
         method: How the item was chosen: ``pinned`` (``qid`` given), ``link`` (the user's
             article), ``unique`` (one match), ``auto`` (picked among homonyms by the stated
-            meaning), ``default`` (no meaning stated; coverage and ranking agreed), ``none``.
+            meaning), ``default`` (no meaning stated; coverage and ranking agreed), ``title``
+            (no Wikidata match; the article the query names in its own language), ``none``.
         confidence: For ``auto``: the leader's share of the two best scores, in ``[0.5, 1]``.
         runner_up: For ``auto``: the second-best candidate.
     """
@@ -224,18 +225,24 @@ class TopicResolver:
         """Pick the Wikidata item for a topic, or raise when the choice is not obvious.
 
         Sources, in order: a pinned ``qid``; the item of the article the user linked; a search
-        by the query in its own language; the same search by ``query_en`` when the first finds
-        nothing. The English search runs whenever ``query_en`` is a different wording, even
-        with ``query_language`` left at ``en``: an agent that drops the field must not lose the
-        topic ("post przerywany" searched as English finds nothing). Every search result goes
-        through :meth:`_choose`, so a vague translation still ends in a question rather than a
-        guess.
+        by the query in its own language; the article the query names in its own Wikipedia,
+        redirects followed; the search by ``query_en``. The article comes before the English
+        wording: it is the user's own word, while a translation can miss ("cryptocurrencies"
+        finds only "Cryptocurrencies in Europe"). The English search runs whenever ``query_en``
+        is a different wording, even with ``query_language`` left at ``en``: an agent that
+        drops the field must not lose the topic ("post przerywany" searched as English finds
+        nothing). Every search result goes through :meth:`_choose`, so a vague translation
+        still ends in a question rather than a guess.
         """
         if topic.qid is not None:
             return self._pinned(topic.qid, topic.query_language)
         if topic.article_ref is not None:
             return self._linked(topic, *topic.article_ref)
         candidates = self._search(topic.query, topic.query_language)
+        if not candidates:
+            titled = self._titled(topic)
+            if titled.qid is not None:
+                return titled
         in_english = False
         english = topic.query_en
         if (
@@ -297,6 +304,21 @@ class TopicResolver:
         return _Entity(
             qid=qid, label=summary.label, description=summary.description, method="pinned"
         )
+
+    def _titled(self, topic: TopicSpec) -> _Entity:
+        """The item of the article titled like the query in the query's own Wikipedia.
+
+        Wikidata search matches labels and aliases, so an inflected wording finds nothing
+        ("криптовалюты", plural), while that Wikipedia redirects it to the article
+        ("Криптовалюта"). A page without an item gives nothing, and so does a redirect to a
+        section: it points into a broader article ("Post przerywany" -> "Głodówka#Post
+        przerywany"), whose item is not the topic.
+        """
+        project = WikiProject(topic.query_language)
+        info = self._mediawiki.page_info(project, [topic.query]).get(topic.query)
+        if info is None or info.qid is None or info.fragment:
+            return _Entity()
+        return replace(self._pinned(info.qid, topic.query_language), method="title")
 
     def _linked(self, topic: TopicSpec, project: WikiProject, title: str) -> _Entity:
         """The item of the article the user linked; the article itself if it has none."""

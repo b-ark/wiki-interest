@@ -103,7 +103,7 @@ class TopicResolutionOut(_Model):
     description: str | None = None
     matched_in_english: bool = False
     alternatives: list[CandidateOut] = Field(default_factory=list)
-    method: Literal["pinned", "link", "unique", "auto", "default", "none"] = "none"
+    method: Literal["pinned", "link", "unique", "auto", "default", "title", "none"] = "none"
     """How the item was chosen; ``auto``: among homonyms, by the meaning the agent stated."""
     confidence: float | None = None
     """For ``auto``: the leader's share of the two best candidate scores."""
