@@ -194,6 +194,8 @@ class Narrative(_Model):
         language: The language it is written in; must be the report language.
         glossary: The agent's term for each metric (``attention_share: "доля внимания"``);
             every sentence with a number names its metric with one of these terms.
+        topic: Which item was analysed, in one line of the report language ("Python, the
+            programming language"); the chat answer opens with it. Empty: the code's line.
         headline: The answer in one sentence, without numbers.
         happening: What happened: two to four sentences with the numbers.
         robustness: For every measured pair, whether the recent months confirm the trend.
@@ -206,6 +208,7 @@ class Narrative(_Model):
 
     language: str
     glossary: dict[MetricId, str]
+    topic: str = ""
     headline: str
     happening: list[str]
     robustness: list[PairText] = Field(default_factory=list)

@@ -236,8 +236,20 @@ class TestChatBrief:
         brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8")
         assert "Topic:" not in brief
         assert "«astronomy»" in brief
-        assert "I can also" not in brief
+        assert "What else I can do" not in brief
         assert brief.splitlines()[-1].startswith("PDF: ")
+
+    def test_a_next_step_left_in_english_leaves_out_only_itself(self, tmp_path: Path) -> None:
+        pipeline, run_dir = _run(tmp_path, "de")
+        facts = _facts(run_dir)
+        ui = {k: f"DE {v}" for k, v in facts.template.ui.items()}
+        del ui["chat.follow_up.seasons"]
+        narrative = facts.template.model_copy(update={"ui": ui})
+        assert pipeline.narrate(run_dir, narrative).status == "accepted"
+        brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8")
+        assert "DE What else I can do" in brief
+        assert "DE I can look at a longer period" in brief
+        assert "months of the year" not in brief
 
     def test_a_text_with_no_translated_label_is_rejected(self, tmp_path: Path) -> None:
         _, run_dir = _run(tmp_path, "de")
@@ -415,7 +427,9 @@ class TestRejections:
 class TestNarrate:
     def test_accepted_text_goes_into_the_reports_and_the_chat_brief(self, tmp_path: Path) -> None:
         pipeline, run_dir = _run(tmp_path, "ru")
-        narrative = _russian(_facts(run_dir), _template(run_dir))
+        narrative = _russian(_facts(run_dir), _template(run_dir)).model_copy(
+            update={"topic": "Астрономия — наука про небесные тела (Q333)."}
+        )
         outcome = pipeline.narrate(run_dir, narrative)
         assert outcome.status == "accepted"
         assert outcome.exit_code == 0
@@ -428,6 +442,7 @@ class TestNarrate:
         assert "украинской" in pdf
         # The chat answer is laid out from the accepted blocks, with next steps and the PDF.
         brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8").strip()
+        assert brief.startswith(narrative.topic)  # the agent's line, in the user's language
         assert narrative.headline in brief
         assert "37,9 на миллион" in brief
         assert all(item in brief for item in narrative.caveats)

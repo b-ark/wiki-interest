@@ -544,6 +544,8 @@ class AnalysisSummary(_Model):
     narrative_source: Literal["template", "agent"] = "template"
     """Who wrote the headline, happening, robustness and decision text: the code's templates,
     or the agent (``narrative.json``, checked against ``facts.json``)."""
+    topic_line: str | None = None
+    """Which item was analysed, in the report language, when the agent wrote it."""
     chat_answer: str | None = None
     """The reply the agent sends to the chat as it is, composed from the report text."""
     artifacts: Artifacts

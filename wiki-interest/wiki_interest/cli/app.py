@@ -136,13 +136,17 @@ def load_narrative(path: Path) -> Narrative:
 
 
 def new_run_context(runs_dir: Path, session: str | None) -> RunContext:
-    """Allocate a run id and directory: ``<runs_dir>/<session>/<timestamp>-<random>``."""
+    """Allocate a run id and directory: ``<runs_dir>/<session>/<timestamp>-<random>``.
+
+    The directory is absolute: the paths in the output and the chat answer must open from
+    wherever the user reads them.
+    """
     now = datetime.now(UTC)
     run_id = f"{now:%Y%m%d-%H%M%S}-{secrets.token_hex(2)}"
     return RunContext(
         run_id=run_id,
         session=session,
-        run_dir=runs_dir / (session or DEFAULT_SESSION) / run_id,
+        run_dir=runs_dir.resolve() / (session or DEFAULT_SESSION) / run_id,
         generated_at=now,
     )
 
@@ -188,6 +192,8 @@ def render(
     ] = None,
 ) -> None:
     """Re-render charts and reports from a saved summary.json, or with the agent's text."""
+    # "render.py ." from inside the run directory put "report.pdf" in the chat answer.
+    run_dir = run_dir.resolve()
     with _guarded(), build_container() as container:
         if narrative is not None:
             outcome = container.pipeline().narrate(run_dir, load_narrative(narrative))

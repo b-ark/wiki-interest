@@ -169,6 +169,18 @@ class TestRenderNarrative:
         assert rendered["chat_answer"]
         assert Path(str(rendered["chat_brief"])).is_file()
 
+    def test_a_render_from_inside_the_run_gives_the_full_path_to_the_pdf(
+        self, tmp_path: Path, fakes: Container, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        payload = self._run(tmp_path)
+        path = _write_request(tmp_path, self._template(payload), "narrative.json")
+        monkeypatch.chdir(str(payload["run_dir"]))
+        code, rendered = _invoke("render", ".", "--narrative", str(path))
+        assert code == 0, rendered
+        pdf = Path(str(rendered["report_pdf"]))
+        assert pdf.is_absolute()
+        assert str(pdf) in str(rendered["chat_answer"])
+
     def test_a_rejected_text_is_exit_two_with_problems(
         self, tmp_path: Path, fakes: Container
     ) -> None:

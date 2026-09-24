@@ -85,6 +85,14 @@ METRICS: tuple[MetricFact, ...] = (
 
 BLOCKS: tuple[BlockRule, ...] = (
     BlockRule(
+        name="topic",
+        rule=(
+            "Which item was analysed, in one line of the report language: its name and what "
+            "it is (from topics[]), so the reader sees the meaning: the planet, not the element."
+        ),
+        max_chars=240,
+    ),
+    BlockRule(
         name="headline",
         rule=(
             "The answer in one sentence, without numbers: which audience, and where its "
@@ -153,7 +161,8 @@ RULES: tuple[str, ...] = (
     "ratios, differences, sums, shares of totals or '1 in N'.",
     "Every sentence with a number names its metric with your glossary term (a list item may "
     "take it from the line that introduces the list, ending with ':'); give each metric one "
-    "term in glossary and keep to it. A rejection quotes the words to write: use them.",
+    "term in glossary, in the nominative, and inflect it as each sentence needs. A rejection "
+    "quotes the words to write: use them.",
     "Name editions by their label (uk.wikipedia).",
     "An edition without an article has 'no article', never 'no interest'.",
     "Wikipedia views measure attention and curiosity, not demand, a market or willingness "
@@ -499,6 +508,7 @@ def template_narrative(
             "article_views": translator.t("metric.article_views").lower(),
             "edition_traffic": translator.t("metric.edition_views").lower(),
         },
+        topic=" ".join(_topic_lines(summary, translator)),
         headline=summary.verdict.headline,
         happening=list(summary.happening),
         robustness=[
@@ -545,7 +555,7 @@ def compose_chat(summary: AnalysisSummary, caveats: Sequence[str], translator: T
     t = translator
     decision = summary.decision
     lines = [
-        *_topic_lines(summary, t),
+        *([summary.topic_line] if summary.topic_line else _topic_lines(summary, t)),
         "",
         f"**{summary.verdict.headline}**",
         "",
@@ -631,17 +641,23 @@ def _months_line(summary: AnalysisSummary, t: Translator) -> list[str]:
 
 
 def _offer_lines(summary: AnalysisSummary, t: Translator) -> list[str]:
-    """A few next steps, the instant ones marked; left out unless the labels are translated."""
+    """A few next steps, the instant ones marked, each only when its label is translated.
+
+    A follow-up run offers steps the first did not; their labels are new, and one left in
+    English must not take the translated ones with it.
+    """
     offers = _follow_ups(summary)[:_CHAT_FOLLOW_UPS]
     if not offers:
         return []
+    # Every label is looked up before it is judged: the lookup asks for its translation.
+    heading = t.t("chat.follow_ups")
     instant = f" ({t.t('chat.instant')})"
-    lines = [
-        t.t("chat.follow_ups"),
-        *(f"- {t.t(f'chat.follow_up.{f.id}')}{instant if f.cached else ''}" for f in offers),
-    ]
-    keys = ["chat.follow_ups", "chat.instant", *(f"chat.follow_up.{f.id}" for f in offers)]
-    return lines if _translated(t, *keys) else []
+    if not _translated(t, "chat.instant"):
+        instant = ""
+    items = [(f"chat.follow_up.{f.id}", f.cached) for f in offers]
+    lines = [(key, f"- {t.t(key)}{instant if cached else ''}") for key, cached in items]
+    shown = [line for key, line in lines if _translated(t, key)]
+    return [heading, *shown] if shown and _translated(t, "chat.follow_ups") else []
 
 
 def _decision_lines(
@@ -704,5 +720,6 @@ def apply_narrative(summary: AnalysisSummary, narrative: Narrative) -> AnalysisS
             "assessments": assessments,
             "decision": decision,
             "narrative_source": "agent",
+            "topic_line": narrative.topic.strip() or None,
         }
     )

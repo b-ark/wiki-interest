@@ -131,6 +131,8 @@ class _Checker:
         missing = [m.id for m in self.facts.metrics if not n.glossary.get(m.id, "").strip()]
         if missing:
             self.add("glossary", f"Give your term for every metric; missing: {', '.join(missing)}.")
+        if n.topic.strip():
+            self.length("topic", [n.topic])
         self.length("headline", [n.headline])
         if re.search(r"\d", n.headline):
             self.add("headline", "The headline has no numbers; they go in 'happening'.", n.headline)

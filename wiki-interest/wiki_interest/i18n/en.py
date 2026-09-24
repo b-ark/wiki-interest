@@ -82,12 +82,14 @@ MESSAGES: dict[str, str] = {
     ),
     "summary.bundles": "Articles analysed",
     # -- chat answer (composed from the report text) ---------------------------------------
-    "chat.follow_ups": "I can also:",
-    "chat.follow_up.seasons": "show which months of the year are strongest",
-    "chat.follow_up.longer_period": "look at a longer period, back to 2015-07",
-    "chat.follow_up.add_editions": "add more language editions to compare",
-    "chat.follow_up.raw_views": "compare raw article views instead of the attention share",
-    "chat.follow_up.method_page": "add a page with the method and the data checks",
+    # Whole first-person sentences: a bare "show which months" came back translated as an
+    # order to the user ("покажіть").
+    "chat.follow_ups": "What else I can do:",
+    "chat.follow_up.seasons": "I can show which months of the year are strongest",
+    "chat.follow_up.longer_period": "I can look at a longer period, back to 2015-07",
+    "chat.follow_up.add_editions": "I can add more language editions to compare",
+    "chat.follow_up.raw_views": "I can compare raw article views instead of the attention share",
+    "chat.follow_up.method_page": "I can add a page with the method and the data checks",
     "chat.instant": "instant: the data are already loaded",
     "chat.pdf": "PDF report: {path}",
     # -- charts ----------------------------------------------------------------------------

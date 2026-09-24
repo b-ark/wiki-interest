@@ -83,6 +83,8 @@ which may be read-only.
    - `language` = `facts.language`; `glossary`: your term for each metric, used in every
      sentence with a number (`{"attention_share": "доля внимания", "article_views": ...,
      "edition_traffic": ...}`);
+   - `topic`: which item was analysed, one line in the user's language ("ртуть, хімічний
+     елемент"); the chat answer opens with it;
    - `headline`, `happening[]`, `robustness[]` (one `{"pair": pairs[].id, "text": ...}` per
      measured pair, naming its edition), `decision[]`, `next_step`;
    - `caveats[]`: every caveat of `facts.caveats`, one short item each; `covered_caveats`:
