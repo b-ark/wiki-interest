@@ -37,6 +37,7 @@ __all__ = [
     "NoToolCalled",
     "NumbersGrounded",
     "PdfPages",
+    "QuestionRelayed",
     "RubricItem",
     "Scenario",
     "ScenarioFile",
@@ -188,6 +189,19 @@ class ChatAnswerRelayed(_Strict):
     min_overlap: float = Field(default=0.9, gt=0, le=1)
 
 
+class QuestionRelayed(_Strict):
+    """The question the skill composed for the user (``clarification.ask_user``) was sent as it is.
+
+    When an edition has no article the skill lays the question out itself; an agent that
+    rewrites it can switch language or drop options. Each composed question must be carried
+    by one of the agent's answers with word overlap ``min_overlap`` in both directions.
+    Passes when no question was composed.
+    """
+
+    type: Literal["question_relayed"]
+    min_overlap: float = Field(default=0.9, gt=0, le=1)
+
+
 class ClarificationAsked(_Strict):
     """The agent asked the user a question and did not produce ``report.pdf``.
 
@@ -214,6 +228,7 @@ Assertion = Annotated[
     | CaveatsRelayed
     | NarrativeAccepted
     | ChatAnswerRelayed
+    | QuestionRelayed
     | ClarificationAsked,
     Field(discriminator="type"),
 ]

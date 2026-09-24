@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Sequence
 from pathlib import Path
@@ -24,6 +25,7 @@ from skill_evals.scenarios import (
     NoToolCalled,
     NumbersGrounded,
     PdfPages,
+    QuestionRelayed,
     SummaryField,
     ToolCalled,
 )
@@ -361,6 +363,31 @@ def test_chat_answer_relayed_as_it_is_passes_and_a_rewrite_fails(tmp_path: Path)
     assert not outcome.passed
     assert "comes from there" in outcome.evidence
     assert not grade(check, _ctx(tmp_path, "Астрономія падає. Звіт готовий.")).passed
+
+
+QUESTION = (
+    "В uk.wikipedia нет статьи о «чайный квас». Там о ней говорится в более общих статьях:\n"  # noqa: RUF001 - Russian text
+    "1. [Газований напій](https://uk.wikipedia.org/wiki/X) — более общая тема: 42 просмотров.\n"
+    "2. Не учитывать uk.wikipedia: в отчёте будет «нет статьи», а не нулевой интерес.\n"  # noqa: RUF001 - Russian text
+    "Какой вариант использовать для uk.wikipedia? Ответьте номером."
+)
+
+
+def test_question_relayed_as_it_is_passes_and_a_rewrite_fails(tmp_path: Path) -> None:
+    run_dir = tmp_path / "artifacts" / "r1"
+    run_dir.mkdir(parents=True)
+    summary = {"status": "needs_clarification", "clarification": {"ask_user": QUESTION}}
+    (run_dir / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    check = QuestionRelayed(type="question_relayed")
+    assert grade(check, _ctx(tmp_path, QUESTION)).passed
+    rewrite = "На українській Вікіпедії немає окремої статті про комбучу. Яку опцію вибрати?"  # noqa: RUF001 - Russian text
+    assert not grade(check, _ctx(tmp_path, rewrite)).passed
+
+
+def test_question_relayed_passes_without_a_composed_question(tmp_path: Path) -> None:
+    outcome = grade(QuestionRelayed(type="question_relayed"), _ctx(tmp_path, "anything"))
+    assert outcome.passed
+    assert outcome.evidence == "no composed question"
 
 
 def test_chat_answer_relayed_passes_without_an_accepted_text(tmp_path: Path) -> None:

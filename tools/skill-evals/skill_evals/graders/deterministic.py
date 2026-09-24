@@ -30,6 +30,7 @@ from skill_evals.scenarios import (
     NoToolCalled,
     NumbersGrounded,
     PdfPages,
+    QuestionRelayed,
     SummaryField,
     ToolCalled,
 )
@@ -143,6 +144,8 @@ def grade(assertion: Assertion, ctx: GradeContext) -> GradeOutcome:  # noqa: PLR
             return _narrative_accepted(assertion, ctx)
         case ChatAnswerRelayed():
             return _chat_answer_relayed(assertion, ctx)
+        case QuestionRelayed():
+            return _question_relayed(assertion, ctx)
 
 
 def _outcome(assertion: Assertion, passed: bool, evidence: str) -> GradeOutcome:
@@ -385,6 +388,31 @@ def _chat_answer_relayed(a: ChatAnswerRelayed, ctx: GradeContext) -> GradeOutcom
         f"answer carries {carried:.0%} of the accepted text; {own:.0%} of it comes from there"
     )
     return _outcome(a, min(carried, own) >= a.min_overlap, evidence)
+
+
+def _question_relayed(a: QuestionRelayed, ctx: GradeContext) -> GradeOutcome:
+    questions: dict[str, set[str]] = {}
+    for doc in ctx.summaries("**/summary.json"):
+        clarification = doc.get("clarification")
+        if isinstance(clarification, dict) and isinstance(clarification.get("ask_user"), str):
+            text = clarification["ask_user"]
+            questions[text] = _tokens(text)
+    if not questions:
+        return _outcome(a, True, "no composed question")
+    answers = [_tokens(turn.final_answer) for turn in ctx.trajectory.turns]
+    worst = 1.0
+    for words in questions.values():
+        best = max(
+            (
+                min(len(words & ans) / len(words), len(ans & words) / len(ans))
+                for ans in answers
+                if ans and words
+            ),
+            default=0.0,
+        )
+        worst = min(worst, best)
+    evidence = f"{len(questions)} composed question(s); weakest carried at {worst:.0%}"
+    return _outcome(a, worst >= a.min_overlap, evidence)
 
 
 def _caveat_messages(docs: list[dict[str, object]]) -> list[str]:
