@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 
+from wiki_interest.application.summary_builder import period_notes
 from wiki_interest.contracts.narrative import (
     AnomalyFact,
     BlockRule,
@@ -528,11 +529,17 @@ def template_caveats(summary: AnalysisSummary, translator: Translator) -> list[s
     """The caveats of the template text: this run's limitations and the general ones in brief.
 
     The chat keeps the general limitations to one line; the PDF and ``summary.md`` have them
-    in full.
+    in full. An edition with data too weak for a conclusion is named, as the check requires
+    of the agent's text.
     """
     measured = sum(1 for a in summary.assessments if a.measured)
     return [
         *summary.limitations,
+        *(
+            translator.t("outcome.low_trust", label=a.label)
+            for a in summary.assessments
+            if a.outcome == "low_trust"
+        ),
         *([translator.t("limitation.coverage")] if measured > 1 else []),
         translator.t("report.footer_caveats"),
     ]
@@ -565,6 +572,7 @@ def compose_chat(
         "",
         f"**{summary.verdict.headline}**",
         "",
+        *_period_lines(summary, t),
         *_change_lines(summary, previous, t),
         "",
         *(f"- {line}" for line in summary.happening),
@@ -617,6 +625,12 @@ def _topic_lines(summary: AnalysisSummary, t: Translator) -> list[str]:
             line = f"«{label}»{tail} ({topic.qid})"
         lines.append(line)
     return lines
+
+
+def _period_lines(summary: AnalysisSummary, t: Translator) -> list[str]:
+    """Why the period differs from the one asked for: the agent's text may leave it out."""
+    notes = period_notes(summary.request.period, summary.period, t)
+    return [text for key, text in notes if _translated(t, key)]
 
 
 def _change_lines(

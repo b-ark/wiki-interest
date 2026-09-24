@@ -92,7 +92,7 @@ from wiki_interest.domain.models import (
 from wiki_interest.errors import ClarificationNeededError, TopicNotFoundError
 from wiki_interest.i18n import Translator
 
-__all__ = ["ProvenanceInput", "RunContext", "SummaryBuilder"]
+__all__ = ["ProvenanceInput", "RunContext", "SummaryBuilder", "period_notes"]
 
 _CHARTS_DIR = "charts"
 _MAX_RANK_BULLETS = 3
@@ -297,7 +297,7 @@ class SummaryBuilder:
                 kind="topic_not_found",
                 topic_id=error.topic_id,
                 query=error.query,
-                question=self._t.t("summary.not_found_hint"),
+                question=self._t.t("summary.not_found_hint", language=request.report.language),
             ),
         )
 
@@ -328,7 +328,7 @@ class SummaryBuilder:
                 kind="missing_article",
                 topic_id=gaps[0].topic_id,
                 query=gaps[0].query,
-                question=self._t.t("summary.missing_hint"),
+                question=self._t.t("summary.missing_hint", language=request.report.language),
                 gaps=[self._gap_out(gap, request.projects) for gap in gaps],
             ),
         )
@@ -1083,7 +1083,7 @@ class SummaryBuilder:
         labels: _TopicLabels,
     ) -> list[str]:
         """Limitations specific to this run; the method's general ones are listed apart."""
-        out: list[str] = []
+        out = [note for _, note in period_notes(request.period, period, self._t)]
         if request.normalization == "absolute":
             out.append(self._t.t("limitation.absolute"))
         if period.months < _MIN_MONTHS_FOR_YOY:
@@ -1237,6 +1237,26 @@ class _TopicLabels:
 _LARGE_EDITIONS = ("en", "de", "fr", "es", "ja", "ru", "it", "zh", "pt", "pl", "uk", "nl")
 """Editions most readers know, shown first after the requested ones."""
 _LANGUAGE_SAMPLE = 8
+
+
+def period_notes(requested: Period | None, period: Period, t: Translator) -> list[tuple[str, str]]:
+    """How the analysed period differs from the one asked for, as ``(key, text)`` pairs.
+
+    The pipeline measures only months with complete data (:meth:`Period.within_data`); a
+    user who asked for "since 2010" must read why the report starts in 2015.
+    """
+    if requested is None:
+        return []
+    notes: list[tuple[str, str]] = []
+    if requested.start < period.start:
+        key = "limitation.period_start"
+        notes.append(
+            (key, t.t(key, start=f"{period.start:%Y-%m}", requested=f"{requested.start:%Y-%m}"))
+        )
+    if requested.end > period.end:
+        key = "limitation.period_end"
+        notes.append((key, t.t(key, end=f"{period.end:%Y-%m}", requested=f"{requested.end:%Y-%m}")))
+    return notes
 
 
 def _language_sample(languages: Sequence[str], requested: Sequence[str]) -> list[str]:

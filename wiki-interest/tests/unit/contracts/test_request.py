@@ -121,9 +121,18 @@ class TestPeriod:
         period = Period(start=date(2024, 9, 17), end=date(2024, 10, 3))
         assert (period.start.day, period.end.day) == (1, 1)
 
-    def test_rejects_start_before_data_exists(self) -> None:
-        with pytest.raises(ValidationError, match="2015-07"):
-            Period.model_validate({"start": "2015-01", "end": "2016-01"})
+    def test_start_before_the_data_is_moved_to_where_they_begin(self) -> None:
+        period = Period.model_validate({"start": "2010-01", "end": "2016-01"})
+        assert period.within_data(date(2026, 9, 24)).start == date(2015, 7, 1)
+
+    def test_incomplete_current_month_is_left_out(self) -> None:
+        period = Period.model_validate({"start": "2024-09", "end": "2026-12"})
+        assert period.within_data(date(2026, 9, 24)).end == date(2026, 8, 1)
+
+    def test_period_without_complete_data_is_rejected(self) -> None:
+        period = Period.model_validate({"start": "2010-01", "end": "2014-12"})
+        with pytest.raises(ValueError, match="2015-07"):
+            period.within_data(date(2026, 9, 24))
 
     def test_rejects_end_before_start(self) -> None:
         with pytest.raises(ValidationError, match="before start"):

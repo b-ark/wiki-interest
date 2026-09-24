@@ -20,6 +20,7 @@ from pypdf import PdfReader
 from fakes import AstronomyWorld, astronomy_world, fake_container
 from wiki_interest.application.narrative_check import check_narrative
 from wiki_interest.application.pipeline import Pipeline
+from wiki_interest.application.runs import load_summary
 from wiki_interest.application.summary_builder import RunContext
 from wiki_interest.contracts.narrative import CaveatFact, Facts, Narrative, PairText
 from wiki_interest.contracts.request import AnalysisRequest
@@ -261,13 +262,37 @@ class TestChatBrief:
 
     def test_a_follow_up_says_what_changed_against_the_run_before(self, tmp_path: Path) -> None:
         """The answer is sent as it is: the code, not the agent, states the comparison."""
-        _run(tmp_path, "en", {"question_type": "assess", "projects": ["uk"]})
+        first, first_dir = _run(tmp_path, "en", {"question_type": "assess", "projects": ["uk"]})
+        assert first.narrate(first_dir, _template(first_dir)).status == "accepted"
         pipeline, run_dir = _run(tmp_path, "en", run_id="r2")
         assert pipeline.narrate(run_dir, _template(run_dir)).status == "accepted"
         brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8")
         assert "Against the previous run (2024-09 – 2026-08):" in brief
         assert "uk.wikipedia: attention share 37.9 → 37.9 per million" in brief
         assert "Editions added: cs.wikipedia." in brief
+
+    def test_a_period_beyond_the_data_is_measured_where_they_exist_and_said(
+        self, tmp_path: Path
+    ) -> None:
+        """ "Since 2010" is not an error: the report starts in 2015-07 and says why."""
+        period = {"start": "2010-01", "end": "2026-09"}
+        pipeline, run_dir = _run(tmp_path, "en", {"period": period})
+        summary = load_summary(run_dir)
+        assert (f"{summary.period.start:%Y-%m}", f"{summary.period.end:%Y-%m}") == (
+            "2015-07",
+            "2026-08",
+        )
+        assert pipeline.narrate(run_dir, _template(run_dir)).status == "accepted"
+        brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8")
+        assert "Pageview data start in 2015-07, so the analysis begins there" in brief
+        assert "2026-09 is not complete yet, so the analysis ends in 2026-08" in brief
+
+    def test_a_run_the_user_never_saw_is_not_compared(self, tmp_path: Path) -> None:
+        """A run the agent corrected within the same answer was never shown to the user."""
+        _run(tmp_path, "en", {"question_type": "assess", "projects": ["uk"]})
+        pipeline, run_dir = _run(tmp_path, "en", run_id="r2")
+        assert pipeline.narrate(run_dir, _template(run_dir)).status == "accepted"
+        assert "previous run" not in (run_dir / "chat_brief.md").read_text(encoding="utf-8")
 
     def test_a_first_run_has_nothing_to_compare(self, tmp_path: Path) -> None:
         pipeline, run_dir = _run(tmp_path, "en")

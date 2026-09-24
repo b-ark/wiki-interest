@@ -13,6 +13,8 @@ from pathlib import Path
 from wiki_interest.contracts.summary import AnalysisSummary, MetricsOut
 
 __all__ = [
+    "ATTEMPTS_FILENAME",
+    "CHAT_BRIEF_FILENAME",
     "SUMMARY_FILENAME",
     "MetricDelta",
     "PairDiff",
@@ -23,6 +25,10 @@ __all__ = [
 ]
 
 SUMMARY_FILENAME = "summary.json"
+CHAT_BRIEF_FILENAME = "chat_brief.md"
+"""Written when the agent's report text is accepted: the chat answer the user got."""
+ATTEMPTS_FILENAME = "narrative.attempts"
+"""Written when the agent's report text is rejected; the last rejection keeps the template."""
 
 _COMPARED_METRICS: tuple[str, ...] = (
     "views_avg",
@@ -48,9 +54,12 @@ def load_summary(run_dir: Path) -> AnalysisSummary:
 
 
 def previous_run(run_dir: Path) -> AnalysisSummary | None:
-    """The latest earlier run of the same session with a finished analysis, if any.
+    """The latest earlier run of the same session that the user was answered with, if any.
 
     Run directories of a session are named by their start time, so the name orders them.
+    Only a run the agent wrote the report text for counts: runs it made on the way within
+    the same answer (a period it had to correct, a retry) were never shown to the user, and
+    a comparison with them would state a change the user never saw.
     """
     session = run_dir.parent
     if not session.is_dir():
@@ -63,7 +72,10 @@ def previous_run(run_dir: Path) -> AnalysisSummary | None:
             summary = load_summary(directory)
         except (OSError, ValueError):  # no summary yet, or one of an older schema
             continue
-        if summary.status == "ok":
+        answered = (directory / CHAT_BRIEF_FILENAME).is_file() or (
+            directory / ATTEMPTS_FILENAME
+        ).is_file()
+        if summary.status == "ok" and answered:
             return summary
     return None
 

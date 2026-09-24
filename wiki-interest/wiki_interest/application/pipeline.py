@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Literal, Protocol
 
@@ -25,7 +26,7 @@ from wiki_interest.application.facts import (
 from wiki_interest.application.loading import SeriesLoader
 from wiki_interest.application.narrative_check import check_narrative
 from wiki_interest.application.resolution import TopicResolver
-from wiki_interest.application.runs import previous_run
+from wiki_interest.application.runs import ATTEMPTS_FILENAME, CHAT_BRIEF_FILENAME, previous_run
 from wiki_interest.application.summary_builder import (
     ProvenanceInput,
     RunContext,
@@ -35,7 +36,11 @@ from wiki_interest.contracts.narrative import Facts, Narrative, NarrativeProblem
 from wiki_interest.contracts.request import AnalysisRequest, Period
 from wiki_interest.contracts.summary import AnalysisSummary, Artifacts
 from wiki_interest.domain.assessment import AssessmentSettings
-from wiki_interest.errors import ClarificationNeededError, TopicNotFoundError
+from wiki_interest.errors import (
+    ClarificationNeededError,
+    RequestValidationError,
+    TopicNotFoundError,
+)
 from wiki_interest.i18n import Translator
 from wiki_interest.ports import ChartRenderer, Clock, ReportRenderer
 
@@ -55,8 +60,8 @@ SUMMARY_MD = "summary.md"
 REPORT_PDF = "report.pdf"
 METHOD_MD = "method.md"
 FACTS_JSON = "facts.json"
-CHAT_BRIEF_MD = "chat_brief.md"
-ATTEMPTS_FILE = "narrative.attempts"
+CHAT_BRIEF_MD = CHAT_BRIEF_FILENAME
+ATTEMPTS_FILE = ATTEMPTS_FILENAME
 MAX_NARRATIVE_ATTEMPTS = 2
 """The agent's text is rejected once with the reasons; a second failure keeps the template."""
 EXIT_OK = 0
@@ -241,7 +246,7 @@ class Pipeline:
             UpstreamError, DataUnavailableError, RenderError: propagated for the CLI to map.
         """
         services = self._factory.services_for(request)
-        period = request.period or Period.last_full_months(self._clock.today())
+        period = _period(request, self._clock.today())
         builder = SummaryBuilder(
             services.translator,
             context,
@@ -419,6 +424,24 @@ def _read_ui(path: Path) -> dict[str, str]:
         return {}
     data = json.loads(path.read_text(encoding="utf-8"))
     return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+
+
+def _period(request: AnalysisRequest, today: date) -> Period:
+    """The period to analyse: the requested one within the data, or the default.
+
+    The summary keeps the request as asked, so the reports can say how the period changed.
+
+    Raises:
+        RequestValidationError: If no month of the requested period has complete data.
+    """
+    if request.period is None:
+        return Period.last_full_months(today)
+    try:
+        return request.period.within_data(today)
+    except ValueError as exc:
+        raise RequestValidationError(
+            str(exc), hint="Ask the user for a period from 2015-07 to last month."
+        ) from exc
 
 
 def _bump_attempts(run_dir: Path) -> int:

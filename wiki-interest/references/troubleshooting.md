@@ -18,7 +18,8 @@ Wikimedia services. Its JSON output names the failing check and why.
 The `error` field names the offending field. Common causes:
 
 - an unknown key (typo such as `"project"` instead of `"projects"`): keys are checked strictly;
-- `period.start` before `2015-07` (no data exists earlier) or `end` before `start`;
+- `period.end` before `start`, or a period with no complete month of data (entirely before
+  2015-07 or in the current month);
 - `question_type: "compare"` with a single topic and a single project;
 - `local_terms` or `substitutes` for a project that is not in `projects`.
 

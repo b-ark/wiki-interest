@@ -18,7 +18,7 @@ Write `request.json` in the current working directory, not inside the skill dire
 | `question_type` | `compare` / `assess` / `rank` | required | See below. |
 | `topics` | list of Topic, 1-10 | required | What to analyse. |
 | `projects` | list of strings, 1-10 | required | Language editions: `"uk"`, `"uk.wikipedia"`, `"ukwiki"` and `"uk.wikipedia.org"` all mean Ukrainian Wikipedia. Duplicates are dropped. |
-| `period` | `{"start": "YYYY-MM", "end": "YYYY-MM"}` | last 24 complete months | Inclusive whole months. Data starts 2015-07. The current month is never complete, so leave it out unless the user insists. |
+| `period` | `{"start": "YYYY-MM", "end": "YYYY-MM"}` | last 24 complete months | Inclusive whole months, as the user asked ("since 2010" -> `"start": "2010-01"`). The analysis keeps the months with complete data, from 2015-07 to last month, and the report and chat answer say how the period changed. |
 | `agent` | `user` / `all-agents` | `user` | Traffic class. `user` excludes crawlers and known automated traffic; keep it unless the user asks for raw totals. |
 | `access` | `all-access` / `desktop` / `mobile-web` / `mobile-app` | `all-access` | Access method filter. |
 | `normalization` | `per_million` / `absolute` | `per_million` | Primary metric. `per_million` = article views per million views of the whole edition; the only fair way to compare editions of different size. |

@@ -166,9 +166,8 @@ class Period(_StrictModel):
 
     @model_validator(mode="after")
     def _check_bounds(self) -> Self:
-        if self.start < EARLIEST_MONTH:
-            msg = f"Pageview data starts in {EARLIEST_MONTH:%Y-%m}; got start={self.start:%Y-%m}"
-            raise ValueError(msg)
+        # A start before the data or an end in an incomplete month is not an error: the user
+        # asked for it, and the analysis measures what exists and says so (see within_data).
         if self.end < self.start:
             msg = f"Period end {self.end:%Y-%m} is before start {self.start:%Y-%m}"
             raise ValueError(msg)
@@ -178,6 +177,25 @@ class Period(_StrictModel):
     def months(self) -> int:
         """Number of months in the period, inclusive."""
         return (self.end.year - self.start.year) * 12 + (self.end.month - self.start.month) + 1
+
+    def within_data(self, today: date) -> Period:
+        """The part of the period that has complete data: from 2015-07 to last month.
+
+        Months before the data start would read as zero interest, and the current month,
+        still incomplete, as a drop.
+
+        Raises:
+            ValueError: If no month of the period has complete data.
+        """
+        last_complete = _shift_months(today.replace(day=1), -1)
+        start, end = max(self.start, EARLIEST_MONTH), min(self.end, last_complete)
+        if end < start:
+            msg = (
+                f"No complete month of data in {self.start:%Y-%m} – {self.end:%Y-%m}: pageview "
+                f"data run from {EARLIEST_MONTH:%Y-%m} to {last_complete:%Y-%m}"
+            )
+            raise ValueError(msg)
+        return Period(start=start, end=end)
 
     @classmethod
     def last_full_months(cls, today: date, count: int = 24) -> Period:

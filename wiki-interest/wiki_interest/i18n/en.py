@@ -221,8 +221,9 @@ MESSAGES: dict[str, str] = {
         "its English name."
     ),
     "summary.not_found_hint": (
-        "Tell the user so plainly and ask for a link to a Wikipedia article, in any language, "
-        "about what they mean. Put it into topics[].article_url in request.json and run again."
+        "Tell the user so plainly, in the language they write in (report.language: {language}), "
+        "and ask for a link to a Wikipedia article, in any language, about what they mean. Put "
+        "it into topics[].article_url in request.json and run again."
     ),
     "summary.which_meaning": 'Which meaning of "{query}"?',
     "summary.topic_only": (
@@ -277,11 +278,12 @@ MESSAGES: dict[str, str] = {
         "subject, so they are not compared with the other editions."
     ),
     "summary.missing_hint": (
-        "Stop here: tell the user in their language that the edition has no article on the "
-        "topic, show these options with their links, ask which one to use for each edition, and "
-        "end your answer with that question. Do not choose for the user and do not run again until "
-        "they have answered. Then merge the chosen option's value from the block below into "
-        "topics[].substitutes in request.json and run again."
+        "Stop here: tell the user in the language they write in (report.language: {language}; "
+        "not the language of the edition or of the article titles) that the edition has no "
+        "article on the topic, show these options with their links, ask which one to use for "
+        "each edition, and end your answer with that question. Do not choose for the user and do "
+        "not run again until they have answered. Then merge the chosen option's value from the "
+        "block below into topics[].substitutes in request.json and run again."
     ),
     "answer.conclusion.unknown": "Extend the period before deciding.",
     "answer.conclusion.low_trust": (
@@ -407,6 +409,12 @@ MESSAGES: dict[str, str] = {
     ),
     "window_length.short": (
         "Only {months} months of data: the last 12 months cannot be compared with the 12 before"
+    ),
+    "limitation.period_start": (
+        "Pageview data start in {start}, so the analysis begins there, not in {requested}."
+    ),
+    "limitation.period_end": (
+        "{requested} is not complete yet, so the analysis ends in {end}, the last complete month."
     ),
     "limitation.short_window": (
         "Only {months} months of data: the last 12 months cannot be compared with the 12 before, "
