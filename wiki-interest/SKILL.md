@@ -49,9 +49,9 @@ which may be read-only.
    closest example from `<skill>/assets/examples/` and change only what the user asked for:
    - `question_type`: `compare` (editions or topics against each other), `assess` (is one
      topic growing and can we trust it), `rank` (which audiences to pursue next);
-   - `topics[].query` in the user's own words and `query_language` = the language of that
-     wording; `query_en` = the topic in English (skip it if the query is English); give each
-     topic a short Latin `id`;
+   - inside each topic: `query` in the user's own words, `query_language` = the language of
+     that wording, `query_en` = the topic in English (skip it if the query is English), and
+     a short Latin `id`. These fields go in `topics[]`, never at the top level;
    - `topics[].meaning`: what the user means in a few English words ("the chemical element
      Hg"), when you decided it in step 1;
    - `projects`: language codes such as `["pl", "cs"]`;

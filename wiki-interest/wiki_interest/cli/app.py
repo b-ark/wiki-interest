@@ -19,13 +19,14 @@ from typing import Annotated
 
 import typer
 from pydantic import ValidationError
+from pydantic_core import ErrorDetails
 
 from wiki_interest.application.runs import diff_runs, load_summary
 from wiki_interest.application.summary_builder import RunContext
 from wiki_interest.cli.container import Container
 from wiki_interest.cli.doctor import run_doctor
 from wiki_interest.contracts.narrative import Narrative
-from wiki_interest.contracts.request import AnalysisRequest
+from wiki_interest.contracts.request import AnalysisRequest, TopicSpec
 from wiki_interest.errors import RequestValidationError, WikiInterestError
 
 __all__ = ["app", "main"]
@@ -114,7 +115,22 @@ def load_request(path: Path) -> AnalysisRequest:
         first = exc.errors()[0]
         location = ".".join(str(part) for part in first["loc"]) or "request"
         msg = f"Invalid request at {location}: {first['msg']}"
-        raise RequestValidationError(msg, hint=SCHEMA_HINT) from exc
+        raise RequestValidationError(msg, hint=_misplaced_hint(first) or SCHEMA_HINT) from exc
+
+
+def _misplaced_hint(error: ErrorDetails) -> str | None:
+    """A precise hint for a topic field written at the top level of the request.
+
+    Agents often put ``query_language`` next to ``question_type``; the generic hint costs them
+    a reading of the schema, this one says where the field goes.
+    """
+    loc = error["loc"]
+    if error["type"] != "extra_forbidden" or len(loc) != 1:
+        return None
+    field = str(loc[0])
+    if field not in TopicSpec.model_fields:
+        return None
+    return f"`{field}` belongs to each topic: move it into topics[] (topics[].{field})."
 
 
 def load_narrative(path: Path) -> Narrative:

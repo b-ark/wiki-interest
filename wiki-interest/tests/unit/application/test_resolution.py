@@ -389,6 +389,14 @@ class TestEnglishFallbackAndLocalTerms:
         searches = [args for name, args in wikidata.calls if name == "search_entities"]
         assert [(q, lang) for q, lang, _ in searches] == [("astronomia", "pl"), ("astronomy", "en")]
 
+    def test_english_wording_is_tried_when_the_query_language_was_left_out(self) -> None:
+        wikidata, mediawiki = _world()
+        topic = _topic(query="astronomia", query_en="astronomy")  # query_language defaults to en
+        resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK])
+        assert (resolved.qid, resolved.matched_in_english) == ("Q333", True)
+        searches = [args for name, args in wikidata.calls if name == "search_entities"]
+        assert [(q, lang) for q, lang, _ in searches] == [("astronomia", "en"), ("astronomy", "en")]
+
     def test_label_prefers_the_query_language_after_an_english_match(self) -> None:
         wikidata, mediawiki = _world()
         topic = _topic(query="астрономия", query_language="uk", query_en="astronomy")

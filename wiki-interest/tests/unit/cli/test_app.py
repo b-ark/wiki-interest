@@ -89,6 +89,14 @@ class TestRun:
         assert code == 2
         assert "projects" in str(payload["error"])
 
+    def test_topic_field_at_the_top_level_says_where_it_goes(
+        self, tmp_path: Path, fakes: Container
+    ) -> None:
+        misplaced = {**REQUEST, "query_language": "pl"}
+        code, payload = _invoke("run", str(_write_request(tmp_path, misplaced)))
+        assert code == 2
+        assert "topics[].query_language" in str(payload["hint"])
+
     def test_missing_file_is_exit_two(self, tmp_path: Path, fakes: Container) -> None:
         code, payload = _invoke("run", str(tmp_path / "nope.json"))
         assert code == 2

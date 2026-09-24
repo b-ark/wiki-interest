@@ -225,8 +225,11 @@ class TopicResolver:
 
         Sources, in order: a pinned ``qid``; the item of the article the user linked; a search
         by the query in its own language; the same search by ``query_en`` when the first finds
-        nothing. Every search result goes through :meth:`_choose`, so a vague translation still
-        ends in a question rather than a guess.
+        nothing. The English search runs whenever ``query_en`` is a different wording, even
+        with ``query_language`` left at ``en``: an agent that drops the field must not lose the
+        topic ("post przerywany" searched as English finds nothing). Every search result goes
+        through :meth:`_choose`, so a vague translation still ends in a question rather than a
+        guess.
         """
         if topic.qid is not None:
             return self._pinned(topic.qid, topic.query_language)
@@ -234,8 +237,13 @@ class TopicResolver:
             return self._linked(topic, *topic.article_ref)
         candidates = self._search(topic.query, topic.query_language)
         in_english = False
-        if not candidates and topic.query_en and topic.query_language != _ENGLISH:
-            candidates = self._search(topic.query_en, _ENGLISH)
+        english = topic.query_en
+        if (
+            not candidates
+            and english
+            and (english, _ENGLISH) != (topic.query, topic.query_language)
+        ):
+            candidates = self._search(english, _ENGLISH)
             in_english = bool(candidates)
         if not candidates:
             return _Entity()
