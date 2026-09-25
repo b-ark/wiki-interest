@@ -82,8 +82,9 @@ RULES: tuple[str, ...] = (
     "Numbers: only those of the observations a paragraph cites (rounding is fine); never "
     "compute a new one (no ratios, 'N times', sums or differences). Prefer the words and "
     "counts given ('about half', 'about 560 times a month'); at most four percentages in a "
-    "paragraph. Say how big the interest is: the attention share per million views of the "
-    "size observation.",
+    "paragraph. The story gives two numbers the reader needs: how big the interest is (the "
+    "views per million views of the size observation) and how the article moved against its "
+    "whole edition (the edition's change and the article's, from the vs_edition observation).",
     "Name periods as the observations do ('September 2020 – August 2021', 'over the last "
     "year'), never 'N years ago'.",
     "Views are how often the article is opened ('the article is opened about 560 times a "
@@ -98,6 +99,15 @@ RULES: tuple[str, ...] = (
 
 EXAMPLE: Mapping[str, object] = {
     "observations": [
+        {
+            "id": "size:beekeeping/nl",
+            "weight": "high",
+            "statement": "In the Dutch Wikipedia the article on beekeeping is opened about 2,400 "
+            "times a month now (September 2025 – August 2026): 5.1 views per million views of "
+            "the edition (its attention share, the size of interest comparable across "
+            "editions). In September 2020 – August 2021 it was opened about 2,300 times a "
+            "month: about the same as it was.",
+        },
         {
             "id": "long_term:beekeeping/nl",
             "weight": "high",
@@ -119,13 +129,6 @@ EXAMPLE: Mapping[str, object] = {
             "April (+62 % against its usual level), weakest in December (−41 %).",
         },
         {
-            "id": "size:beekeeping/nl",
-            "weight": "context",
-            "statement": "In the Dutch Wikipedia the article on beekeeping is opened about 2,400 "
-            "times a month now (September 2025 – August 2026); in September 2020 – August "
-            "2021 it was about 2,300 a month: about the same as it was.",
-        },
-        {
             "id": "decision:timing:beekeeping/nl",
             "weight": "decision",
             "statement": "Interest in beekeeping in the Dutch Wikipedia peaks every April: "
@@ -145,11 +148,12 @@ EXAMPLE: Mapping[str, object] = {
         "and steadily.",
         "story": [
             {
-                "text": "The article is opened about 2,400 times a month, much as in "
-                "September 2020 – August 2021. That looks flat, but it hides a rise: the "
-                "Dutch Wikipedia as a whole is read less, and beekeeping kept its readers "
-                "anyway. As a share of everything read there, it now gets about one and a "
-                "half times the attention it got then, and it rose almost every year.",
+                "text": "The article is opened about 2,400 times a month, 5.1 views per "
+                "million views of the Dutch Wikipedia, much as in September 2020 – August "
+                "2021. That looks flat, but it hides a rise: over the last year the Dutch "
+                "Wikipedia as a whole was read 9 % less, while beekeeping gained 4 % views. "
+                "As a share of everything read there, it now gets about one and a half times "
+                "the attention it got then, and it rose almost every year.",
                 "uses": [
                     "size:beekeeping/nl",
                     "vs_edition:beekeeping/nl",

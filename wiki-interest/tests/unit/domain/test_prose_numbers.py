@@ -30,6 +30,10 @@ def _only(text: str) -> tuple[tuple[float, ...], bool, bool]:
         ("около 18 тысяч просмотров", (18000.0,), False, False),
         ("1,3 тис. переглядів", (1300.0,), False, False),
         ("about 18 thousand views", (18000.0,), False, False),
+        ("udział wzrósł o 27 proc. wobec", (27.0,), True, False),
+        ("впала на 27 відс. за рік", (27.0,), True, False),
+        ("упала на 27 проц. за год", (27.0,), True, False),
+        ("klesl o 27 procent", (27.0,), True, False),
     ],
 )
 def test_readings(text: str, values: tuple[float, ...], percent: bool, signed: bool) -> None:

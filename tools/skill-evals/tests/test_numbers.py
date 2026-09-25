@@ -21,6 +21,13 @@ def test_percent_with_and_without_space() -> None:
     assert all(n.is_percent for n in numbers)
 
 
+def test_percent_words_and_abbreviations_of_other_languages() -> None:
+    text = "o 27 proc. i 12 procent, na 15 відс., 18 проц. und 20 Prozent"
+    numbers = extract_numbers(text)
+    assert [n.values[0] for n in numbers] == [27.0, 12.0, 15.0, 18.0, 20.0]
+    assert all(n.is_percent for n in numbers)
+
+
 def test_space_thousands_separator_including_nbsp() -> None:
     assert _values("1 234 views and 2 345 more, 3 456") == [(1234.0,), (2345.0,), (3456.0,)]
 

@@ -313,7 +313,7 @@ class TestRejections:
             ("Спрос на астрономию растёт.", [VS_UK], "not demand"),
             ("Рост статистически значим.", [VS_UK], "No statistical jargon"),
             ("Это 1 из 26 000 просмотров.", [VS_UK], "1 in N"),
-            ("Учитывайте 季节性 интереса.", [VS_UK], "another script"),
+            ("Учитывайте 季节性 интереса.", [VS_UK], "'季节性' is in another script"),
             ("Уровень пяти лет назад был выше.", [VS_UK], "not counted back from today"),
             ("За последний год спад ускорился.", [VS_UK], "says the change speeds up"),
             ("Україна Wikipedia читає менше.", [VS_UK], "not a country"),
@@ -459,6 +459,16 @@ class TestRejections:
         key = next(k for k, v in narrative.ui.items() if "{" in v)
         bad = with_ui.model_copy(update={"ui": {**ui, key: "ohne Platzhalter"}})
         assert any("placeholders" in m for m in _messages(facts, bad))
+
+    def test_a_cyrillic_word_in_a_latin_language_is_rejected_but_an_article_name_is_not(
+        self, tmp_path: Path
+    ) -> None:
+        _, run_dir = _run(tmp_path, "en")
+        facts, narrative = _facts(run_dir), _template(run_dir)
+        stray = _add_to_story(narrative, "Das означает, the topic grows.", [VS_UK])
+        assert any("'означает' is in another script" in m for m in _messages(facts, stray))
+        named = _add_to_story(narrative, "The article «Астрономія» grows.", [VS_UK])
+        assert _messages(facts, named) == []
 
 
 class TestNarrate:

@@ -101,9 +101,15 @@ _DESCRIPTIVE = ("headline", "story")
 """Blocks that describe the Wikipedia data: "demand" there would call views demand. The
 meaning and the check may speak of demand: "check the demand with a small ad test"."""
 _SENTENCE_BREAK = re.compile(r"[.!?…]\s+")
-_FOREIGN_SCRIPT = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]")
+_CJK_SCRIPT = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]+")
 """Kana, CJK ideographs and Hangul: a cheap model sometimes drops a Chinese word into Ukrainian."""
 _CJK_LANGUAGES = frozenset({"zh", "ja", "ko"})
+_CYRILLIC_SCRIPT = re.compile(r"[\u0400-\u04ff]+")
+"""Cyrillic: a cheap model writing Polish after reading Ukrainian drops in a Russian word
+("To \u043e\u0437\u043d\u0430\u0447\u0430\u0435\u0442, \u017ce...", 2026-09-25)."""
+_CYRILLIC_LANGUAGES = frozenset(
+    {"ru", "uk", "be", "bg", "sr", "mk", "kk", "ky", "tg", "mn", "tt", "ba", "cv", "ce", "sah"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,8 +180,9 @@ class _Checker:
         if total > LIMITS["story_total"]:
             self.add(
                 "story",
-                f"Shorten the story to {LIMITS['story_total']} characters in all (now {total}): "
-                "keep what answers the question and explain it, do not retell every observation.",
+                f"Shorten the story to {LIMITS['story_total']} characters in all (now {total}, "
+                f"cut at least {total - LIMITS['story_total']}): keep what answers the question "
+                "and explain it, do not retell every observation.",
             )
         self.length("meaning", n.meaning.text, required=True)
         self.length("check", n.check, required=True)
@@ -186,7 +193,13 @@ class _Checker:
         if required and not text.strip():
             self.add(block, f"'{block}' is empty.")
         if len(text) > limit:
-            self.add(block, f"Shorten to {limit} characters (now {len(text)}).", text[:80])
+            self.add(
+                block,
+                f"Shorten to {limit} characters (now {len(text)}): cut at least "
+                f"{len(text) - limit} characters, a clause or a number that repeats another "
+                "paragraph, not the words that explain.",
+                text[:80],
+            )
 
     # -- citations --------------------------------------------------------------------------
 
@@ -263,7 +276,7 @@ class _Checker:
                 self.add(
                     block,
                     f"At most {PARAGRAPH_PERCENTAGES} percentages in a paragraph "
-                    f"(now {len(percentages)}): "
+                    f"(now {len(percentages)}: {', '.join(n.text for n in percentages)}): "
                     "keep the ones that carry the point and say the rest in words ('fell faster "
                     "than the whole Wikipedia').",
                     paragraph.text,
@@ -336,10 +349,12 @@ class _Checker:
             for pattern, message in _ANYWHERE:
                 if pattern.search(text):
                     self.add(block, message, text)
-            odd = _FOREIGN_SCRIPT.search(text)
-            if odd is not None and language not in _CJK_LANGUAGES:
+            if (odd := self._foreign_script(text)) is not None:
                 self.add(
-                    block, "Remove the characters of another script.", text[odd.start() - 40 :]
+                    block,
+                    f"'{odd}' is in another script: write every word in the report language "
+                    "(article names in «» may keep theirs).",
+                    text,
                 )
             if jargon and re.search(jargon, text, re.IGNORECASE):
                 self.add(block, "No statistical jargon: say steady, mixed or unclear.", text)
@@ -374,6 +389,20 @@ class _Checker:
                     "Wikipedia'), not a country: an edition is read in many countries.",
                     text,
                 )
+
+    def _foreign_script(self, text: str) -> str | None:
+        """The first word in a script the report language does not use, outside «names»."""
+        bare = _NAMED.sub("", text)
+        language = self.facts.language
+        scripts = []
+        if language not in _CJK_LANGUAGES:
+            scripts.append(_CJK_SCRIPT)
+        if language not in _CYRILLIC_LANGUAGES:
+            scripts.append(_CYRILLIC_SCRIPT)
+        for script in scripts:
+            if (match := script.search(bare)) is not None:
+                return match.group(0)
+        return None
 
     def _countries(self) -> re.Pattern[str] | None:
         languages = {

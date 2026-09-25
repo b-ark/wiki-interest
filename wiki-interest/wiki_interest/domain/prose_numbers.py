@@ -1,9 +1,9 @@
 """Numbers written in prose, and whether they match known values.
 
 The agent writes the report text; every figure in it must come from the facts the code
-computed. Prose is messy (``12,3 %``, ``1 234``, ``−5 %``, ``1.2k``), so a token can have
-several readings (``1,234`` is 1234 or 1.234) and matches when any reading is close to a
-known value, within the rounding the author implied (``38`` stands for 37.9).
+computed. Prose is messy (``12,3 %``, ``1 234``, ``−5 %``, ``27 proc.``, ``1.2k``), so a
+token can have several readings (``1,234`` is 1234 or 1.234) and matches when any reading
+is close to a known value, within the rounding the author implied (``38`` stands for 37.9).
 """
 
 # ruff: noqa: RUF001, RUF002  -- the minus sign and narrow spaces are intentional.
@@ -40,7 +40,8 @@ _NUMBER = re.compile(
     )
     (?P<suffix>[kKM](?![\w]))?
     (?P<thousands>[{_SPACES}](?:тыс|тис|thousand|tys|tisíc|[Tt]ausend)\w*\.?)?
-    (?P<percent>[{_SPACES}]?%|[{_SPACES}](?:percent|procent\w*|процент\w*|відсот\w*|[Pp]rozent))?
+    (?P<percent>[{_SPACES}]?%|[{_SPACES}](?:percent|procent\w*|proc\.|процент\w*|проц\.
+        |відсот\w*|відс\.|[Pp]rozent))?
     (?![\w.,]\d)
     """,
     re.VERBOSE,

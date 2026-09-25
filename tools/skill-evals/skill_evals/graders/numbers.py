@@ -48,7 +48,8 @@ _NUMBER = re.compile(
         (?P<suffix_word>\s?(?:тис\.|тыс\.|млн\.?|thousand|million))
       | (?P<suffix_letter>[kKM])
     )?
-    (?P<percent>\s?(?:%|percent|відсотк\w*|процент\w*|п\.\s?п\.|pp\b))?
+    (?P<percent>\s?(?:%|percent|відсот\w*|відс\.|процент\w*|проц\.|procent\w*|proc\.
+        |[Pp]rozent|п\.\s?п\.|pp\b))?
     (?![\w.,]\d)(?![A-Za-zА-Яа-яЁёІіЇїЄє])
     """,
     re.VERBOSE,

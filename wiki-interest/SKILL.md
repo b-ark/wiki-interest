@@ -59,7 +59,8 @@ which may be read-only.
    - `projects`: language codes such as `["pl", "cs"]`;
    - `period` only if the user named one (default: last 24 complete months);
    - `report.language`: the language the user writes in (`ru`, `de`, `es`...), never the
-     language of an edition and never the example's value;
+     language of an edition and never the example's value: "Is interest in Stoicism growing
+     on German Wikipedia?" is `en`, with `projects: ["de"]`;
    - `report.audience_note`: one line of context if the user gave any, in their language
      (the PDF prints it);
    - `report.seasonality: "show"` only if the user asks about timing (which months, seasons,
