@@ -101,6 +101,8 @@ SHARE_RIGHT_MM = 14.0
 """Room right of the main chart's plot for the audiences' names at the ends of their lines."""
 SHARE_HEADROOM = 1.12
 """Room over the highest year or month for the value labels."""
+STEP_LINE_WIDTH = 0.6
+STEP_LINE_ALPHA = 0.55
 STEP_LABEL_BAND = 0.14
 """More room at the top, as a share of the highest value, when a step's label runs there."""
 MONTH_LINE_WIDTH = 0.7
@@ -661,6 +663,9 @@ class MatplotlibChartRenderer:
                     va="bottom",
                     color=color,
                     fontsize=small,
+                    # A white ground keeps a line crossing the number from cutting it.
+                    bbox={"boxstyle": "square,pad=0.1", "facecolor": "white", "linewidth": 0},
+                    zorder=3,
                 )
 
     def _share_marks(self, axes: Axes, spec: ChartSpec, ceiling: float) -> None:
@@ -678,7 +683,15 @@ class MatplotlibChartRenderer:
             if mark.kind == "step":
                 if label is None:
                     continue
-                axes.axvline(x, color=color, linewidth=REFERENCE_LINE_WIDTH, linestyle="--")
+                # Thin, pale and under the labels: it points to a month, it is not data.
+                axes.axvline(
+                    x,
+                    color=color,
+                    linewidth=STEP_LINE_WIDTH,
+                    linestyle=(0, (4, 3)),
+                    alpha=STEP_LINE_ALPHA,
+                    zorder=0,
+                )
                 axes.annotate(
                     label,
                     (x, ceiling),
