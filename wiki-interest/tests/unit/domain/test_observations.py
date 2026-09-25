@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -276,6 +277,14 @@ class TestAcrossPairs:
             "The Ukrainian Wikipedia offers the larger existing audience, but neither edition "
             "shows growing interest in astronomy."
         )
+
+    def test_a_substitute_is_never_set_against_the_topic(self) -> None:
+        uk = _history(_flat(4_000.0))
+        pl = replace(_history(_flat(9_000.0), project="pl.wikipedia"), substitute=True)
+        found = _by_id(observe([uk, pl]))
+        assert "editions:astronomy" not in found
+        assert "size:astronomy/pl" in found  # it keeps its own observations
+        assert "Polish" not in found["headline:astronomy"].statement
 
     def test_an_order_of_magnitude_and_a_sharper_fall(self) -> None:
         ru = _history(_decline(80_000.0, 0.6), project="ru.wikipedia")

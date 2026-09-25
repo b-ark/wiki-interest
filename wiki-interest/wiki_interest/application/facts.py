@@ -17,6 +17,7 @@ from collections.abc import Mapping, Sequence
 from wiki_interest.application.summary_builder import period_notes
 from wiki_interest.contracts.narrative import Facts, FollowUpFact, Narrative, Paragraph
 from wiki_interest.contracts.summary import AnalysisSummary, ObservationOut
+from wiki_interest.domain.observations import edition_name, views_direction
 from wiki_interest.i18n import Translator
 
 __all__ = [
@@ -40,9 +41,17 @@ _TEMPLATE_PARAGRAPHS = 4
 _TEMPLATE_STATEMENTS = 3
 _TEMPLATE_DECISIONS = 3
 _STORY_WEIGHTS = ("caution", "high")
+_COMPARISONS = ("editions", "topics")
+"""Observations that set editions or topics against each other: the story leads with them."""
+_COMPARED = ("size", "vs_edition")
+"""What a comparison already says of each pair."""
+_TRADE_OFFS = ("decision:editions:", "decision:topics:")
+_COMPARED_EDITIONS = 2
 _CHAT_FOLLOW_UPS = 3
 """How many next steps the chat answer offers."""
 _BLANK_LINES = re.compile(r"\n{3,}")
+_SENTENCE_END = re.compile(r"(?<=\.)\s+(?=[A-Z])")
+"""Between two sentences of a statement."""
 
 LIMITS: Mapping[str, int] = {
     "topic": 240,
@@ -60,11 +69,12 @@ PARAGRAPH_PERCENTAGES = 4
 """Most percentages in a paragraph: more is the observations translated, not explained."""
 
 RULES: tuple[str, ...] = (
-    "Write in the report language, for a founder who decides where to invest and does not "
-    "know how the data were computed; use audience_note when given. Explain, do not list "
-    "statistics.",
+    "Write in the report language, for a founder who decides where to look for an audience "
+    "and whether the topic is worth checking further, and who does not know how the data "
+    "were computed; use audience_note when given. Explain, do not list statistics.",
     f"headline: the answer to the user's question in one sentence, without numbers (at most "
-    f"{LIMITS['headline']} characters).",
+    f"{LIMITS['headline']} characters). A headline observation, when there is one, says it "
+    "plainly; write it in your own words, never stronger than the data.",
     f"story: {STORY_PARAGRAPHS[0]} to {STORY_PARAGRAPHS[1]} short paragraphs (at most "
     f"{LIMITS['story']} characters each, {LIMITS['story_total']} in all). Pick the "
     "observations that answer this question, starting from caution and high ones, and "
@@ -72,19 +82,31 @@ RULES: tuple[str, ...] = (
     "observations are your notes, not text to translate: say what they mean together, in "
     "your own words. Leave the rest out. Each paragraph lists the ids of the observations it "
     "relies on in 'uses'.",
-    f"meaning: what it means for the user's decision (at most {LIMITS['meaning']} "
-    "characters), built from the decision observations that fit the question; cite them in "
-    "'uses'.",
-    f"check: one concrete way to check the conclusion outside Wikipedia, one sentence (at "
-    f"most {LIMITS['check']} characters).",
-    f"limits: one line (at most {LIMITS['limits']} characters): page views show curiosity, "
+    "Several editions of a topic (or several topics): the story compares them, built on the "
+    "comparison observation (editions:..., topics:...), which it cites. Say where the "
+    "audience is larger; whether the gap holds once each Wikipedia's size is taken into "
+    "account (the attention share); where the views moved, and more sharply where; whether "
+    "each article gained, held or lost its attention share. Never one paragraph per edition: "
+    "an edition's exception (a one-off burst, a step, a partial-year caution) takes one "
+    "sentence.",
+    f"meaning: what it means for the next step (at most {LIMITS['meaning']} characters), "
+    "built from the decision observations that fit the question; cite them in 'uses'. With "
+    "several editions, the trade-off: a larger audience against a growing one. Wikipedia is "
+    "a signal to check further, never a reason to invest or not to.",
+    f"check: one concrete way to check the conclusion outside Wikipedia, naming a source "
+    f"(Google Trends, search volume, a small ad test), one sentence (at most "
+    f"{LIMITS['check']} characters).",
+    f"limits: one line (at most {LIMITS['limits']} characters): page views show interest, "
     "not willingness to pay; an edition is a language, not a country.",
     "Numbers: only those of the observations a paragraph cites (rounding is fine); never "
     "compute a new one (no ratios, 'N times', sums or differences). Prefer the words and "
     "counts given ('about half', 'about 560 times a month'); at most four percentages in a "
-    "paragraph. The story gives two numbers the reader needs: how big the interest is (the "
-    "views per million views of the size observation) and how the article moved against its "
-    "whole edition (the edition's change and the article's, from the vs_edition observation).",
+    "paragraph. The story gives the numbers the reader needs: for one edition, how big the "
+    "interest is (the views per million views of the size observation) and how the article "
+    "moved against its whole edition (the vs_edition observation); for several, those of "
+    "the comparison observation.",
+    "Words, as the charts use them: the audience is how often the article is opened (views); "
+    "the attention share is its views per million views of that Wikipedia.",
     "Name periods as the observations do ('in 2021', 'January–August 2026 against the same "
     "months of 2025'), never 'N years ago'. A change keeps the comparison it was made on, and "
     "a partial year stays partial, with its caution.",
@@ -101,26 +123,31 @@ RULES: tuple[str, ...] = (
 EXAMPLE: Mapping[str, object] = {
     "observations": [
         {
-            "id": "size:beekeeping/nl",
+            "id": "editions:beekeeping",
             "weight": "high",
-            "statement": "In the Dutch Wikipedia the article on beekeeping is opened about 2,400 "
-            "times a month in January–August 2026: 5.1 views per million views of the edition "
-            "(its attention share, the size of interest comparable across editions). In 2021 "
-            "it was opened about 2,300 times a month: about the same as it was.",
+            "statement": "In January–August 2026 the article on beekeeping is opened about "
+            "2,400 times a month in the Dutch Wikipedia against about 400 in the Polish "
+            "Wikipedia: the Dutch Wikipedia is the much larger audience (about 6 times as "
+            "much). Relative to the size of each Wikipedia the gap narrows: the Dutch Wikipedia "
+            "gives the topic about twice as much attention (5.1 against 2.4 views per million "
+            "views of each Wikipedia: the attention share). Against the same months of 2025 "
+            "the views went up in the Dutch Wikipedia (+14 %) and went down in the Polish "
+            "Wikipedia (−18 %). Against its own Wikipedia it gained attention share in the "
+            "Dutch Wikipedia and lost it in the Polish Wikipedia.",
         },
         {
             "id": "long_term:beekeeping/nl",
             "weight": "high",
-            "statement": "Its share of the Dutch Wikipedia's reading has risen almost every "
+            "statement": "Its attention share in the Dutch Wikipedia has risen almost every "
             "year (4 of 4 year-on-year steps, 2021–2025); in 2025 it was about one and a half "
             "times what it was in 2021. A long, steady rise.",
         },
         {
-            "id": "vs_edition:beekeeping/nl",
-            "weight": "high",
-            "statement": "In January–August 2026 (against the same months of 2025) the Dutch "
-            "Wikipedia as a whole was read less (−9 %), yet beekeeping held up (+4 % views): "
-            "its share rose +14 %. The topic gains attention against a shrinking Wikipedia.",
+            "id": "spike:beekeeping/pl",
+            "weight": "medium",
+            "statement": "In May 2021 beekeeping was read several times as much as that month "
+            "usually brings in the Polish Wikipedia, and the next month it was back: a "
+            "one-off burst, possibly news. A burst like this is not lasting interest.",
         },
         {
             "id": "season:beekeeping/nl",
@@ -135,46 +162,63 @@ EXAMPLE: Mapping[str, object] = {
             "anything launched or promoted should be ready by March.",
         },
         {
-            "id": "decision:verdict:beekeeping/nl",
+            "id": "decision:editions:beekeeping",
             "weight": "decision",
-            "statement": "Interest in beekeeping in the Dutch Wikipedia grows against the "
-            "edition: Wikipedia supports investing.",
+            "statement": "The Dutch Wikipedia is the larger audience for beekeeping and it "
+            "grows: the stronger signal to check further.",
+        },
+        {
+            "id": "decision:verdict:beekeeping/pl",
+            "weight": "decision",
+            "statement": "Interest in beekeeping in the Polish Wikipedia is shrinking, faster "
+            "than its Wikipedia: Wikipedia gives no growth signal to check.",
+        },
+        {
+            "id": "headline:beekeeping",
+            "weight": "context",
+            "statement": "Interest in beekeeping is growing in the Dutch Wikipedia; falling in "
+            "the Polish Wikipedia.",
         },
     ],
     "narrative": {
         "language": "en",
         "topic": "Beekeeping, the keeping of honey bees",
-        "headline": "Yes: interest in beekeeping in the Dutch Wikipedia is growing, slowly "
-        "and steadily.",
+        "headline": "Beekeeping draws a larger and growing audience in the Dutch Wikipedia, "
+        "while interest in the Polish one is fading.",
         "story": [
             {
-                "text": "In January–August 2026 the article is opened about 2,400 times a "
-                "month, 5.1 views per million views of the Dutch Wikipedia, much as in 2021. "
-                "That looks flat, but it hides a rise: against the same months of 2025 the "
-                "Dutch Wikipedia as a whole was read 9 % less, while beekeeping gained 4 % "
-                "views. "
-                "As a share of everything read there, it got about one and a half times more "
-                "attention in 2025 than in 2021, and it rose almost every year.",
-                "uses": [
-                    "size:beekeeping/nl",
-                    "vs_edition:beekeeping/nl",
-                    "long_term:beekeeping/nl",
-                ],
+                "text": "The Dutch Wikipedia is by far the larger audience: in January–August "
+                "2026 the article is opened about 2,400 times a month there against about 400 "
+                "in the Polish one. Part of the gap is only the size of the two Wikipedias, "
+                "but not all of it: relative to everything read there, the Dutch Wikipedia "
+                "still gives beekeeping about twice the attention (5.1 against 2.4 views per "
+                "million).",
+                "uses": ["editions:beekeeping"],
             },
             {
-                "text": "The interest also has a calendar: every April the article is read far "
-                "above its usual level, and December is its quietest month.",
-                "uses": ["season:beekeeping/nl"],
+                "text": "The two also move apart. Against the same months of 2025 the article "
+                "was opened 14 % more in Dutch and 18 % less in Polish: the Dutch article "
+                "gained attention share, the Polish one lost it. The Dutch rise is no "
+                "one-off, its attention share has grown almost every year since 2021; the "
+                "Polish figures include a one-off burst in May 2021 that did not last.",
+                "uses": [
+                    "editions:beekeeping",
+                    "long_term:beekeeping/nl",
+                    "spike:beekeeping/pl",
+                ],
             },
         ],
         "meaning": {
-            "text": "Wikipedia supports the idea: attention is growing, not fading. Plan to "
-            "be ready by March, before the April peak.",
-            "uses": ["decision:verdict:beekeeping/nl", "decision:timing:beekeeping/nl"],
+            "text": "The Dutch Wikipedia is the stronger signal to check further: the larger "
+            "audience, and a growing one. Polish interest is shrinking and gives no growth "
+            "signal. If you test the Dutch audience, do it before April, when the article is "
+            "read most every year.",
+            "uses": ["decision:editions:beekeeping", "decision:timing:beekeeping/nl"],
         },
-        "check": "Compare how often people search for beekeeping courses this year and last.",
-        "limits": "Page views show curiosity, not willingness to pay; the Dutch Wikipedia is "
-        "a language, not a country.",
+        "check": "Compare Google Trends or search volume for beekeeping courses in Dutch and "
+        "in Polish over the last two years, or run a small ad test in both languages.",
+        "limits": "Page views show interest, not willingness to pay; each Wikipedia is a "
+        "language, not a country.",
         "ui": {
             "report.decision": "(each key of facts.ui with its label in the report language)",
             "chat.pdf": "(... keeping {path} as it is)",
@@ -215,9 +259,12 @@ def template_narrative(
 ) -> Narrative:
     """The code's own text as a narrative: the fallback, and the report before the agent's.
 
-    The story strings together the caution and high observations of each pair (then the
-    comparisons across pairs), the meaning the decision observations. It is English: the
-    observations are.
+    With several editions or topics the story compares them: the comparison observations
+    first, then each pair's cautions and one feature of its own (a step, a wave, the long
+    view), not the size and change the comparison already gives. With one pair it strings
+    together that pair's caution and high observations. The meaning takes the decision
+    observations, the trade-off first; the headline the headline observation. It is
+    English: the observations are.
 
     Args:
         summary: A summary with status ``ok``.
@@ -225,35 +272,86 @@ def template_narrative(
         ui: Interface labels still to translate, ``key: English template``.
     """
     observations = summary.observations
+    comparisons = [o for o in observations if o.kind in _COMPARISONS]
     groups: dict[str | None, list[ObservationOut]] = {}
     for o in observations:
-        if o.weight in _STORY_WEIGHTS:
-            groups.setdefault(o.pair, []).append(o)
+        if o.weight not in _STORY_WEIGHTS or o.kind in _COMPARISONS:
+            continue
+        if (
+            comparisons
+            and o.weight != "caution"
+            and (o.kind in _COMPARED or any(x.weight != "caution" for x in groups.get(o.pair, [])))
+        ):
+            continue  # the comparison gives the size and change; one feature of each pair
+        groups.setdefault(o.pair, []).append(o)
     story: list[Paragraph] = []
     room = LIMITS["story_total"]
-    for chosen in groups.values():
-        paragraph = _fitting(chosen, min(LIMITS["story"], room))
-        if paragraph.text and len(paragraph.text) <= room:
+    candidates = [p for c in comparisons for p in _split(c, LIMITS["story"])] + [
+        _fitting(chosen, LIMITS["story"]) for chosen in groups.values()
+    ]
+    for paragraph in candidates:
+        if paragraph.text and len(paragraph.text) <= min(LIMITS["story"], room):
             story.append(paragraph)
             room -= len(paragraph.text)
         if len(story) == _TEMPLATE_PARAGRAPHS:
             break
-    decisions = _fitting(
-        [o for o in observations if o.weight == "decision"][:_TEMPLATE_DECISIONS],
-        LIMITS["meaning"],
+    decisions = sorted(
+        (o for o in observations if o.weight == "decision"),
+        key=lambda o: not o.id.startswith(_TRADE_OFFS),
     )
+    meaning = _fitting(decisions[:_TEMPLATE_DECISIONS], LIMITS["meaning"])
     decision = summary.decision
     fallback_meaning = (decision.summary or "") if decision else ""
+    headline = next((o.statement for o in observations if o.kind == "headline"), None)
     return Narrative(
         language=summary.request.report.language,
         topic=" ".join(_topic_lines(summary, translator)),
-        headline=summary.verdict.headline,
+        headline=headline or summary.verdict.headline,
         story=story or [Paragraph(text=line) for line in summary.happening],
-        meaning=decisions if decisions.text else Paragraph(text=fallback_meaning),
-        check=decision.next_step if decision else "",
+        meaning=meaning if meaning.text else Paragraph(text=fallback_meaning),
+        check=_next_check(summary, translator) or (decision.next_step if decision else ""),
         limits=template_limits(translator),
         ui=dict(ui or {}),
     )
+
+
+def _next_check(summary: AnalysisSummary, t: Translator) -> str | None:
+    """The next step for several editions of one topic: where to check, as the charts read it.
+
+    The edition whose views grow against the same months a year earlier, the largest of
+    them; with none growing, the largest audience: the trade-off of ``decision:editions``,
+    over the window of the charts and the text. ``None`` leaves the step to the summary.
+    """
+    audience = summary.audience_chart
+    if (
+        audience is None
+        or len(audience.lines) < _COMPARED_EDITIONS
+        or any("·" in line.label for line in audience.lines)
+    ):
+        return None
+    last = [(line.label, line.years[-1]) for line in audience.lines]
+    growing = [
+        (label, y)
+        for label, y in last
+        if y.change is not None and views_direction(y.change) == "up"
+    ]
+    label, _ = max(growing or last, key=lambda item: item[1].views)
+    return t.t("next_step.check_interest_for", label=edition_name(f"{label}.wikipedia"))
+
+
+def _split(observation: ObservationOut, limit: int) -> list[Paragraph]:
+    """``observation`` in paragraphs of at most ``limit`` characters, each citing it.
+
+    A comparison says four things (audience, share, views, share kept or lost) and runs
+    longer than a paragraph may; it is cut between sentences.
+    """
+    paragraphs: list[str] = []
+    for sentence in _SENTENCE_END.split(observation.statement):
+        if paragraphs and len(paragraphs[-1]) + 1 + len(sentence) <= limit:
+            paragraphs[-1] += " " + sentence
+        else:
+            paragraphs.append(sentence)
+    return [Paragraph(text=text, uses=[observation.id]) for text in paragraphs]
 
 
 def _fitting(observations: Sequence[ObservationOut], limit: int) -> Paragraph:

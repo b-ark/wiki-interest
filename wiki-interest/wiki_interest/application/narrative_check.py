@@ -97,6 +97,11 @@ _DEMAND: Mapping[str, str] = {
     "cs": r"poptávk",
     "de": r"nachfrage",
 }
+_COMPARISONS = ("editions", "topics")
+"""Observations that set editions or topics against each other: a story of several must cite
+them, or it tells each apart instead of comparing (the user's report spec, 2026-09-25)."""
+_TRADE_OFFS = ("decision:editions:", "decision:topics:")
+"""The decision of a comparison: the meaning of several editions gives this trade-off."""
 _DESCRIPTIVE = ("headline", "story")
 """Blocks that describe the Wikipedia data: "demand" there would call views demand. The
 meaning and the check may speak of demand: "check the demand with a small ad test"."""
@@ -130,6 +135,7 @@ def check_narrative(facts: Facts, narrative: Narrative) -> list[NarrativeProblem
     checker = _Checker(facts, narrative)
     checker.shape()
     checker.citations()
+    checker.comparisons()
     checker.numbers()
     checker.directions()
     checker.words()
@@ -252,6 +258,32 @@ class _Checker:
                         f"Name the article «{name}» where the text talks about its edition: "
                         f"{caution.statement}",
                     )
+
+    def comparisons(self) -> None:
+        """Several editions or topics: the text compares them, it does not tell each apart.
+
+        The story must build on a comparison observation, the meaning on a trade-off. One of
+        each is enough: two topics in two editions have four comparisons, more than a story's
+        length holds.
+        """
+        n = self.narrative
+        story_uses = {oid for p in n.story for oid in p.uses}
+        comparisons = [o for o in self.facts.observations if o.kind in _COMPARISONS]
+        if comparisons and not story_uses & {o.id for o in comparisons}:
+            first = comparisons[0]
+            self.add(
+                "story",
+                "Compare, do not tell each edition apart: build the story on "
+                f"{', '.join(repr(o.id) for o in comparisons)} and cite it, for example "
+                f"'{first.id}': {first.statement}",
+            )
+        trade_offs = [o.id for o in self.facts.observations if o.id.startswith(_TRADE_OFFS)]
+        if trade_offs and not set(n.meaning.uses) & set(trade_offs):
+            self.add(
+                "meaning",
+                "Give the trade-off between the editions (a larger audience against a growing "
+                f"one): cite one of {', '.join(repr(i) for i in trade_offs)} in 'uses'.",
+            )
 
     def _by_weight(self) -> dict[str, list[ObservationOut]]:
         out: dict[str, list[ObservationOut]] = {}

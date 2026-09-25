@@ -161,14 +161,15 @@ January–August 2025, so a partial year's missing season does not read as a fal
 | `size` | always: how often the article is opened in the last calendar year, and in the first full year of the window; a partial year whose months usually run 10 % or more from the topic's yearly level says so |
 | `long_term` | at least 3 full calendar years: a steady decline or rise (the last full year below 0.7 or above 1/0.7 of the first, falling or rising in all but one year), a wave (a middle year peaks above the first and the last is below 3/4 of the peak), or a flat range |
 | `vs_edition` | 24 months, and every month of "now" and of the same months a year earlier: the change of the article's views, of the edition's, and of the share; a share change beyond ±10 % gained or lost attention, within it moved with the edition; says whether the fall is Wikipedia losing readers or the topic |
-| `season` | 3 years: the median over years of each calendar month against its year; a school-year rhythm (a September–November peak above +60 % and a summer below −15 %), another rhythm (spread above 30 points), or none |
+| `season` | 3 years: the median over years of each calendar month against the median of the 13 months centred on it (a trend makes no season); a school-year rhythm (a September–November peak above +60 % and a summer below −15 %), another rhythm (spread above 30 points), or none; a timing or an audience only when the peak month was among the two strongest of every year for at least 4 years, otherwise "limited evidence" |
 | `spike` | a month more than 3 times what that calendar month usually brings, the next month back |
 | `wave`, `unusual` | 3 or more months in a row above 3 times the median; flat (at least 9 months, highest below twice the lowest) and abrupt reads as automated traffic (a caution) |
 | `step` | the largest change of the mean level between the six months before and after a month, the season removed, above 1.35 times; says whether the edition changed at the same time |
 | `recent` | the last 3 months against the same months a year earlier, compared with the year: continues, slower, faster, stopped |
-| `editions` | one topic in two editions: relative and absolute size, and their directions |
+| `editions` | one topic in two editions over "now": where the audience (views a month) is larger ("much" from 3 times, "about as often" under 1.25), whether the gap holds against each Wikipedia's size (attention share), where the views went against a year earlier ("more sharply" beyond 10 points), whether each gained, held or lost its share; the decision gives the trade-off (a larger audience against a growing one) |
 | `topics` | several topics of the user's in one edition, against each other |
-| `decision:*` | what the above imply: when to be ready (a peak above +25 %), which audience (school readers), where to start (two editions), a verdict per edition |
+| `decision:*` | what the above imply for the next check, never an investment call: when to be ready (a peak above +25 % that came every year), which audience (school readers), where to look (two editions), a signal per edition from its views and attention share |
+| `headline` | one topic: the answer in one sentence without numbers, over the charts' window |
 | `caution:*` | an edition without an article, measured through a substitute, or with data too weak |
 
 Each observation has a weight: `caution` (the text must carry it), `high`, `medium`, `low`,
@@ -193,8 +194,16 @@ accepts the text only when:
   views demand; no block uses statistical jargon or "1 in N" (word lists for en, uk, ru,
   pl, cs, de and the countries of common editions; other languages skip these checks).
 
+- with several editions of a topic (or several topics), the story cites a comparison
+  observation (`editions:*`, `topics:*`) and the meaning its trade-off
+  (`decision:editions:*`): the text compares the editions instead of telling each apart.
+
 A rejected text comes back with the reasons; after the second rejection the report keeps
-the code's own text: the main observations strung together, in English. The chat answer is
+the code's own text, in English: the comparison first, then each edition's cautions and one
+feature of its own; the trade-off as the meaning; the headline observation as the headline;
+the next step names the edition whose views grow, or else the larger audience. An edition
+measured through a substitute article gets its own observations and a caution, but is never
+compared with the topic. The chat answer is
 not written separately: the code lays out the checked blocks, adds the item analysed, a few
 next steps and the path to the PDF, so the user reads the same checked text as the PDF.
 

@@ -323,8 +323,12 @@ MESSAGES: dict[str, str] = {
         "willingness to pay."
     ),
     "next_step.check_demand": (
-        "Next step: before investing, check the existing demand with an independent source, for "
-        "example Google Trends, search volume or a small ad test. Wikipedia views do not show "
+        "Next step: check the existing demand with an independent source, for example Google "
+        "Trends, search volume or a small ad test. Wikipedia views do not show willingness to pay."
+    ),
+    "next_step.check_interest_for": (
+        "Next step: check the interest in {label} with an independent source, for example Google "
+        "Trends, search volume or a small ad test. Wikipedia views show interest, not "
         "willingness to pay."
     ),
     "next_step.check_demand_for": (

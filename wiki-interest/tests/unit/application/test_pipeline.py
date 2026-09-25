@@ -279,9 +279,10 @@ class TestMissingArticle:
         pl_reliability = next(r for r in summary.reliability if r.project == "pl.wikipedia")
         assert pl_reliability.level == "low"
         # "Nauka" has far more views per million than Czech astronomy, yet the headline is
-        # about the topic, so it names cs.
-        assert "cs.wikipedia" in summary.verdict.headline
-        assert "pl.wikipedia" not in summary.verdict.headline
+        # about the topic, so it names cs; the substitute is not compared with it.
+        assert "Czech Wikipedia" in summary.verdict.headline
+        assert "Polish" not in summary.verdict.headline
+        assert not any(o.kind == "editions" for o in summary.observations)
         text = Path(summary.artifacts.summary_md).read_text(encoding="utf-8")
         assert "pl.wikipedia (Nauka)" in text
         assert 'the broader article "Nauka"' in text

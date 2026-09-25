@@ -33,7 +33,9 @@ Detectors (each fires only when its data show it):
 - ``editions``: one topic in two editions in the last calendar year, relative and absolute
   size, and their directions against a year earlier;
 - ``topics``: several topics of the user's in one edition against each other;
-- ``decision:*``: what the above imply for a decision (timing, audience, where to start).
+- ``decision:*``: what the above imply for the next check (timing, audience, where to
+  look), a signal, never a decision to invest;
+- ``headline``: for one topic, the answer in one sentence without numbers.
 """
 
 # ruff: noqa: RUF001, RUF002  -- the minus sign in the statements is intentional.
@@ -172,6 +174,8 @@ class PairHistory:
         months: First day of each month.
         views: The article's monthly views (with redirects); ``None`` where missing.
         edition: The edition's monthly views; ``None`` where missing.
+        substitute: Measured through another article (a broader or related one): it gets its
+            own observations and a caution, but is never compared with the topic elsewhere.
     """
 
     topic_id: str
@@ -180,6 +184,7 @@ class PairHistory:
     months: tuple[date, ...]
     views: tuple[float | None, ...]
     edition: tuple[float | None, ...]
+    substitute: bool = False
 
     @property
     def language(self) -> str:
@@ -1565,10 +1570,12 @@ def observe(
         found = detector.run()
         detectors[pair.history.pair] = detector
         out.extend(sorted(found, key=lambda o: _ORDER[o.weight]))
+    # A substitute measures another subject: it is never set against the topic.
     standings = {
         p.history.pair: s
         for p in prepared
-        if (s := _standing(p, detectors[p.history.pair], settings)) is not None
+        if not p.history.substitute
+        and (s := _standing(p, detectors[p.history.pair], settings)) is not None
     }
     by_topic: dict[str, list[_Standing]] = {}
     by_edition: dict[str, list[_Standing]] = {}
@@ -1581,7 +1588,77 @@ def observe(
     for group in by_edition.values():
         if len(group) >= 2:  # noqa: PLR2004
             out.extend(_topics(group, settings))
+    if len(by_topic) == 1:
+        headline = _headline(next(iter(by_topic.values())), settings)
+        if headline is not None:
+            out.append(headline)
     return out
+
+
+_ONE_EDITION = {
+    ("up", "gained"): "is growing, faster than its Wikipedia",
+    ("up", "held"): "is growing with its Wikipedia",
+    ("up", "lost"): "is growing, but more slowly than its Wikipedia",
+    ("down", "lost"): "is falling, faster than its Wikipedia",
+    ("down", "held"): "is falling with its Wikipedia as a whole",
+    ("down", "gained"): "is falling, but less than its Wikipedia as a whole",
+}
+_GROUP_WORDS = {"up": "growing", "down": "falling", "flat": "holding steady"}
+
+
+def _headline(group: Sequence[_Standing], settings: ObservationSettings) -> Observation | None:
+    """The answer in one sentence without numbers, over the window of the charts.
+
+    For one topic: where its views went against the same months a year earlier, in each
+    edition, and for one edition whether that beat its Wikipedia. The template text uses it
+    as its headline; the agent may write its own.
+    """
+    moved = [x for x in group if x.year is not None]
+    if not moved:
+        return None
+    topic = moved[0].pair.history.topic
+    directions = {
+        id(x): views_direction(x.year.article, settings) for x in moved if x.year is not None
+    }
+    if len(moved) == 1:
+        (only,) = moved
+        assert only.year is not None
+        direction = directions[id(only)]
+        move = share_move(only.year.share, settings)
+        what = _ONE_EDITION.get((direction, move), "is holding steady")
+        text = f"Interest in {topic} in {edition_name(only.pair.history.project)} {what}."
+    elif len(set(directions.values())) == 1:
+        direction = next(iter(directions.values()))
+        scope = "both editions" if len(moved) == 2 else "every edition"  # noqa: PLR2004
+        text = f"Interest in {topic} is {_GROUP_WORDS[direction]} in {scope}"
+        if direction != "flat" and len(moved) == 2:  # noqa: PLR2004
+            a, b = moved
+            assert a.year is not None
+            assert b.year is not None
+            if abs(a.year.article - b.year.article) > settings.moves:
+                sharper = a if abs(a.year.article) > abs(b.year.article) else b
+                how = "more sharply" if direction == "down" else "faster"
+                text += f", {how} in {edition_name(sharper.pair.history.project)}"
+            else:
+                text += ", at about the same pace"
+        text += "."
+    else:
+        parts = [
+            f"{_GROUP_WORDS[d]} in "
+            + " and ".join(
+                edition_name(x.pair.history.project) for x in moved if directions[id(x)] == d
+            )
+            for d in ("up", "flat", "down")
+            if d in directions.values()
+        ]
+        text = f"Interest in {topic} is " + "; ".join(parts) + "."
+    return Observation(
+        id=f"headline:{moved[0].pair.history.topic_id}",
+        kind="headline",
+        pair=None,
+        weight=Weight.CONTEXT,
+        statement=text[0].upper() + text[1:],
+    )
 
 
 def _from_first_data(history: PairHistory) -> PairHistory | None:

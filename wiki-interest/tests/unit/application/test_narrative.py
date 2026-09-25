@@ -285,6 +285,64 @@ class TestTemplatePassesItsOwnChecks:
         assert _messages(facts, _with_ui(facts, _template(run_dir))) == []
 
 
+class TestComparison:
+    """Two editions of a topic: the text compares them instead of telling each apart."""
+
+    @pytest.fixture
+    def ru(self, tmp_path: Path) -> tuple[Facts, Narrative]:
+        _, run_dir = _run(tmp_path, "ru")
+        facts = _facts(run_dir)
+        return facts, _russian(facts)
+
+    def test_the_template_leads_with_the_comparison(self, tmp_path: Path) -> None:
+        _, run_dir = _run(tmp_path, "en")
+        template = _template(run_dir)
+        assert template.story[0].uses == [EDITIONS]
+        assert template.meaning.uses[0] == START_WITH
+        # The size and change of each edition are the comparison's: not told again per edition.
+        told = {oid for paragraph in template.story for oid in paragraph.uses}
+        assert "size:astronomy/uk" not in told
+        assert VS_UK not in told
+
+    def test_the_next_step_names_the_edition_that_grows(self, tmp_path: Path) -> None:
+        # uk grows against the same months of 2025, cs holds: check where the growth is.
+        _, run_dir = _run(tmp_path, "en")
+        check = _template(run_dir).check
+        assert "check the interest in the Ukrainian Wikipedia" in check
+        assert "invest" not in check
+
+    def test_the_template_headline_is_the_headline_observation(self, tmp_path: Path) -> None:
+        _, run_dir = _run(tmp_path, "en")
+        facts = _facts(run_dir)
+        headline = next(o for o in facts.observations if o.kind == "headline")
+        assert _template(run_dir).headline == headline.statement
+        assert "fastest" not in headline.statement
+        assert not any(ch.isdigit() for ch in headline.statement)
+
+    def test_a_story_without_the_comparison_is_rejected(self, ru: tuple[Facts, Narrative]) -> None:
+        facts, narrative = ru
+        apart = narrative.model_copy(update={"story": narrative.story[:1]})
+        messages = _messages(facts, apart)
+        assert any("Compare, do not tell each edition apart" in m for m in messages)
+        assert any(EDITIONS in m for m in messages)
+
+    def test_a_meaning_without_the_trade_off_is_rejected(self, ru: tuple[Facts, Narrative]) -> None:
+        facts, narrative = ru
+        meaning = narrative.meaning.model_copy(update={"uses": [VERDICT_UK]})
+        messages = _messages(facts, narrative.model_copy(update={"meaning": meaning}))
+        assert any("trade-off" in m and START_WITH in m for m in messages)
+
+    def test_the_rules_ask_for_a_comparison_and_no_investment_call(self, tmp_path: Path) -> None:
+        _, run_dir = _run(tmp_path, "en")
+        facts = _facts(run_dir)
+        rules = " ".join(facts.rules)
+        assert "Never one paragraph per edition" in rules
+        assert "never a reason to invest" in rules
+        example = str(facts.example)
+        assert "editions:beekeeping" in example
+        assert "supports investing" not in example
+
+
 def _add_to_story(narrative: Narrative, text: str, uses: list[str]) -> Narrative:
     return narrative.model_copy(
         update={"story": [*narrative.story, Paragraph(text=text, uses=uses)]}
@@ -342,7 +400,7 @@ class TestRejections:
     ) -> None:
         facts, narrative = ru
         text = "Статью открывают около 4 300 раз в месяц."
-        story = narrative.story[:1]
+        story = narrative.story
         uncited = narrative.model_copy(
             update={"story": [*story, Paragraph(text=text, uses=[VS_UK])]}
         )
