@@ -621,6 +621,11 @@ MESSAGES: dict[str, str] = {
     "chart.share.changes": "Views over the last 12 months ({start} – {end}):",
     "chart.share.change": "{label}: the article {article}, Wikipedia overall {edition}",
     "chart.axis_growth": "change, %",
+    # Months that stand out, as the PDF's footer names them.
+    "chart.note.event": "{month} ×{multiple}",
+    "chart.note.possible_bot": "{month} ×{multiple}, possibly bots",
+    "chart.note.edition": "{month} edition ×{multiple}",
+    "chart.note.unknown": "{month} ×{multiple}",
     "chart.scatter_title": "{metric}: size and change",
     "chart.scatter_subtitle": "Right: a larger share; above the line: growing, below: shrinking.",
     "chart.axis_log": "{unit}, log scale",

@@ -79,6 +79,8 @@ SECTION_KEYS = [
     "chart.axis_views",
     "chart.share.title",
     "chart.share.legend_year",
+    # The PDF's footer names the months that stand out by their probable cause.
+    *[f"chart.note.{nature}" for nature in ("event", "possible_bot", "edition", "unknown")],
     "chart.season_title",
     "report.vs_edition",
     "report.decision",
