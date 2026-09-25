@@ -606,12 +606,9 @@ MESSAGES: dict[str, str] = {
         "last {months} months against the same months a year earlier, article views {article} and "
         "edition traffic {edition}, so the share keeps rising."
     ),
-    "chart.share.title": "Share of Wikipedia views, by year",
-    "chart.share.subtitle": (
-        "Of every million page views of the whole Wikipedia in that language, how many went to "
-        "this article."
-    ),
-    "chart.share.axis": "per million Wikipedia views",
+    "chart.share.title": "Attention share over time",
+    "chart.share.subtitle": "Article views per 1M views of that Wikipedia.",
+    "chart.share.axis": "views per 1M Wikipedia views",
     "chart.absolute.title": "Views by year",
     "chart.absolute.subtitle": "How many times a month the article was opened.",
     "chart.absolute.axis": "views a month",
@@ -625,7 +622,7 @@ MESSAGES: dict[str, str] = {
     "chart.audience.title": "Average monthly article views, by year",
     "chart.audience.subtitle": (
         "Bars show average monthly views and the year-over-year change.\n"
-        "Below: whether the article gained (▲), held (≈) or lost (▼) its share of views within "
+        "Below: whether the article gained (▲), held (≈) or lost (▼) its attention share within "
         "that Wikipedia."
     ),
     "chart.audience.partial": "{year}: {first}–{last} vs the same months of {previous}.",
@@ -633,11 +630,6 @@ MESSAGES: dict[str, str] = {
     "chart.audience.held": "≈ held share",
     "chart.audience.lost": "▼ lost share",
     "chart.axis_growth": "change, %",
-    # Months that stand out, as the PDF's footer names them.
-    "chart.note.event": "{month} ×{multiple}",
-    "chart.note.possible_bot": "{month} ×{multiple}, possibly bots",
-    "chart.note.edition": "{month} edition ×{multiple}",
-    "chart.note.unknown": "{month} ×{multiple}",
     "chart.scatter_title": "{metric}: size and change",
     "chart.scatter_subtitle": "Right: a larger share; above the line: growing, below: shrinking.",
     "chart.axis_log": "{unit}, log scale",
@@ -645,14 +637,12 @@ MESSAGES: dict[str, str] = {
     "chart.season_period": "Computed on {start} – {end}.",
     "report.happening": "What is going on",
     "report.footer_share": (
-        "Share of Wikipedia views: article views per 1 million views of the whole Wikipedia in "
-        "that language. Change: each calendar year against the same months a year earlier (a "
-        "partial year against the same months only); recent months: {recent}."
+        "Attention share = article views per 1M views of that Wikipedia. Change: each calendar "
+        "year against the same months a year earlier; a partial year against the same months "
+        "only."
     ),
     "report.footer_caveats": (
-        "Views show curiosity, not willingness to pay; a language edition is not a country."
+        "Views show interest, not willingness to pay; a language edition is not a country."
     ),
-    "report.footer_months": "Months that stand out in the comparison: {items}.",
-    "report.footer_month_item": "{label} {note}, change without it {change}",
     "report.footer_method": "How every number was computed: method.md",
 }

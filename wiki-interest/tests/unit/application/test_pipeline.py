@@ -10,11 +10,15 @@ from pathlib import Path
 from pypdf import PdfReader
 
 from fakes import FakeEntity, FakePage, astronomy_world, fake_container
-from wiki_interest.application.pipeline import Pipeline
+from fixtures.summaries import example_summary
+from wiki_interest.application.pipeline import Pipeline, _with_main_charts
 from wiki_interest.application.runs import load_summary
 from wiki_interest.application.summary_builder import RunContext
+from wiki_interest.contracts.charts import ChartSeries, ChartSpec
 from wiki_interest.contracts.request import AnalysisRequest
+from wiki_interest.contracts.summary import AnalysisSummary
 from wiki_interest.domain.models import WikiProject
+from wiki_interest.i18n import Translator
 
 
 def _request(**overrides: object) -> AnalysisRequest:
@@ -347,3 +351,32 @@ class TestTopicStageOnly:
         text = (run_dir / "summary.md").read_text(encoding="utf-8")
         assert "(Q333)" in text
         assert not (run_dir / "report.pdf").exists()
+
+
+class TestSeasonChart:
+    """A season takes its chart only when the user asked about timing or the text cites it."""
+
+    @staticmethod
+    def _summary(*, cited: list[str], seasonality: str = "auto") -> AnalysisSummary:
+        summary = example_summary()
+        season = ChartSpec(
+            id="season",
+            kind="lines",
+            size="half",
+            title="Months against the usual level",
+            y_label="%",
+            series=[ChartSeries(label="uk", x=["Jan", "Feb"], y=[10.0, -5.0])],
+        )
+        report = summary.request.report.model_copy(update={"seasonality": seasonality})
+        request = summary.request.model_copy(update={"report": report})
+        return summary.model_copy(update={"charts": [season], "cited": cited, "request": request})
+
+    def test_a_season_the_text_does_not_cite_is_not_drawn(self) -> None:
+        charts = _with_main_charts(self._summary(cited=[]), Translator("en")).charts
+        assert "season" not in [c.id for c in charts]
+
+    def test_a_cited_season_or_a_question_about_timing_is_drawn(self) -> None:
+        cited = self._summary(cited=["decision:timing:astronomy/uk"])
+        asked = self._summary(cited=[], seasonality="show")
+        for summary in (cited, asked):
+            assert "season" in [c.id for c in _with_main_charts(summary, Translator("en")).charts]

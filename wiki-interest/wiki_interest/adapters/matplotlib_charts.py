@@ -116,6 +116,8 @@ VALUE_UNDER_PT = 11
 VALUE_HIGHER_PT = 14
 END_LABEL_GAP = 0.07
 """Least distance between two audiences' names at the lines' ends, as a share of the axis."""
+END_LABEL_LINE = 1.15
+"""The names at the lines' ends stand at least this many font heights apart."""
 NOTE_LINE_HEIGHT = 1.4
 LEGEND_SPACING = 0.3
 LEGEND_HANDLE = 1.8
@@ -604,14 +606,14 @@ class MatplotlibChartRenderer:
         self._share_values(axes, share, ceiling)
         self._share_marks(axes, spec, ceiling)
         last = max(_month_number(line.x[-1]) for line in share.lines)
-        axes.axvspan(
-            last - share.recent_months + 1 - HALF_BAR,
-            last + HALF_BAR,
-            color=theme.highlight_color,
-            alpha=theme.highlight_alpha,
-            linewidth=0,
-        )
-        self._share_ends(axes, share, ceiling)
+        if share.recent_months:
+            axes.axvspan(
+                last - share.recent_months + 1 - HALF_BAR,
+                last + HALF_BAR,
+                color=theme.highlight_color,
+                alpha=theme.highlight_alpha,
+                linewidth=0,
+            )
         self._share_years_axis(axes, spec, last)
         axes.yaxis.set_major_formatter(FuncFormatter(lambda v, _: self._tick_label(v)))
         axes.tick_params(axis="y", labelsize=small)
@@ -622,7 +624,7 @@ class MatplotlibChartRenderer:
             Patch(color=theme.highlight_color, alpha=theme.highlight_alpha, linewidth=0),
         ]
         figure.legend(
-            handles,
+            handles[: len(spec.legend)],
             spec.legend,
             loc="lower left",
             ncol=1,
@@ -638,6 +640,7 @@ class MatplotlibChartRenderer:
         figure.tight_layout(rect=(0, bottom_mm / height, 1, header))
         self._frame(figure, chart.width_mm)
         figure.subplots_adjust(right=1 - SHARE_RIGHT_MM / chart.width_mm)
+        self._share_ends(figure, axes, share, ceiling)
         return figure
 
     def _share_values(self, axes: Axes, share: ShareYears, ceiling: float) -> None:
@@ -739,16 +742,23 @@ class MatplotlibChartRenderer:
                 fontsize=small,
             )
 
-    def _share_ends(self, axes: Axes, share: ShareYears, ceiling: float) -> None:
-        """Each audience's name at the end of its line, moved apart when they would touch."""
+    def _share_ends(self, figure: Figure, axes: Axes, share: ShareYears, ceiling: float) -> None:
+        """Each audience's name at the end of its line, moved apart when they would touch.
+
+        Placed once the plot has its size: the least gap is a line of the label's font, in
+        the axis's units, whatever height the chart was drawn at.
+        """
+        plot_mm = axes.get_position().height * figure.get_figheight() * MM_PER_INCH
+        line_mm = self._theme.chart.font_size_pt * PT_TO_MM * END_LABEL_LINE
+        gap = ceiling * max(END_LABEL_GAP, line_mm / plot_mm)
         ends = sorted(
             (line.years[-1].value, index, line.label) for index, line in enumerate(share.lines)
         )
         placed: list[float] = []
         for value, index, label in ends:
             y = value
-            if placed and y - placed[-1] < ceiling * END_LABEL_GAP:
-                y = placed[-1] + ceiling * END_LABEL_GAP
+            if placed and y - placed[-1] < gap:
+                y = placed[-1] + gap
             placed.append(y)
             end = _month_number(share.lines[index].years[-1].end) + SEGMENT_END
             axes.annotate(

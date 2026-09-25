@@ -122,13 +122,13 @@ class ShareYears(_Model):
         absolute: Views a month instead of the attention share (the user asked for raw views).
         lines: One per audience, in the order of the request.
         marks: Steps and bursts the observations found.
-        recent_months: How many last months the chart shades.
+        recent_months: How many last months the chart shades; 0 shades none.
     """
 
     absolute: bool = False
     lines: list[ShareLine] = Field(min_length=1)
     marks: list[ShareMark] = Field(default_factory=list)
-    recent_months: int = 3
+    recent_months: int = Field(default=3, ge=0)
 
 
 class AudienceYear(_Model):

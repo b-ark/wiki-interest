@@ -268,14 +268,14 @@ environment variable (`WIKI_INTEREST_SEASON_MIN_YEARS=6`, `WIKI_INTEREST_MIN_MOM
 
 ### Charts
 
-- **Main chart**, every report ("Share of Wikipedia views, by year"): the share of Wikipedia
-  views (views without normalisation) of up to three audiences on one scale, over the
-  calendar years the observations read. A pale line gives each month; a segment at each
-  year's average carries its value, the same number the text quotes; a partial last year is
-  dashed. The share already sets the topic against its Wikipedia: an article falling faster
-  than its edition makes the line fall. The last 3 months are shaded; a step or a one-off
-  burst is marked when the text cites it (a burst above the other months shows its value at
-  the top edge either way).
+- **Main chart**, every report ("Attention share over time"): the attention share (views
+  without normalisation) of up to three audiences on one scale, over the calendar years the
+  observations read. A pale line gives each month; a segment at each year's average carries
+  its value, the same number the text quotes; a partial last year is dashed. The share
+  already sets the topic against its Wikipedia: an article falling faster than its edition
+  makes the line fall. A step or a one-off burst is marked when the text cites it (a burst
+  above the other months shows its value at the top edge either way); the last 3 months are
+  shaded only when the text cites the `recent` observation.
 - **Views by year**, under it (not when the user asked for raw views: the main chart shows
   them): the same audiences and calendar years, each year's mean monthly views as a bar, the
   audiences side by side on one scale, so a large share of a small Wikipedia is not taken
@@ -291,8 +291,16 @@ environment variable (`WIKI_INTEREST_SEASON_MIN_YEARS=6`, `WIKI_INTEREST_MIN_MOM
 - The labels of both are built when the report is rendered, in the report's language.
 - **Further chart**, four or more audiences: the mean share (log axis) against its headline
   change, one point per audience.
-- **Seasons**: the calendar-month profile, when section 6 says it deserves a chart, with the
-  months it was computed on.
+- **Seasons**: the calendar-month profile, when section 6 says it deserves a chart and either
+  the user asked about timing (`report.seasonality: "show"`) or the text cites the season
+  (`season:*`, `decision:timing:*`, `decision:audience:*`), with the months it was computed
+  on.
+
+The PDF holds nothing that does not answer the question: no table of key numbers (the text
+and the charts give them), no block on the robustness of the trend and no run caveats in the
+footer (both in `summary.md` and `method.md`; the text carries the cautions that change the
+answer). The footer defines the attention share and the windows, says that views show
+interest, not willingness to pay, and that a language is not a country.
 
 The palette is Okabe-Ito, readable with the common colour-vision deficiencies.
 

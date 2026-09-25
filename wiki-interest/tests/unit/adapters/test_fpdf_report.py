@@ -69,14 +69,14 @@ def test_the_page_reads_as_a_decision_memo_in_order(
         "intermittent fasting (Q",  # what was analysed: topic and item
         "Period: 2024-09 – 2026-08",
         "What is going on",
-        "How robust is this conclusion?",
         "What it means for you",
         "Next step: confirm the signal for cs.wikipedia",
     ]
     # The footer is drawn first (its height decides where the content ends).
     footer = [
-        "Share of Wikipedia views: article views per 1 million views of the whole Wikipedia",
+        "Attention share = article views per 1M views of that Wikipedia",
         "each calendar year against the same months a year earlier",
+        "Views show interest, not willingness to pay",
         "a language edition is not a country",
         "method.md",
         "Skill version: 0.1.0",
@@ -86,24 +86,26 @@ def test_the_page_reads_as_a_decision_memo_in_order(
         assert positions == sorted(positions), list(zip(order, positions, strict=True))
     assert "1 in" not in text, "the share is stated per million only"
     assert "Metric" not in text, "the key numbers are in the text and the charts, not a table"
+    # The checks of the data and the trend stay in summary.md and method.md.
+    assert "How robust" not in text
+    assert "Months that stand out" not in text
 
 
-def test_the_data_line_and_the_robustness_lines(tmp_path: Path, chart_paths: list[Path]) -> None:
+def test_the_checks_of_the_data_stay_out_of_the_page(
+    tmp_path: Path, chart_paths: list[Path]
+) -> None:
     text = _text(_render(example_summary(), chart_paths[:1], tmp_path / "r.pdf"))
-    assert "cs.wikipedia: mixed signal." in text
-    assert "Data: 24 months of data; bursts do not drive the result." in text
+    assert "mixed signal" not in text
+    assert "Data: 24 months of data" not in text
 
 
 @pytest.mark.parametrize(
     ("language", "ui"),
     [
-        ("uk", {"report.happening": "Що відбувається", "report.robustness": "Наскільки стійкий"}),
-        (
-            "pl",
-            {"report.happening": "Co się dzieje", "report.robustness": "Jak pewny jest wniosek"},
-        ),
-        ("cs", {"report.happening": "Co se děje", "report.robustness": "Jak pevný je závěr"}),
-        ("ru", {"report.happening": "Что происходит", "report.robustness": "Насколько устойчив"}),
+        ("uk", {"report.happening": "Що відбувається", "report.decision": "Що це означає"}),
+        ("pl", {"report.happening": "Co się dzieje", "report.decision": "Co to oznacza"}),
+        ("cs", {"report.happening": "Co se děje", "report.decision": "Co to znamená"}),
+        ("ru", {"report.happening": "Что происходит", "report.decision": "Что это значит"}),
     ],
 )
 def test_every_language_keeps_its_script_and_the_agent_labels(
@@ -117,14 +119,14 @@ def test_every_language_keeps_its_script_and_the_agent_labels(
     assert "What is going on" not in text
 
 
-def test_many_caveats_are_trimmed_to_keep_one_page(tmp_path: Path, chart_paths: list[Path]) -> None:
+def test_the_run_caveats_stay_in_the_summary(tmp_path: Path, chart_paths: list[Path]) -> None:
     summary = example_summary().model_copy(
         update={"limitations": [f"{i}. {LONG_LIMITATION}" for i in range(40)]}
     )
     reader = _render(summary, chart_paths, tmp_path / "report.pdf")
     assert len(reader.pages) == 1
     text = _text(reader)
-    assert "39. This limitation" not in text
+    assert "0. This limitation" not in text
     assert "What it means for you" in text
 
 
@@ -241,8 +243,9 @@ def test_render_error_when_no_layout_fits(
     tmp_path: Path, chart_paths: list[Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(FpdfReportRenderer, "_layouts", lambda _self: iter([fpdf_report._Layout()]))
-    summary = example_summary().model_copy(
-        update={"limitations": [f"{i}. {LONG_LIMITATION}" for i in range(40)]}
+    summary = example_summary()
+    summary = summary.model_copy(
+        update={"happening": [f"{i}. {LONG_LIMITATION}" for i in range(40)]}
     )
     with pytest.raises(RenderError, match="does not fit"):
         FpdfReportRenderer(Translator("en")).render(summary, chart_paths, tmp_path / "r.pdf")
@@ -288,7 +291,7 @@ def test_charts_too_tall_are_drawn_lower_at_the_full_width_and_line_up(
     paths = [charts.render(spec, tmp_path / "charts")[0] for spec in specs]
     summary = example_summary()
     # The headline always stays: a long one leaves the charts less room on every layout.
-    headline = " ".join([summary.verdict.headline] * 4)
+    headline = " ".join([summary.verdict.headline] * 8)
     crowded = summary.model_copy(
         update={
             "charts": specs,

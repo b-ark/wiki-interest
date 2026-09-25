@@ -200,7 +200,7 @@ def test_the_main_chart_names_each_audience_and_writes_each_year(
     assert "24.0" in text  # the first audience's years after its step
     assert "(Jan – Aug)" in text  # the partial year says which months it has
     assert "average over the calendar year" in text
-    assert "Share of Wikipedia views, by year" in text
+    assert "Attention share over time" in text
 
 
 def test_the_main_chart_marks_only_what_the_text_cites(

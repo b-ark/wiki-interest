@@ -74,6 +74,7 @@ SHARE_CHART_ID = "share"
 AUDIENCE_CHART_ID = "audience"
 _MOVES: tuple[ShareMove, ...] = ("gained", "held", "lost")
 _RECENT = 3
+_RECENT_OBSERVATION = "recent:"
 _MAX_SHARE_LINES = 3
 """More lines on one scale merge; with more audiences the scatter compares them all."""
 _MAX_LINES = 6
@@ -283,6 +284,12 @@ def share_years_spec(data: ShareYears, t: Translator, cited: Collection[str]) ->
         label if mark.observation in cited else None
         for mark, label in zip(data.marks, labels, strict=True)
     ]
+    # The last months are shaded only when the text speaks of them: a band it never explains
+    # is one more layer to read.
+    recent = any(oid.startswith(_RECENT_OBSERVATION) for oid in cited)
+    legend = [t.t("chart.share.legend_year"), t.t("chart.share.legend_month")]
+    if recent:
+        legend.append(t.t("chart.share.legend_recent", months=data.recent_months))
     kind = "absolute" if data.absolute else "share"
     return ChartSpec(
         id=SHARE_CHART_ID,
@@ -291,14 +298,10 @@ def share_years_spec(data: ShareYears, t: Translator, cited: Collection[str]) ->
         title=t.t(f"chart.{kind}.title"),
         subtitle=t.t(f"chart.{kind}.subtitle"),
         y_label=t.t(f"chart.{kind}.axis"),
-        share=data,
+        share=data if recent else data.model_copy(update={"recent_months": 0}),
         year_labels=year_labels,
         mark_labels=mark_labels,
-        legend=[
-            t.t("chart.share.legend_year"),
-            t.t("chart.share.legend_month"),
-            t.t("chart.share.legend_recent", months=data.recent_months),
-        ],
+        legend=legend,
     )
 
 

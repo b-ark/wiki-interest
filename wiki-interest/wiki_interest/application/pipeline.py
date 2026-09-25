@@ -69,6 +69,9 @@ __all__ = [
 
 CHARTS_DIRNAME = "charts"
 SUMMARY_JSON = "summary.json"
+_SEASON_CHART = "season"
+_SEASON_OBSERVATIONS = ("season:", "decision:timing:", "decision:audience:")
+"""What the text cites when it speaks of a season: the season chart is drawn then."""
 SUMMARY_MD = "summary.md"
 REPORT_PDF = "report.pdf"
 METHOD_MD = "method.md"
@@ -487,7 +490,17 @@ def _with_main_charts(summary: AnalysisSummary, translator: Translator) -> Analy
     main chart marks only the steps and bursts the report text cites; specs of an earlier
     rendering are replaced.
     """
-    others = [c for c in summary.charts if c.id not in (SHARE_CHART_ID, AUDIENCE_CHART_ID)]
+    # A season takes its chart when the user asked about timing or the text speaks of it:
+    # a pattern found but not part of the answer is not worth a third of the page.
+    seasons = summary.request.report.seasonality == "show" or any(
+        oid.startswith(_SEASON_OBSERVATIONS) for oid in summary.cited
+    )
+    others = [
+        c
+        for c in summary.charts
+        if c.id not in (SHARE_CHART_ID, AUDIENCE_CHART_ID)
+        and (seasons or not c.id.startswith(_SEASON_CHART))
+    ]
     first: list[ChartSpec] = []
     if summary.share_chart is not None:
         first.append(share_years_spec(summary.share_chart, translator, set(summary.cited)))

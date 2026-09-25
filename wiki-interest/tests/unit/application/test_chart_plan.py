@@ -192,7 +192,15 @@ class TestMainChart:
         assert spec.year_labels[-1] == "2026 (Jan – Aug)"
         cited = share_years_spec(data, Translator("en"), cited={"step:astronomy/uk"})
         assert cited.mark_labels == ["level changed: Nov 2024"]
-        assert cited.title == "Share of Wikipedia views, by year"
+        assert cited.title == "Attention share over time"
+        # The last months are shaded only when the text speaks of them.
+        assert cited.share is not None
+        assert cited.share.recent_months == 0
+        assert len(cited.legend) == 2
+        recent = share_years_spec(data, Translator("en"), cited={"recent:astronomy/uk"})
+        assert recent.share is not None
+        assert recent.share.recent_months == 3
+        assert recent.legend[-1] == "the last 3 months"
 
 
 def _audience(*histories: PairHistory) -> AudienceYears:

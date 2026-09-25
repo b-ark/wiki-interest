@@ -1,19 +1,19 @@
 """One-page A4 PDF report built with fpdf2.
 
 The page reads top to bottom as a decision memo: the answer as the headline; what was
-analysed (topic, Wikidata item, editions, period); the main chart (the share of Wikipedia
-views by year) and the views by year under it; what happened; how robust the conclusion is;
-what it means for the decision, with the next step. The key numbers are in the text and the
-charts, so the page has no table of them (``summary.md`` keeps one). The footer defines the
-share and the windows, states that views are curiosity and that a language is not a country,
-names the months that stand out in the comparison, and points to ``method.md`` for every
-computation.
+analysed (topic, Wikidata item, editions, period); the main chart (the attention share over
+time) and the views by year under it; what is going on; what it means, with the next step.
+Every element answers the user's question: the key numbers are in the text and the charts,
+so the page has no table of them, and the checks of the data and of the trend stay in
+``summary.md`` and ``method.md`` (the text says how robust the answer is when it matters).
+The footer defines the attention share and the windows, states that views show interest,
+not willingness to pay, and that a language is not a country, and points to ``method.md``.
 
 It must never spill onto a second page, and text is never set smaller to make it fit: the
 renderer draws the page on a throwaway document, measures, and if the content overflows
-retries with fewer items (the seasonal chart, the data line, decision lines, what-happened
-sentences, run-specific caveats, the second chart), then lower charts, and finally a layout
-that truncates with a pointer to ``summary.md``. A chart too tall for its place is drawn
+retries with fewer items (the seasonal chart, decision lines, what-happened sentences),
+then lower charts, then without the views by year, and finally a layout that truncates
+with a pointer to ``summary.md``. A chart too tall for its place is drawn
 again lower, not shrunk: every full-width chart keeps the page width, and their plots line
 up. With ``report.appendix`` a second page carries the method. Fonts come from matplotlib's
 bundled DejaVu Sans so Cyrillic and Central European diacritics render without shipping font
@@ -40,7 +40,6 @@ from wiki_interest.adapters.report_blocks import (
     decision_lines,
     ordered_assessments,
     report_title,
-    robustness_lines,
 )
 from wiki_interest.adapters.report_theme import PdfTheme, ReportTheme
 from wiki_interest.contracts.charts import ChartSpec
@@ -66,7 +65,6 @@ TABLE_PADDING_MM = 1.2
 CHART_STEP_MM = 10.0
 """How much lower the charts get per tightening step."""
 METHOD_FILE = "method.md"
-MAX_FOOTER_MONTHS = 3
 REDRAW_SLACK_MM = 0.3
 """A redrawn chart aims this much under its height: its pixels round up, not over."""
 
@@ -82,13 +80,8 @@ class _Layout:
     """
 
     charts: int = 3
-    show_data_note: bool = True
-    all_robustness: bool = True
-    """``False`` keeps robustness lines only where the last months do not confirm the trend;
-    the others confirm it, as ``summary.md`` says."""
     max_decision: int | None = None
     max_happening: int | None = None
-    max_caveats: int | None = None
     chart_height: float | None = None
     truncate: bool = False
 
@@ -167,27 +160,23 @@ class FpdfReportRenderer:
     def _layouts(self) -> Iterator[_Layout]:
         """Tightening sequence, from what the reader misses least to what they miss most.
 
-        The seasonal chart goes first (the text states the season), then the line on the
-        data (``method.md`` has it in full), decision lines beyond the conclusion, sentences
-        of what happened beyond two, run-specific caveats; then both charts get lower, the
-        robustness lines of confirmed conclusions go, then the second chart (the views by
-        year), and the main one gets lower still. The headline, the main chart, the conclusion
-        with the next step and the footer always stay; the font never shrinks.
+        The seasonal chart goes first (the text states the season), then decision lines
+        beyond the conclusion and sentences of what happened beyond two; then both charts get
+        lower, then the second chart (the views by year) goes, and the main one gets lower
+        still. The headline, the main chart, the conclusion with the next step and the footer
+        always stay; the font never shrinks.
         """
         style = self._theme.pdf
         layout = _Layout()
         yield layout
-        for step in (
-            {"charts": 2},
-            {"show_data_note": False},
-            {"max_decision": 2},
-            {"max_happening": 3},
-            {"max_decision": 1},
-            {"max_happening": 2},
-            {"max_caveats": 1},
-            {"max_caveats": 0},
+        first = layout
+        for layout in (  # each step from the first; the loop keeps the last
+            replace(first, charts=2),
+            replace(first, charts=2, max_decision=2),
+            replace(first, charts=2, max_decision=2, max_happening=3),
+            replace(first, charts=2, max_decision=1, max_happening=3),
+            replace(first, charts=2, max_decision=1, max_happening=2),
         ):
-            layout = replace(layout, **step)
             yield layout
         # Two lower charts read better than one: lower both to the middle height first, then
         # drop the second and lower the main one to the minimum.
@@ -200,8 +189,6 @@ class FpdfReportRenderer:
         for height in middle:
             layout = replace(layout, chart_height=height)
             yield layout
-        layout = replace(layout, all_robustness=False)
-        yield layout
         layout = replace(layout, charts=1, chart_height=None)
         yield layout
         for height in heights:
@@ -360,7 +347,6 @@ class _Page:
             self._headline,
             self._charts_block,
             self._happening,
-            self._robustness,
             self._decision,
         ]
         for section in sections:
@@ -472,22 +458,6 @@ class _Page:
             return
         self._paragraphs(shown)
 
-    def _robustness(self) -> None:
-        """How robust the conclusion is per audience, then the state of the data in one line."""
-        items = robustness_lines(self._summary)
-        if not self._layout.all_robustness:
-            items = [
-                a.robustness_line
-                for a in ordered_assessments(self._summary)
-                if a.robustness_line and str(a.robustness) != "confirmed"
-            ]
-        if not items or not self._heading("report.robustness"):
-            return
-        self._bullets(items)
-        note = self._summary.data_note
-        if note and self._layout.show_data_note:
-            self._paragraph(" ".join(note), self._style.small_pt, color=self._theme.muted_color)
-
     def _decision(self) -> None:
         """The conclusion and per-audience lines, then the next step, which always stays."""
         lines = decision_lines(self._summary)
@@ -501,39 +471,17 @@ class _Page:
     # -- footer ------------------------------------------------------------------------------
 
     def _footer_lines(self) -> list[str]:
-        """Definitions and caveats, then the months that stand out, the method and sources."""
+        """What the reader needs to read the page: the definitions, then the method and sources.
+
+        The months that stand out and the run's caveats stay in ``summary.md`` and
+        ``method.md``: the text carries the cautions that change the answer.
+        """
         t, summary = self._t, self._summary
-        measured = [a for a in summary.assessments if a.measured]
-        months = {a.recent_months for a in measured if a.recent_months}
-        recent = t.t("report.recent_basis", months=months.pop() if len(months) == 1 else 3)
-        lines = [
-            # The windows of the text and the charts: calendar years, a year on.
-            t.t("report.footer_share", recent=recent),
-            t.t("report.footer_caveats"),
-        ]
-        limit = self._layout.max_caveats
-        caveats = summary.limitations if limit is None else summary.limitations[:limit]
-        lines += caveats
-        items = [
-            t.t(
-                "report.footer_month_item",
-                label=a.label,
-                note=t.t(
-                    f"chart.note.{m.nature}",
-                    month=m.month,
-                    multiple=t.number(max(m.multiples.values(), key=lambda v: abs(v - 1)), 1),
-                ),
-                change=t.percent(m.change_without, 0, signed=True),
-            )
-            for a in summary.assessments
-            for m in a.months
-            if m.in_change and m.change_without is not None
-        ][:MAX_FOOTER_MONTHS]
-        if items:
-            lines.append(t.t("report.footer_months", items="; ".join(items)))
         provenance = summary.provenance
         generated = provenance.generated_at.strftime(GENERATED_AT_FORMAT)
-        lines.append(
+        return [
+            t.t("report.footer_share"),
+            t.t("report.footer_caveats"),
             " · ".join(
                 [
                     t.t("report.footer_method"),
@@ -542,9 +490,8 @@ class _Page:
                     f"{t.t('report.generated')}: {generated}",
                     f"{t.t('report.version')}: {provenance.code_version}",
                 ]
-            )
-        )
-        return lines
+            ),
+        ]
 
     def _draw_footer(self) -> float:
         """Draw the footer at the page bottom and return the y where content must end."""
