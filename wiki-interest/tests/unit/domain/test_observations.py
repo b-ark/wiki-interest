@@ -1,8 +1,9 @@
 """Observations: each detector fires on the shape it describes, and only then.
 
-The series are synthetic: 72 months from 2020-09 of an article in an edition with a steady
-100 million views a month, shaped by a trend, a calendar rhythm or an event. Numbers in a
-statement are the numbers it quotes, so a text citing it may quote them.
+The series are synthetic: 72 months from 2020-09 to 2026-08 (full calendar years 2021–2025 and
+a partial 2026) of an article in an edition with a steady 100 million views a month, shaped by
+a trend, a calendar rhythm or an event. Numbers in a statement are the numbers it quotes, so a
+text citing it may quote them.
 """
 
 from __future__ import annotations
@@ -72,7 +73,7 @@ class TestTrends:
         long_term = found["long_term:astronomy/uk"]
         assert long_term.weight is Weight.HIGH
         assert "A long, steady decline" in long_term.statement
-        assert "September 2020 – August 2021" in long_term.statement
+        assert "in 2025 it was about a third of what it was in 2021" in long_term.statement
         assert "loses attention" in found["vs_edition:astronomy/uk"].statement
         assert "no growing interest" in found["decision:verdict:astronomy/uk"].statement
 
@@ -94,10 +95,7 @@ class TestTrends:
         assert "neither supports nor rules out" in found["decision:verdict:astronomy/uk"].statement
 
     def test_a_named_short_period_reads_no_long_trend_but_the_season(self) -> None:
-        def school(k: int, m: date) -> float:
-            return 1_000.0 * (4.0 if m.month == 9 else 0.4 if m.month in (6, 7, 8) else 1.0)
-
-        found = _by_id(observe([_history(school)], trend_start=date(2024, 9, 1)))
+        found = _by_id(observe([_history(_school)], trend_start=date(2024, 9, 1)))
         assert "long_term:astronomy/uk" not in found
         assert "school-year rhythm" in found["season:astronomy/uk"].statement
 
@@ -109,12 +107,47 @@ class TestTrends:
         assert "size:astronomy/uk" in found
 
 
+def _school(k: int, m: date) -> float:
+    return 1_000.0 * (4.0 if m.month == 9 else 0.4 if m.month in (6, 7, 8) else 1.0)
+
+
+class TestCalendarYears:
+    """The level and the long view read calendar years, as the report's chart draws them."""
+
+    def test_now_is_the_partial_last_year_and_then_the_first_full_one(self) -> None:
+        size = _by_id(observe([_history(_flat())]))["size:astronomy/uk"].statement
+        assert "times a month in January–August 2026" in size
+        assert "In 2021 it was opened" in size
+
+    def test_a_partial_year_with_too_few_months_gives_way_to_the_last_full_one(self) -> None:
+        size = _by_id(observe([_history(_flat(), count=65)]))["size:astronomy/uk"].statement
+        assert "times a month in 2025" in size
+        assert "January 2026" not in size
+
+    def test_the_long_view_reads_full_years_only(self) -> None:
+        # January–August 2026 misses the September peak: read with 2021–2025 it would look
+        # like a fall; read on full years the school rhythm is flat.
+        found = _by_id(observe([_history(_school)]))
+        long_term = found["long_term:astronomy/uk"]
+        assert "stayed in the same range over 2021–2025" in long_term.statement
+        size = found["size:astronomy/uk"].statement
+        assert "January–August 2026 is not a full year" in size
+        assert "set it against full years with care" in size
+
+    def test_a_partial_year_without_a_season_needs_no_caution(self) -> None:
+        size = _by_id(observe([_history(_flat())]))["size:astronomy/uk"].statement
+        assert "not a full year" not in size
+
+    def test_two_editions_are_set_against_each_other_over_the_same_months(self) -> None:
+        uk = _history(_flat(4_000.0))
+        cs = _history(_flat(2_000.0), project="cs.wikipedia", edition=lambda _: EDITION / 4)
+        editions = _by_id(observe([uk, cs]))["editions:astronomy"].statement
+        assert "in January–August 2026 (" in editions
+
+
 class TestCalendar:
     def test_a_september_peak_and_an_empty_summer_are_school_readers(self) -> None:
-        def school(k: int, m: date) -> float:
-            return 1_000.0 * (4.0 if m.month == 9 else 0.4 if m.month in (6, 7, 8) else 1.0)
-
-        found = _by_id(observe([_history(school)]))
+        found = _by_id(observe([_history(_school)]))
         season = found["season:astronomy/uk"]
         assert season.weight is Weight.HIGH
         assert "peaks in September" in season.statement
@@ -229,7 +262,8 @@ class TestStatements:
     def test_the_size_gives_the_attention_share_per_million(self) -> None:
         size = _by_id(observe([_history(_flat(5_000.0))]))["size:astronomy/uk"]
         assert size.weight is Weight.HIGH
-        assert "50.0 views per million views of the edition" in size.statement
+        assert "views per million views of the edition" in size.statement
+        assert any(q.value == 50.2 for q in size.numbers)
 
     def test_editions_are_named_by_their_language(self) -> None:
         assert edition_name("pl.wikipedia") == "the Polish Wikipedia"

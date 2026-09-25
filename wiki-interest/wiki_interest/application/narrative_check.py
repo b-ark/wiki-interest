@@ -106,7 +106,7 @@ _CJK_SCRIPT = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]+")
 _CJK_LANGUAGES = frozenset({"zh", "ja", "ko"})
 _CYRILLIC_SCRIPT = re.compile(r"[\u0400-\u04ff]+")
 """Cyrillic: a cheap model writing Polish after reading Ukrainian drops in a Russian word
-("To \u043e\u0437\u043d\u0430\u0447\u0430\u0435\u0442, \u017ce...", 2026-09-25)."""
+("To означает, że...", 2026-09-25)."""
 _CYRILLIC_LANGUAGES = frozenset(
     {"ru", "uk", "be", "bg", "sr", "mk", "kk", "ky", "tg", "mn", "tt", "ba", "cv", "ce", "sah"}
 )
@@ -371,8 +371,9 @@ class _Checker:
             if (match := _YEARS_AGO.search(text)) is not None:
                 self.add(
                     block,
-                    f"'{match.group(0)}': name the period as the observation does ('September "
-                    "2020 – August 2021', 'over the last year'), not counted back from today.",
+                    f"'{match.group(0)}': name the period as the observation does ('in 2021', "
+                    "'January–August 2026', 'over the last 12 months'), not counted back from "
+                    "today.",
                     text,
                 )
             if (match := _PEOPLE.search(text)) is not None:

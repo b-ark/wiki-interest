@@ -93,7 +93,7 @@ def _russian(facts: Facts) -> Narrative:
             story=[
                 Paragraph(
                     text=(
-                        "В украинской Википедии статью открывают около 4 200 раз в месяц. "
+                        "В украинской Википедии статью открывают около 4 300 раз в месяц. "
                         "За последний год её доля в чтении раздела выросла на 21 %, хотя сам "
                         "раздел читают столько же: тема набирает внимание сама."
                     ),
@@ -102,7 +102,7 @@ def _russian(facts: Facts) -> Narrative:
                 Paragraph(
                     text=(
                         "С поправкой на размер раздела интерес в обеих Википедиях примерно "
-                        "одинаковый, но украинская аудитория больше: около 4 200 просмотров "
+                        "одинаковый, но украинская аудитория больше: около 4 300 просмотров "
                         "в месяц против 2 000."
                     ),
                     uses=[EDITIONS],
@@ -306,9 +306,9 @@ class TestRejections:
         [
             ("Доля выросла на 57 %.", [VS_UK], "'57 %' is not in the observations"),
             ("Украинская аудитория в 14 раз больше.", [EDITIONS], "'14' is not in"),
-            ("Статью открывают около 4 200 раз.", [VS_UK], "'4 200' is not in"),
+            ("Статью открывают около 4 300 раз.", [VS_UK], "'4 300' is not in"),
             ("Пять лет назад интерес был другим.", [VS_UK], "not counted back from today"),
-            ("Статью читают 4 200 человек в месяц.", ["size:astronomy/uk"], "not people"),
+            ("Статью читают 4 300 человек в месяц.", ["size:astronomy/uk"], "not people"),
             ("В Украине интерес растёт.", [VS_UK], "not a country"),
             ("Спрос на астрономию растёт.", [VS_UK], "not demand"),
             ("Рост статистически значим.", [VS_UK], "No statistical jargon"),
@@ -340,7 +340,7 @@ class TestRejections:
         self, ru: tuple[Facts, Narrative]
     ) -> None:
         facts, narrative = ru
-        text = "Статью открывают около 4 200 раз в месяц."
+        text = "Статью открывают около 4 300 раз в месяц."
         story = narrative.story[:1]
         uncited = narrative.model_copy(
             update={"story": [*story, Paragraph(text=text, uses=[VS_UK])]}
@@ -362,7 +362,7 @@ class TestRejections:
 
     def test_words_for_thousands_times_and_years_pass(self, ru: tuple[Facts, Narrative]) -> None:
         facts, narrative = ru
-        text = "Русская аудитория больше: около 4,2 тысячи просмотров против 2 тысяч."
+        text = "Русская аудитория больше: около 4,3 тысячи просмотров против 2 тысяч."
         fine = _add_to_story(narrative, text, [EDITIONS]).model_copy(
             update={
                 "headline": "Интерес растёт с 2025 года.",
@@ -488,7 +488,7 @@ class TestNarrate:
         brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8").strip()
         assert brief.startswith(narrative.topic)  # the agent's line, in the user's language
         assert narrative.headline in brief
-        assert "около 4 200 раз в месяц" in brief
+        assert "около 4 300 раз в месяц" in brief
         assert narrative.meaning.text in brief
         assert narrative.check in brief
         assert narrative.limits in brief

@@ -85,8 +85,9 @@ RULES: tuple[str, ...] = (
     "paragraph. The story gives two numbers the reader needs: how big the interest is (the "
     "views per million views of the size observation) and how the article moved against its "
     "whole edition (the edition's change and the article's, from the vs_edition observation).",
-    "Name periods as the observations do ('September 2020 – August 2021', 'over the last "
-    "year'), never 'N years ago'.",
+    "Name periods as the observations do ('in 2021', 'January–August 2026', 'over the last 12 "
+    "months'), never 'N years ago'. A calendar year and the last 12 months are different "
+    "periods: keep each number with its own. A partial year stays partial, with its caution.",
     "Views are how often the article is opened ('the article is opened about 560 times a "
     "month'), never a number of people, never demand or a market.",
     "Every cause or guess comes from an observation and keeps its 'possibly' or 'probably'; "
@@ -103,22 +104,21 @@ EXAMPLE: Mapping[str, object] = {
             "id": "size:beekeeping/nl",
             "weight": "high",
             "statement": "In the Dutch Wikipedia the article on beekeeping is opened about 2,400 "
-            "times a month now (September 2025 – August 2026): 5.1 views per million views of "
-            "the edition (its attention share, the size of interest comparable across "
-            "editions). In September 2020 – August 2021 it was opened about 2,300 times a "
-            "month: about the same as it was.",
+            "times a month in January–August 2026: 5.1 views per million views of the edition "
+            "(its attention share, the size of interest comparable across editions). In 2021 "
+            "it was opened about 2,300 times a month: about the same as it was.",
         },
         {
             "id": "long_term:beekeeping/nl",
             "weight": "high",
-            "statement": "Its share of the Dutch Wikipedia's reading rose in 4 of the 5 "
-            "year-on-year steps; now it is about one and a half times what it was in "
-            "September 2020 – August 2021. A long, steady rise.",
+            "statement": "Its share of the Dutch Wikipedia's reading has risen almost every "
+            "year (4 of 4 year-on-year steps, 2021–2025); in 2025 it was about one and a half "
+            "times what it was in 2021. A long, steady rise.",
         },
         {
             "id": "vs_edition:beekeeping/nl",
             "weight": "high",
-            "statement": "Over the last year the Dutch Wikipedia as a whole was read less "
+            "statement": "Over the last 12 months the Dutch Wikipedia as a whole was read less "
             "(−9 %), yet beekeeping held up (+4 % views): its share rose +14 %. The topic "
             "gains attention against a shrinking Wikipedia.",
         },
@@ -148,12 +148,12 @@ EXAMPLE: Mapping[str, object] = {
         "and steadily.",
         "story": [
             {
-                "text": "The article is opened about 2,400 times a month, 5.1 views per "
-                "million views of the Dutch Wikipedia, much as in September 2020 – August "
-                "2021. That looks flat, but it hides a rise: over the last year the Dutch "
+                "text": "In January–August 2026 the article is opened about 2,400 times a "
+                "month, 5.1 views per million views of the Dutch Wikipedia, much as in 2021. "
+                "That looks flat, but it hides a rise: over the last 12 months the Dutch "
                 "Wikipedia as a whole was read 9 % less, while beekeeping gained 4 % views. "
-                "As a share of everything read there, it now gets about one and a half times "
-                "the attention it got then, and it rose almost every year.",
+                "As a share of everything read there, it got about one and a half times more "
+                "attention in 2025 than in 2021, and it rose almost every year.",
                 "uses": [
                     "size:beekeeping/nl",
                     "vs_edition:beekeeping/nl",
@@ -228,8 +228,15 @@ def template_narrative(
     for o in observations:
         if o.weight in _STORY_WEIGHTS:
             groups.setdefault(o.pair, []).append(o)
-    story = [_fitting(chosen, LIMITS["story"]) for chosen in groups.values()]
-    story = [p for p in story if p.text][:_TEMPLATE_PARAGRAPHS]
+    story: list[Paragraph] = []
+    room = LIMITS["story_total"]
+    for chosen in groups.values():
+        paragraph = _fitting(chosen, min(LIMITS["story"], room))
+        if paragraph.text and len(paragraph.text) <= room:
+            story.append(paragraph)
+            room -= len(paragraph.text)
+        if len(story) == _TEMPLATE_PARAGRAPHS:
+            break
     decisions = _fitting(
         [o for o in observations if o.weight == "decision"][:_TEMPLATE_DECISIONS],
         LIMITS["meaning"],
