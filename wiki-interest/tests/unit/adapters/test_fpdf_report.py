@@ -68,8 +68,6 @@ def test_the_page_reads_as_a_decision_memo_in_order(
         "Interest in intermittent fasting is growing faster in Czech",
         "intermittent fasting (Q",  # what was analysed: topic and item
         "Period: 2024-09 – 2026-08",
-        "Metric",  # the key numbers
-        "117.8",
         "What is going on",
         "How robust is this conclusion?",
         "What it means for you",
@@ -77,7 +75,8 @@ def test_the_page_reads_as_a_decision_memo_in_order(
     ]
     # The footer is drawn first (its height decides where the content ends).
     footer = [
-        "Attention share: article views per 1 million views of the whole edition",
+        "Share of Wikipedia views: article views per 1 million views of the whole Wikipedia",
+        "each calendar year against the same months a year earlier",
         "a language edition is not a country",
         "method.md",
         "Skill version: 0.1.0",
@@ -86,6 +85,7 @@ def test_the_page_reads_as_a_decision_memo_in_order(
         positions = [text.index(part) for part in order]
         assert positions == sorted(positions), list(zip(order, positions, strict=True))
     assert "1 in" not in text, "the share is stated per million only"
+    assert "Metric" not in text, "the key numbers are in the text and the charts, not a table"
 
 
 def test_the_data_line_and_the_robustness_lines(tmp_path: Path, chart_paths: list[Path]) -> None:
@@ -164,13 +164,6 @@ def test_the_appendix_adds_the_method_on_a_second_page(
     method = _text(reader, 1)
     assert method.startswith("Method")
     assert "Trend test (Mann-Kendall" in method
-
-
-def test_the_key_numbers_follow_the_ranking(tmp_path: Path, chart_paths: list[Path]) -> None:
-    summary = example_summary(question_type="rank")
-    text = _text(_render(summary, chart_paths, tmp_path / "report.pdf"))
-    table = text[text.index("Metric") :]
-    assert table.index("cs") < table.index("uk") < table.index("pl")
 
 
 def test_overflowing_reliability_reasons_are_reduced_before_truncation(

@@ -15,7 +15,12 @@ from pathlib import Path
 from typing import Literal, Protocol
 
 from wiki_interest.application.analysis import AnalysisSettings, analyse
-from wiki_interest.application.chart_plan import SHARE_CHART_ID, share_years_spec
+from wiki_interest.application.chart_plan import (
+    AUDIENCE_CHART_ID,
+    SHARE_CHART_ID,
+    audience_years_spec,
+    share_years_spec,
+)
 from wiki_interest.application.coverage import CoverageAdvisor
 from wiki_interest.application.facts import (
     apply_narrative,
@@ -39,6 +44,7 @@ from wiki_interest.application.summary_builder import (
     RunContext,
     SummaryBuilder,
 )
+from wiki_interest.contracts.charts import ChartSpec
 from wiki_interest.contracts.narrative import Facts, Narrative, NarrativeProblem
 from wiki_interest.contracts.request import AnalysisRequest, Period
 from wiki_interest.contracts.summary import AnalysisSummary, Artifacts
@@ -449,7 +455,7 @@ class Pipeline:
         )
         png_files: list[Path] = []
         with translator.recording() as used:
-            summary = _with_share_chart(summary, translator)
+            summary = _with_main_charts(summary, translator)
             for spec in summary.charts:
                 written = renderers.charts.render(spec, charts_dir)
                 png_files.extend(p for p in written if p.suffix == ".png")
@@ -474,17 +480,20 @@ class Pipeline:
         _write_summary_json(summary, run_dir)
 
 
-def _with_share_chart(summary: AnalysisSummary, translator: Translator) -> AnalysisSummary:
-    """The summary with its main chart first, built now in the report's language.
+def _with_main_charts(summary: AnalysisSummary, translator: Translator) -> AnalysisSummary:
+    """The summary with the main chart and the views by year first, built now.
 
-    The labels the agent translated apply, and only the steps and bursts the report text
-    cites are marked; a spec of an earlier rendering is replaced.
+    They are built in the report's language, with the labels the agent translated, and the
+    main chart marks only the steps and bursts the report text cites; specs of an earlier
+    rendering are replaced.
     """
-    others = [c for c in summary.charts if c.id != SHARE_CHART_ID]
-    if summary.share_chart is None:
-        return summary.model_copy(update={"charts": others})
-    spec = share_years_spec(summary.share_chart, translator, set(summary.cited))
-    return summary.model_copy(update={"charts": [spec, *others]})
+    others = [c for c in summary.charts if c.id not in (SHARE_CHART_ID, AUDIENCE_CHART_ID)]
+    first: list[ChartSpec] = []
+    if summary.share_chart is not None:
+        first.append(share_years_spec(summary.share_chart, translator, set(summary.cited)))
+    if summary.audience_chart is not None:
+        first.append(audience_years_spec(summary.audience_chart, translator))
+    return summary.model_copy(update={"charts": [*first, *others]})
 
 
 def load_run_summary(run_dir: Path) -> AnalysisSummary:

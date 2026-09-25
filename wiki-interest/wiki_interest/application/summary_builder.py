@@ -28,8 +28,10 @@ from wiki_interest.application.assessment import (
     headline_growth,
 )
 from wiki_interest.application.chart_plan import (
+    AUDIENCE_CHART_ID,
     SHARE_CHART_ID,
     ChartPlanner,
+    audience_years_data,
     share_years_data,
 )
 from wiki_interest.application.coverage import CoverageGap, CoverageOption
@@ -191,12 +193,20 @@ class SummaryBuilder:
         normalised = request.normalization == "per_million"
         season_requested = request.report.seasonality == "show"
         charts = self._charts(request, analysis, labels)
+        start = trend_start(request, period)
+        topic_labels = {t.topic_id: labels.topic(t.topic_id) for t in resolved}
         share_chart = share_years_data(
             histories,
             observations,
-            trend_start=trend_start(request, period),
+            trend_start=start,
             absolute=not normalised,
-            topic_labels={t.topic_id: labels.topic(t.topic_id) for t in resolved},
+            topic_labels=topic_labels,
+        )
+        # With raw views asked for, the main chart shows the views already.
+        audience_chart = (
+            audience_years_data(histories, trend_start=start, topic_labels=topic_labels)
+            if normalised
+            else None
         )
         insights = select_insights(
             analysis, self._insight_settings, season_requested=season_requested
@@ -229,6 +239,7 @@ class SummaryBuilder:
             ranking=self._ranking_rows(request, analysis, labels),
             charts=charts,
             share_chart=share_chart,
+            audience_chart=audience_chart,
             verdict=self._verdict(
                 request,
                 analysis,
@@ -246,7 +257,12 @@ class SummaryBuilder:
             general_limitations=self._general_limitations(),
             next_steps=self._next_steps(request, period, resolved, analysis, labels),
             artifacts=_artifacts(
-                context, [*([SHARE_CHART_ID] if share_chart else []), *(c.id for c in charts)]
+                context,
+                [
+                    *([SHARE_CHART_ID] if share_chart else []),
+                    *([AUDIENCE_CHART_ID] if audience_chart else []),
+                    *(c.id for c in charts),
+                ],
             ),
             provenance=self._provenance(period),
         )

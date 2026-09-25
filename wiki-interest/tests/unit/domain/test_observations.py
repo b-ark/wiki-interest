@@ -17,9 +17,12 @@ import pytest
 from wiki_interest.domain.observations import (
     Observation,
     PairHistory,
+    Quoted,
     Weight,
     edition_name,
     observe,
+    share_move,
+    year_levels,
 )
 from wiki_interest.domain.prose_numbers import extract_numbers, matches
 
@@ -143,6 +146,37 @@ class TestCalendarYears:
         cs = _history(_flat(2_000.0), project="cs.wikipedia", edition=lambda _: EDITION / 4)
         editions = _by_id(observe([uk, cs]))["editions:astronomy"].statement
         assert "in January–August 2026 (" in editions
+
+    def test_a_partial_year_is_compared_with_the_same_months_a_year_earlier(self) -> None:
+        # Set against the whole of 2025, January–August 2026 would lose the September peak.
+        vs = _by_id(observe([_history(_school)]))["vs_edition:astronomy/uk"].statement
+        assert vs.startswith("In January–August 2026 (against the same months of 2025)")
+        assert "moved with the Ukrainian Wikipedia" in vs
+
+    def test_a_full_last_year_is_compared_with_the_year_before(self) -> None:
+        found = _by_id(observe([_history(_decline(), count=65)]))
+        assert found["vs_edition:astronomy/uk"].statement.startswith("In 2025 (against 2024)")
+
+    def test_each_year_carries_the_change_the_text_reads(self) -> None:
+        history = _history(_decline(), edition=lambda k: EDITION * 0.9 ** (k / 12))
+        years = year_levels(history)
+        assert [y.year for y in years] == [2021, 2022, 2023, 2024, 2025, 2026]
+        assert years[0].change is None  # no whole year of data before 2021
+        last = years[-1].change
+        assert last is not None
+        assert last.share == pytest.approx(
+            (1 + last.article / 100) / (1 + last.edition / 100) * 100 - 100
+        )
+        vs = _by_id(observe([history]))["vs_edition:astronomy/uk"]
+        assert Quoted(round(last.share), percent=True) in vs.numbers
+        assert share_move(last.share) == "lost"
+
+
+@pytest.mark.parametrize(
+    ("change", "move"), [(10.5, "gained"), (10.0, "held"), (-10.0, "held"), (-10.5, "lost")]
+)
+def test_a_share_moves_beyond_ten_percent(change: float, move: str) -> None:
+    assert share_move(change) == move
 
 
 class TestCalendar:

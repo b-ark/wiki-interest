@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from wiki_interest.contracts.charts import ChartSpec, ShareYears
+from wiki_interest.contracts.charts import AudienceYears, ChartSpec, ShareYears
 from wiki_interest.contracts.request import AnalysisRequest, Period, SubstituteChoice
 from wiki_interest.domain.assessment import EditionRelation, Momentum, RelativeSize, Robustness
 from wiki_interest.domain.models import (
@@ -575,6 +575,9 @@ class AnalysisSummary(_Model):
     share_chart: ShareYears | None = None
     """The data of the main chart; its spec is built when the report is rendered, in the
     report's language and with the marks the text cites (see ``cited``)."""
+    audience_chart: AudienceYears | None = None
+    """The data of the chart of views by year, drawn under the main one; its spec too is
+    built when the report is rendered."""
     verdict: Verdict
     assessments: list[AssessmentOut] = Field(default_factory=list)
     """One per (topic, edition), in the order of ``comparison``."""

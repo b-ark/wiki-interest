@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from fixtures.summaries import example_summary, share_years_data
+from fixtures.summaries import audience_years_data, example_summary, share_years_data
 from wiki_interest.adapters.matplotlib_charts import MatplotlibChartRenderer
-from wiki_interest.application.chart_plan import share_years_spec
+from wiki_interest.application.chart_plan import audience_years_spec, share_years_spec
 from wiki_interest.contracts.charts import ChartPoint, ChartSeries, ChartSpec
 from wiki_interest.errors import RenderError
 from wiki_interest.i18n import Translator
@@ -200,7 +200,7 @@ def test_the_main_chart_names_each_audience_and_writes_each_year(
     assert "24.0" in text  # the first audience's years after its step
     assert "(Jan – Aug)" in text  # the partial year says which months it has
     assert "average over the calendar year" in text
-    assert "Wikipedia overall" in text
+    assert "Share of Wikipedia views, by year" in text
 
 
 def test_the_main_chart_marks_only_what_the_text_cites(
@@ -229,6 +229,32 @@ def test_the_main_chart_of_raw_views_writes_whole_numbers(
     assert ">24<" in text or "24</" in text or " 24" in text
 
 
+@pytest.mark.parametrize("lines", [1, 2, 3])
+def test_the_views_by_year_write_each_change_and_whether_the_share_moved(
+    renderer: MatplotlibChartRenderer, tmp_path: Path, lines: int
+) -> None:
+    spec = audience_years_spec(audience_years_data(lines), Translator("en"))
+    _, svg = renderer.render(spec, tmp_path)
+    text = svg.read_text(encoding="utf-8")
+    assert all(code in text for code in ("uk", "cs", "pl")[:lines])
+    assert "84,000" in text  # views rounded, as the text rounds them
+    assert "\u221220%" in text  # the change against a year earlier, over the bar
+    assert "gained share" in text
+    assert "held share" in text
+    assert "lost share" in text
+    assert "2026: January–August vs the same months of 2025." in text
+    assert "2026 (Jan – Aug)" in text
+
+
+def test_the_views_by_year_write_numbers_in_the_report_style(tmp_path: Path) -> None:
+    renderer = MatplotlibChartRenderer(decimal_sep=",", thousands_sep="\u202f")
+    spec = audience_years_spec(audience_years_data(1), Translator("uk"))
+    _, svg = renderer.render(spec, tmp_path)
+    text = svg.read_text(encoding="utf-8")
+    assert "84\u202f000" in text
+    assert "\u221220\u202f%" in text
+
+
 def test_scatter_renders(renderer: MatplotlibChartRenderer, tmp_path: Path) -> None:
     scatter = ChartSpec(
         id="size-change",
@@ -251,6 +277,8 @@ def test_a_chart_without_the_data_its_kind_needs_is_rejected() -> None:
         ChartSpec(id="share", kind="share_years", title="t", y_label="y")
     with pytest.raises(ValueError, match="no data"):
         ChartSpec(id="s", kind="scatter", title="t", y_label="y")
+    with pytest.raises(ValueError, match="no data"):
+        ChartSpec(id="audience", kind="audience_years", title="t", y_label="y")
 
 
 def test_a_strip_is_as_wide_as_a_wide_chart_and_lower(

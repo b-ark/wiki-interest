@@ -6,8 +6,14 @@ from collections.abc import Callable, Sequence
 from datetime import date
 
 from wiki_interest.application.analysis import PairAnalysis, PairFindings
-from wiki_interest.application.chart_plan import ChartPlanner, share_years_data, share_years_spec
-from wiki_interest.contracts.charts import ChartSpec, ShareYears
+from wiki_interest.application.chart_plan import (
+    ChartPlanner,
+    audience_years_data,
+    audience_years_spec,
+    share_years_data,
+    share_years_spec,
+)
+from wiki_interest.contracts.charts import AudienceYears, ChartSpec, ShareYears
 from wiki_interest.domain.findings import SeasonalProfile
 from wiki_interest.domain.models import (
     ArticleRef,
@@ -145,7 +151,6 @@ class TestMainChart:
         last = line.years[-1]
         assert (last.start, last.end, last.partial) == ("2026-01", "2026-08", True)
         assert {s.value for s in line.years} == {50.0}  # per million, rounded as statements do
-        assert (data.changes_start, data.changes_end) == ("2025-09", "2026-08")
 
     def test_raw_views_draw_views_a_month(self) -> None:
         data = _data(_history(lambda _k: 5_000.0), absolute=True)
@@ -159,13 +164,6 @@ class TestMainChart:
         marks = {(m.kind, m.x, m.observation) for m in data.marks}
         assert ("step", "2024-11", "step:astronomy/uk") in marks
         assert ("spike", "2022-05", "spike:astronomy/uk") in marks
-
-    def test_the_last_12_months_are_set_against_the_whole_edition(self) -> None:
-        data = _data(_history(lambda k: 10_000.0 * 0.6 ** (k / 12)))
-        (change,) = data.changes
-        assert change.label == "uk"
-        assert change.article == -40.0
-        assert change.edition == 0.0
 
     def test_lines_are_named_by_the_topic_when_one_edition_has_several(self) -> None:
         data = _data(
@@ -194,8 +192,66 @@ class TestMainChart:
         assert spec.year_labels[-1] == "2026 (Jan – Aug)"
         cited = share_years_spec(data, Translator("en"), cited={"step:astronomy/uk"})
         assert cited.mark_labels == ["level changed: Nov 2024"]
-        assert cited.note is not None
-        assert "uk: the article" in cited.note
+        assert cited.title == "Share of Wikipedia views, by year"
+
+
+def _audience(*histories: PairHistory) -> AudienceYears:
+    data = audience_years_data(histories, trend_start=None, topic_labels={"astronomy": "astronomy"})
+    assert data is not None
+    return data
+
+
+class TestAudienceChart:
+    def test_each_year_is_set_against_the_same_months_a_year_earlier(self) -> None:
+        (line,) = _audience(_history(lambda k: 10_000.0 * 0.6 ** (k / 12))).lines
+        assert line.label == "uk"
+        assert [y.year for y in line.years] == [2021, 2022, 2023, 2024, 2025, 2026]
+        first, *rest = line.years
+        assert (first.change, first.move) == (None, None)  # no whole year of data before 2021
+        # The edition holds still: the article's fall of 40 % a year is its share's too; the
+        # partial 2026 against January–August 2025 falls as much.
+        assert {(y.change, y.move) for y in rest} == {(-40.0, "lost")}
+        assert rest[-1].partial
+
+    def test_views_are_rounded_as_the_text_rounds_them(self) -> None:
+        (line,) = _audience(_history(lambda _k: 4_321.0)).lines
+        assert {y.views for y in line.years} == {4_300.0}
+        assert {y.move for y in line.years[1:]} == {"held"}
+
+    def test_it_shows_the_audiences_of_the_main_chart(self) -> None:
+        histories = [
+            _history(_level(views), project=f"{code}.wikipedia")
+            for code, views in (("uk", 1_000.0), ("cs", 4_000.0), ("pl", 3_000.0), ("de", 2_000.0))
+        ]
+        labels = [line.label for line in _audience(*histories).lines]
+        assert labels == [line.label for line in _data(*histories).lines] == ["cs", "pl", "de"]
+
+    def test_the_spec_says_what_the_partial_year_is_compared_with(self) -> None:
+        data = _audience(_history(lambda k: 10_000.0 * 0.6 ** (k / 12)))
+        t = Translator("uk")
+        t.override({"chart.audience.lost": "▼ втратила частку"})
+        spec = audience_years_spec(data, t)
+        assert spec.kind == "audience_years"
+        assert spec.title == "Average monthly article views, by year"
+        assert spec.year_labels[-1] == "2026 (Jan – Aug)"
+        assert spec.note == "2026: January–August vs the same months of 2025."
+        assert spec.move_labels["lost"] == "▼ втратила частку"
+        assert set(spec.move_labels) == {"gained", "held", "lost"}
+
+    def test_full_years_need_no_note(self) -> None:
+        full = _history(lambda _k: 5_000.0)
+        months = full.months[:64]  # to 2025-12
+        data = _audience(
+            PairHistory(
+                topic_id=full.topic_id,
+                topic=full.topic,
+                project=full.project,
+                months=months,
+                views=full.views[:64],
+                edition=full.edition[:64],
+            )
+        )
+        assert audience_years_spec(data, Translator("en")).note is None
 
 
 class TestSecondChart:

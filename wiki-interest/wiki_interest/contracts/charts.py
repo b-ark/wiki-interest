@@ -11,25 +11,33 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from wiki_interest.domain.observations import ShareMove
+
 __all__ = [
+    "AudienceLine",
+    "AudienceYear",
+    "AudienceYears",
     "ChartKind",
     "ChartPoint",
     "ChartSeries",
     "ChartSize",
     "ChartSpec",
     "SeriesStyle",
-    "ShareChange",
     "ShareLine",
     "ShareMark",
     "ShareSegment",
     "ShareYears",
 ]
 
-ChartKind = Literal["lines", "bars", "grouped_bars", "trend", "scatter", "share_years"]
+ChartKind = Literal[
+    "lines", "bars", "grouped_bars", "trend", "scatter", "share_years", "audience_years"
+]
 """``lines``: several series over time; ``bars``: one value per category; ``grouped_bars``:
 several series side by side per category; ``trend``: one series with its fitted trend line
 and highlighted periods; ``scatter``: labelled points on two numeric axes; ``share_years``:
-the attention share month by month with the average of each calendar year (:class:`ShareYears`)."""
+the attention share month by month with the average of each calendar year (:class:`ShareYears`);
+``audience_years``: each calendar year's views, the audiences side by side
+(:class:`AudienceYears`)."""
 
 ChartSize = Literal["wide", "strip", "half"]
 """``wide`` spans the page; ``strip`` spans it at half the height (a second chart under the
@@ -107,14 +115,6 @@ class ShareMark(_Model):
     observation: str
 
 
-class ShareChange(_Model):
-    """The last 12 months of one audience: the article's views and its edition's, in %."""
-
-    label: str
-    article: float
-    edition: float
-
-
 class ShareYears(_Model):
     """What a ``share_years`` chart draws, without any text: the text is the report's language.
 
@@ -122,19 +122,54 @@ class ShareYears(_Model):
         absolute: Views a month instead of the attention share (the user asked for raw views).
         lines: One per audience, in the order of the request.
         marks: Steps and bursts the observations found.
-        changes: The last 12 months of each audience, for the line under the chart.
-        changes_start: First month of those 12 (``2025-09``).
-        changes_end: Their last month.
         recent_months: How many last months the chart shades.
     """
 
     absolute: bool = False
     lines: list[ShareLine] = Field(min_length=1)
     marks: list[ShareMark] = Field(default_factory=list)
-    changes: list[ShareChange] = Field(default_factory=list)
-    changes_start: str | None = None
-    changes_end: str | None = None
     recent_months: int = 3
+
+
+class AudienceYear(_Model):
+    """One calendar year of an audience: its mean monthly views and the change a year on.
+
+    Attributes:
+        year: The calendar year.
+        start: Its first month (``2026-01``).
+        end: Its last month (``2026-08`` for a partial year).
+        views: Mean monthly views, rounded as the text rounds them.
+        change: The views against the same months a year earlier, in whole %; ``None``
+            without a year of data before.
+        move: Whether the article's share of its Wikipedia's views gained, held or lost
+            over the same comparison.
+        partial: Fewer than 12 months (the last year of the data).
+    """
+
+    year: int
+    start: str
+    end: str
+    views: float
+    change: float | None = None
+    move: ShareMove | None = None
+    partial: bool = False
+
+
+class AudienceLine(_Model):
+    """One audience of an ``audience_years`` chart, named as on the main chart (``uk``)."""
+
+    label: str
+    years: list[AudienceYear] = Field(min_length=1)
+
+
+class AudienceYears(_Model):
+    """What an ``audience_years`` chart draws, without any text.
+
+    The audiences of the main chart, in its order: their size in views a month on one scale,
+    how the views changed a year on, and whether that beat the whole Wikipedia.
+    """
+
+    lines: list[AudienceLine] = Field(min_length=1)
 
 
 class ChartSpec(_Model):
@@ -150,13 +185,18 @@ class ChartSpec(_Model):
         series: Data to plot; ``bars`` and ``trend`` use exactly one series.
         points: The points of a ``scatter`` chart.
         share: The data of a ``share_years`` chart.
-        year_labels: Axis labels of a ``share_years`` chart, one per year of its lines
-            (``2026 (Jan – Aug)`` for a partial one), in the order of the years.
+        audience: The data of an ``audience_years`` chart.
+        year_labels: Axis labels of a ``share_years`` or ``audience_years`` chart, one per
+            year of its lines (``2026 (Jan – Aug)`` for a partial one), in the order of the
+            years.
         mark_labels: Labels of the marks it shows (``level changed, Aug 2023``), aligned
             with ``share.marks``; a mark without a label is not shown.
+        move_labels: What an ``audience_years`` chart writes under a year for each
+            :data:`~wiki_interest.domain.observations.ShareMove` (``▲ gained share``).
         legend: Legend entries of a ``share_years`` chart: the yearly average, each month,
             the shaded last months.
-        note: Lines under a ``share_years`` chart (the last 12 months of each audience).
+        note: A quiet line under the header of an ``audience_years`` chart: what its partial
+            year is compared with.
         trend_y: Fitted trend values aligned with ``series[0].x`` (``trend`` charts only).
         highlight_x: Labels of periods to shade as spikes (``trend`` charts only).
         size: Width class; the renderer maps it to physical dimensions.
@@ -177,8 +217,10 @@ class ChartSpec(_Model):
     series: list[ChartSeries] = Field(default_factory=list)
     points: list[ChartPoint] = Field(default_factory=list)
     share: ShareYears | None = None
+    audience: AudienceYears | None = None
     year_labels: list[str] = Field(default_factory=list)
     mark_labels: list[str | None] = Field(default_factory=list)
+    move_labels: dict[ShareMove, str] = Field(default_factory=dict)
     legend: list[str] = Field(default_factory=list)
     note: str | None = None
     trend_y: list[float | None] | None = None
@@ -197,6 +239,8 @@ class ChartSpec(_Model):
             ok = bool(self.points)
         elif self.kind == "share_years":
             ok = self.share is not None
+        elif self.kind == "audience_years":
+            ok = self.audience is not None
         else:
             ok = bool(self.series)
         if not ok:

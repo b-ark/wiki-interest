@@ -372,8 +372,8 @@ class _Checker:
                 self.add(
                     block,
                     f"'{match.group(0)}': name the period as the observation does ('in 2021', "
-                    "'January–August 2026', 'over the last 12 months'), not counted back from "
-                    "today.",
+                    "'January–August 2026', 'against the same months of 2025'), not counted "
+                    "back from today.",
                     text,
                 )
             if (match := _PEOPLE.search(text)) is not None:

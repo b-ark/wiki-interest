@@ -8,12 +8,12 @@ a stable id the agent's text cites, so the text can be checked against what it c
 The detectors read the *attention share*: the article's views per million views of its whole
 language edition, which removes the effect of Wikipedia as a whole gaining or losing readers.
 
-Two kinds of year, as the report's chart draws them. The level and the long view read
-calendar years (2021, 2022...): "now" is the last calendar year, a partial one (January–August
-2026) averaged over the months it has, and the long trend reads full calendar years only, so a
-partial year's missing season cannot make a trend. Changes compare like with like and keep
-12-month windows counted back from the last month: the last 12 months against the 12 before,
-the last three months against the same months a year earlier.
+Calendar years, as the report's charts draw them (2021, 2022...): "now" is the last calendar
+year, a partial one (January–August 2026) averaged over the months it has, and the long trend
+reads full calendar years only, so a partial year's missing season cannot make a trend. A
+change compares like with like: "now" against the same months a year earlier (2025 against
+2024, January–August 2026 against January–August 2025), the last three months against the
+same months a year earlier.
 
 Detectors (each fires only when its data show it):
 
@@ -21,16 +21,16 @@ Detectors (each fires only when its data show it):
   one of the window;
 - ``long_term``: a long decline or rise, a wave that has passed, or a flat range, over full
   calendar years;
-- ``vs_edition``: the last 12 months of the topic against the whole edition;
+- ``vs_edition``: the topic against the whole edition, "now" against a year earlier;
 - ``season``: a school-year rhythm, another yearly rhythm, or none (medians over years);
 - ``spike``: a one-off month far above what that calendar month usually brings;
 - ``wave`` / ``unusual``: several months far above the usual level, either a passing wave of
   attention or a flat abrupt plateau that looks automated;
 - ``step``: the biggest lasting change of level, the seasonal rhythm removed;
-- ``recent``: the last three months against the last 12 months (continues, slower,
+- ``recent``: the last three months against the change of "now" (continues, slower,
   stopped...);
 - ``editions``: one topic in two editions in the last calendar year, relative and absolute
-  size, and their directions over the last 12 months;
+  size, and their directions against a year earlier;
 - ``topics``: several topics of the user's in one edition against each other;
 - ``decision:*``: what the above imply for a decision (timing, audience, where to start).
 """
@@ -46,20 +46,27 @@ from datetime import date
 from enum import StrEnum
 from itertools import pairwise
 from statistics import mean, median
+from typing import Literal
 
 __all__ = [
     "Observation",
     "ObservationSettings",
     "PairHistory",
     "Quoted",
+    "ShareMove",
     "Weight",
+    "YearChange",
     "YearLevel",
     "edition_name",
     "observe",
     "round_count",
     "round_share",
+    "share_move",
     "year_levels",
 ]
+
+ShareMove = Literal["gained", "held", "lost"]
+"""What a change of the share did against a year earlier (:func:`share_move`)."""
 
 MONTH_NAMES = [
     "January",
@@ -190,7 +197,8 @@ class ObservationSettings:
         steady_step: Year-on-year change of the share that counts as a step (3 %).
         wave_peak: How far over the first year a middle year must peak to make a wave.
         wave_fall: How far below its peak the last year must be to make a wave.
-        moves: Change of the share over the last year that counts as a move (10 %).
+        moves: Change of the share against a year earlier that counts as a move (10 %): the
+            share gained, held or lost.
         edition_moves: Change of the edition's views that counts as losing readers (5 %).
         outlier: A month this many times its expected level is out of the ordinary.
         plateau_months: Months in a row far above the usual level that make a plateau.
@@ -257,6 +265,19 @@ def round_count(value: float) -> float:
 def round_share(value: float) -> float:
     """An attention share as statements write it: 19.2, 145."""
     return round(value, 1) if value < 100 else round(value)  # noqa: PLR2004
+
+
+def share_move(change: float, settings: ObservationSettings = _DEFAULT) -> ShareMove:
+    """Whether a change of the share (%) gained, held or lost it: ``moves`` either way.
+
+    The observations call a change within ``moves`` no move, so a chart saying "held" and a
+    text saying "moved with its Wikipedia" read the same number the same way.
+    """
+    if change > settings.moves:
+        return "gained"
+    if change < -settings.moves:
+        return "lost"
+    return "held"
 
 
 @dataclass(slots=True)
@@ -347,6 +368,21 @@ class _Window:
     """A calendar year with fewer than 12 months of data."""
 
 
+@dataclass(frozen=True, slots=True)
+class YearChange:
+    """A window against the same months a year earlier, in %.
+
+    Attributes:
+        article: The article's views.
+        edition: The views of its whole edition.
+        share: The attention share: ``(1 + article) / (1 + edition) − 1``.
+    """
+
+    article: float
+    edition: float
+    share: float
+
+
 def _period(months: Sequence[date], first: int, stop: int) -> str:
     """How a statement names months[first:stop]: "2025", "January–August 2026"."""
     a, b = months[first], months[stop - 1]
@@ -431,6 +467,34 @@ class _Pair:
         if first >= self.n:
             return None
         return _Window(first, self.n, _period(self.history.months, first, self.n))
+
+    def against_year_before(self, window: _Window) -> YearChange | None:
+        """``window`` against the same months a year earlier.
+
+        A partial year is set against the same months, not the whole year before: its
+        missing season would read as a fall. Both windows need every month's data.
+        """
+        h = self.history
+        first, stop = window.first - _YEAR, window.stop - _YEAR
+        if first < 0:
+            return None
+        months = (*range(first, stop), *range(window.first, window.stop))
+        if any(h.views[k] is None or not h.edition[k] for k in months):
+            return None
+        views = self.total(h.views, window.first, window.stop), self.total(h.views, first, stop)
+        edition = (
+            self.total(h.edition, window.first, window.stop),
+            self.total(h.edition, first, stop),
+        )
+        if not views[1]:
+            return None
+        article = views[0] / views[1]
+        whole = edition[0] / edition[1]
+        return YearChange(
+            article=(article - 1) * 100,
+            edition=(whole - 1) * 100,
+            share=(article / whole - 1) * 100,
+        )
 
     def partial_bias(self, window: _Window) -> float:
         """How far (%) the months of ``window`` usually run from the topic's yearly level."""
@@ -543,6 +607,9 @@ class _Detector:
         self.out: list[Observation] = []
         self.long_dir = "unknown"
         self.last_change: float | None = None
+        """The share's change of "now" against a year earlier (%), as ``vs_edition`` read it."""
+        self.now_label = ""
+        """How the statements name "now": "2025", "January–August 2026"."""
 
     def add(  # noqa: PLR0913 -- an observation's every field
         self,
@@ -718,62 +785,56 @@ class _Detector:
         p, s = self.p, self.s
         if p.n - p.start < s.min_trend_months:
             return
-        n, h = p.n, self.h
-        before, last = (n - 2 * _YEAR, n - _YEAR), (n - _YEAR, n)
-        views = [p.total(h.views, *last), p.total(h.views, *before)]
-        edition = [p.total(h.edition, *last), p.total(h.edition, *before)]
-        shares = [p.share(*last), p.share(*before)]
-        if not all(views) or not all(edition) or not all(shares):
+        window = p.now(s)
+        change = None if window is None else p.against_year_before(window)
+        if window is None or change is None:
             return
-        a = (views[0] / views[1] - 1) * 100
-        e = (edition[0] / edition[1] - 1) * 100
-        sh = (shares[0] / shares[1] - 1) * 100  # type: ignore[operator]
+        a, e, sh = change.article, change.edition, change.share
         self.last_change = sh
+        self.now_label = window.label
         w = _Words()
         ed, topic = self.ed, self.topic
-        window = f"{_span(h.months, n - _YEAR, n - 1)} against the 12 months before"
+        earlier = self.h.months[window.first].year - 1
+        against = f"the same months of {earlier}" if window.partial else str(earlier)
+        when = f"In {window.label} (against {against})"
         if e < -s.edition_moves and sh < -s.moves:
             text = (
-                f"Over the last 12 months ({window}) {ed} as a whole lost {w.pct(e)} of its views, "
-                f"and the article on {topic} lost more than that ({w.pct(a)} views), so its share "
-                f"of the edition's reading fell ({w.pct(sh)}). Only part of the fall is Wikipedia "
-                "losing readers; the topic itself is read less. (This compares the article with "
-                "the edition over 12 months; only the recent months tell whether the fall is "
-                "quickening.)"
+                f"{when} {ed} as a whole was read less ({w.pct(e)} views), and the article on "
+                f"{topic} fell more than that ({w.pct(a)} views), so its share of the edition's "
+                f"reading fell ({w.pct(sh)}). Only part of the fall is Wikipedia losing readers; "
+                "the topic itself is read less. (This compares the article with the edition "
+                "over the year; only the recent months tell whether the fall is quickening.)"
             )
         elif e < -s.edition_moves and abs(sh) <= s.moves:
             text = (
-                f"Over the last 12 months ({window}) {topic} is read less ({w.pct(a)} views), but "
-                f"{ed} as a whole fell about as much ({w.pct(e)}); its share barely changed "
-                f"({w.pct(sh)}). The fall in views comes from Wikipedia losing readers, not "
-                "from the topic."
+                f"{when} {topic} is read less ({w.pct(a)} views), but {ed} as a whole fell about "
+                f"as much ({w.pct(e)}); its share barely changed ({w.pct(sh)}). The fall in views "
+                "comes from Wikipedia losing readers, not from the topic."
             )
         elif e < -s.edition_moves:
             held = "held up" if a > -s.edition_moves else "fell less"
             text = (
-                f"Over the last 12 months ({window}) {ed} as a whole was read less "
-                f"({w.pct(e)}), yet {topic} {held} ({w.pct(a)} views): its share rose "
-                f"{w.pct(sh)}. The topic "
-                "gains attention against a shrinking Wikipedia."
+                f"{when} {ed} as a whole was read less ({w.pct(e)}), yet {topic} {held} "
+                f"({w.pct(a)} views): its share rose {w.pct(sh)}. The topic gains attention "
+                "against a shrinking Wikipedia."
             )
         elif sh < -s.moves:
             text = (
-                f"Over the last 12 months ({window}) {topic} is read less ({w.pct(a)} views) while "
-                f"{ed} as a whole changed {w.pct(e)}: the topic itself loses attention (share "
-                f"{w.pct(sh)})."
+                f"{when} {topic} is read less ({w.pct(a)} views) while {ed} as a whole changed "
+                f"{w.pct(e)}: the topic itself loses attention (share {w.pct(sh)})."
             )
         elif sh > s.moves:
             text = (
-                f"Over the last 12 months ({window}) {topic} gained attention against {ed}: views "
-                f"{w.pct(a)}, the edition {w.pct(e)}, share {w.pct(sh)}."
+                f"{when} {topic} gained attention against {ed}: views {w.pct(a)}, the edition "
+                f"{w.pct(e)}, share {w.pct(sh)}."
             )
         else:
             self.add(
                 "vs_edition",
                 Weight.LOW,
                 w,
-                f"Over the last 12 months ({window}) {topic} moved with {ed}: views {w.pct(a)}, "
-                f"the edition {w.pct(e)}, share {w.pct(sh)}.",
+                f"{when} {topic} moved with {ed}: views {w.pct(a)}, the edition {w.pct(e)}, "
+                f"share {w.pct(sh)}.",
             )
             return
         self.add("vs_edition", Weight.HIGH, w, text)
@@ -902,7 +963,7 @@ class _Detector:
         )
         w = _Words()
         figures = (
-            f"({w.pct(r)} share against the same months a year earlier; the last 12 months: "
+            f"({w.pct(r)} share against the same months a year earlier; {self.now_label}: "
             f"{w.pct(sh)})"
         )
         weight = Weight.MEDIUM
@@ -918,7 +979,7 @@ class _Detector:
             elif r > sh + s.moves:
                 text = (
                     f"In the last three months ({span}) the fall continues, but more slowly "
-                    f"than over the last 12 months {figures}."
+                    f"than in {self.now_label} {figures}."
                 )
             elif r < sh - s.moves:
                 text = f"In the last three months ({span}) the fall speeds up {figures}."
@@ -977,7 +1038,7 @@ class _Detector:
             )
         else:
             text = (
-                f"Interest in {topic} in {ed} fell over the last 12 months: Wikipedia gives no "
+                f"Interest in {topic} in {ed} fell in {self.now_label}: Wikipedia gives no "
                 "argument for investing now."
             )
         self.add("decision", Weight.DECISION, _Words(), text, key="verdict")
@@ -1001,7 +1062,7 @@ def _level_ratio(values: Sequence[float | None], i: int) -> float | None:
 
 @dataclass(frozen=True, slots=True)
 class _Standing:
-    """A pair's level "now" (its last calendar year) and its last 12 months' change."""
+    """A pair's level "now" (its last calendar year) and its share's change a year on."""
 
     pair: _Pair
     share: float
@@ -1045,20 +1106,21 @@ def _editions(a: _Standing, b: _Standing, settings: ObservationSettings) -> list
         assert up.change is not None
         assert down.change is not None
         gap = up.change - down.change
+        against = f"{period} against a year earlier"
         if up.change > settings.moves and down.change < -settings.moves:
             text += (
-                f" The two editions move in opposite directions over the last 12 months: "
+                f" The two editions move in opposite directions ({against}): "
                 f"{name(up)} {w.pct(up.change)}, {name(down)} {w.pct(down.change)} (share)."
             )
         elif gap > settings.moves * 1.5 and up.change < 0:
             text += (
-                f" Over the last 12 months the share falls faster in {name(down)} "
-                f"({w.pct(down.change)} against {w.pct(up.change)})."
+                f" The share falls faster in {name(down)} ({against}: {w.pct(down.change)} "
+                f"against {w.pct(up.change)})."
             )
         elif gap > settings.moves * 1.5:
             text += (
-                f" Over the last 12 months the share changed {w.pct(down.change)} in {name(down)} "
-                f"and {w.pct(up.change)} in {name(up)}."
+                f" The share changed {w.pct(down.change)} in {name(down)} and "
+                f"{w.pct(up.change)} in {name(up)} ({against})."
             )
     topic_id = a.pair.history.topic_id
     out = [
@@ -1121,7 +1183,7 @@ def _topics(standings: Sequence[_Standing], settings: ObservationSettings) -> li
     text += "."
     moving = [x for x in ranked if x.change is not None]
     if moving:
-        text += " Share over the last 12 months: " + ", ".join(
+        text += f" The share in {top.period} against a year earlier: " + ", ".join(
             f"{x.pair.history.topic} {w.pct(x.change)}"  # type: ignore[arg-type]
             for x in moving
         )
@@ -1166,6 +1228,8 @@ class YearLevel:
         share: Views per million views of the edition over those months.
         views: Mean monthly views over those months.
         partial: Fewer than 12 months (the last year of the data).
+        change: Against the same months a year earlier, as ``vs_edition`` reads it; ``None``
+            without a year of data before.
     """
 
     year: int
@@ -1174,6 +1238,7 @@ class YearLevel:
     share: float
     views: float
     partial: bool
+    change: YearChange | None = None
 
 
 def year_levels(
@@ -1208,6 +1273,7 @@ def year_levels(
                 share=share,
                 views=views,
                 partial=window.partial,
+                change=pair.against_year_before(window),
             )
         )
     return out

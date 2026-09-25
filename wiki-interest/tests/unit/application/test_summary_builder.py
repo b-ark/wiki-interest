@@ -192,13 +192,16 @@ class TestCompare:
         uk = share.lines[0]
         assert uk.x[0] == "2025-01"  # the named period's first calendar year
         assert [(y.year, y.partial) for y in uk.years] == [(2025, False), (2026, True)]
+        audience = summary.audience_chart
+        assert audience is not None
+        assert [line.label for line in audience.lines] == ["uk", "cs"]
 
     def test_artifacts_point_into_the_run_dir(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
         assert summary.artifacts.run_dir == str(tmp_path / "run-1")
         assert summary.artifacts.charts == [
             str(tmp_path / "run-1" / "charts" / f"{chart_id}.png")
-            for chart_id in ("share", *(c.id for c in summary.charts))
+            for chart_id in ("share", "audience", *(c.id for c in summary.charts))
         ]
         assert summary.provenance.request_count == 3
 

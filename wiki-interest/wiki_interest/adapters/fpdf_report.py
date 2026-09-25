@@ -1,11 +1,13 @@
 """One-page A4 PDF report built with fpdf2.
 
 The page reads top to bottom as a decision memo: the answer as the headline; what was
-analysed (topic, Wikidata item, editions, period); the key numbers as a small table; the main
-chart and the second one; what happened; how robust the conclusion is; what it means for the
-decision, with the next step. The footer defines the attention share and the windows, states
-that views are curiosity and that a language is not a country, names the months that stand
-out in the comparison, and points to ``method.md`` for every computation.
+analysed (topic, Wikidata item, editions, period); the main chart (the share of Wikipedia
+views by year) and the views by year under it; what happened; how robust the conclusion is;
+what it means for the decision, with the next step. The key numbers are in the text and the
+charts, so the page has no table of them (``summary.md`` keeps one). The footer defines the
+share and the windows, states that views are curiosity and that a language is not a country,
+names the months that stand out in the comparison, and points to ``method.md`` for every
+computation.
 
 It must never spill onto a second page, and text is never set smaller to make it fit: the
 renderer draws the page on a throwaway document, measures, and if the content overflows
@@ -36,11 +38,9 @@ from wiki_interest.adapters.method_report import method_markdown
 from wiki_interest.adapters.report_blocks import (
     GENERATED_AT_FORMAT,
     decision_lines,
-    kpi_table,
     ordered_assessments,
     report_title,
     robustness_lines,
-    short_label,
 )
 from wiki_interest.adapters.report_theme import PdfTheme, ReportTheme
 from wiki_interest.contracts.charts import ChartSpec
@@ -61,10 +61,8 @@ PT_PER_MM = 72 / 25.4
 PAGE_FORMAT = "A4"
 BULLET = "•  "
 FLOAT_TOLERANCE = 1e-6
-TABLE_VALUE_MAX_MM = 34.0
-TABLE_VALUES_SHARE = 0.62
-"""The edition columns take at most this share of the width; the metric names the rest."""
 TABLE_PADDING_MM = 1.2
+"""The appendix indents its bullets by twice this."""
 CHART_STEP_MM = 10.0
 """How much lower the charts get per tightening step."""
 METHOD_FILE = "method.md"
@@ -87,7 +85,7 @@ class _Layout:
     show_data_note: bool = True
     all_robustness: bool = True
     """``False`` keeps robustness lines only where the last months do not confirm the trend;
-    the table's row says "yes" for the others."""
+    the others confirm it, as ``summary.md`` says."""
     max_decision: int | None = None
     max_happening: int | None = None
     max_caveats: int | None = None
@@ -172,9 +170,9 @@ class FpdfReportRenderer:
         The seasonal chart goes first (the text states the season), then the line on the
         data (``method.md`` has it in full), decision lines beyond the conclusion, sentences
         of what happened beyond two, run-specific caveats; then both charts get lower, the
-        robustness lines the table already answers ("yes") go, then the second chart, and the
-        main one gets lower still. The headline, the table, the main chart, the conclusion with the
-        next step and the footer always stay; the font never shrinks.
+        robustness lines of confirmed conclusions go, then the second chart (the views by
+        year), and the main one gets lower still. The headline, the main chart, the conclusion
+        with the next step and the footer always stay; the font never shrinks.
         """
         style = self._theme.pdf
         layout = _Layout()
@@ -360,7 +358,6 @@ class _Page:
         """Draw every section in order; stops early only in truncating layouts."""
         sections: list[Callable[[], None]] = [
             self._headline,
-            self._key_numbers,
             self._charts_block,
             self._happening,
             self._robustness,
@@ -386,57 +383,6 @@ class _Page:
         note = summary.request.report.audience_note
         if note:
             self._paragraph(note, self._style.subtitle_pt, color=self._theme.muted_color)
-
-    def _key_numbers(self) -> None:
-        """Rows of metrics, one column per audience, header in short labels."""
-        header, rows = kpi_table(self._summary, self._t)
-        if not rows:
-            return
-        items = ordered_assessments(self._summary)
-        header = [header[0], *(short_label(self._summary, a) for a in items)]
-        pdf, style = self.pdf, self._style
-        columns = max(1, len(header) - 1)
-        value_w = min(TABLE_VALUE_MAX_MM, pdf.epw * TABLE_VALUES_SHARE / columns)
-        label_w = pdf.epw - value_w * columns
-        widths = [label_w, *([value_w] * (len(header) - 1))]
-        line_h = self._line_height(style.body_pt)
-        heights = [self._row_height(row, widths, line_h) for row in (header, *rows)]
-        self._gap()
-        if not self._fits(sum(heights)):
-            return
-        top = pdf.get_y()
-        pdf.set_fill_color(*_Rgb.parse(style.table_fill))
-        pdf.rect(pdf.l_margin, top, pdf.epw, heights[0], style="F")
-        y = top
-        for index, (row, height) in enumerate(zip((header, *rows), heights, strict=True)):
-            x = pdf.l_margin
-            for column, (cell, width) in enumerate(zip(row, widths, strict=True)):
-                self._font(style.body_pt, bold=index == 0)
-                pdf.set_xy(x + TABLE_PADDING_MM, y + TABLE_PADDING_MM / 2)
-                pdf.multi_cell(
-                    width - 2 * TABLE_PADDING_MM,
-                    line_h,
-                    cell,
-                    align="L" if column == 0 else "R",
-                )
-                x += width
-            y += height
-            pdf.set_draw_color(*_Rgb.parse(style.rule_color))
-            pdf.line(pdf.l_margin, y, pdf.l_margin + pdf.epw, y)
-        pdf.set_xy(pdf.l_margin, y)
-
-    def _row_height(self, row: Sequence[str], widths: Sequence[float], line_h: float) -> float:
-        tallest = 0.0
-        for cell, width in zip(row, widths, strict=True):
-            self._font(self._style.body_pt)
-            height = cast(
-                float,
-                self.pdf.multi_cell(
-                    width - 2 * TABLE_PADDING_MM, line_h, cell, dry_run=True, output="HEIGHT"
-                ),
-            )
-            tallest = max(tallest, height)
-        return tallest + TABLE_PADDING_MM
 
     def _charts_block(self) -> None:
         """The main chart across the page, the second under it, the season if it fits."""
@@ -558,12 +504,11 @@ class _Page:
         """Definitions and caveats, then the months that stand out, the method and sources."""
         t, summary = self._t, self._summary
         measured = [a for a in summary.assessments if a.measured]
-        bases = {a.basis for a in measured if a.basis}
-        basis = t.t(f"basis.{bases.pop()}") if len(bases) == 1 else t.t("basis.mixed")
         months = {a.recent_months for a in measured if a.recent_months}
         recent = t.t("report.recent_basis", months=months.pop() if len(months) == 1 else 3)
         lines = [
-            t.t("report.footer_share", basis=basis, recent=recent),
+            # The windows of the text and the charts: calendar years, a year on.
+            t.t("report.footer_share", recent=recent),
             t.t("report.footer_caveats"),
         ]
         limit = self._layout.max_caveats

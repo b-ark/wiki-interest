@@ -151,10 +151,10 @@ What it cannot check is meaning, so:
 
 - Say which meaning of the topic was analysed, in one line ("Python, the programming
   language"), even when it seems obvious.
-- Keep each observation's direction and words: "slower than over the last 12 months" is not
-  "speeds up"; a step in one edition is not in both. Name periods as the observations do
-  ("in 2021", "January–August 2026", "over the last 12 months"), never "five years ago"; a
-  partial year is named as partial, and its caution about the season is kept.
+- Keep each observation's direction and words: "slower than in 2025" is not "speeds up"; a
+  step in one edition is not in both. Name periods as the observations do ("in 2021",
+  "January–August 2026 against the same months of 2025"), never "five years ago"; a partial
+  year is named as partial, and its caution about the season is kept.
 - Every cause or guess comes from an observation and keeps its "possibly" or "probably";
   add no causes of your own and no outside events.
 - Views are how often the article is opened ("the article is opened about 560 times a

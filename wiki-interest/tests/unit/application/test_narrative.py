@@ -1,10 +1,11 @@
 """The agent writes the report text from the observations; the code checks it and renders it.
 
-Runs use the fake world (no network): ``astronomy`` in uk.wikipedia (+21 % over the last
-year against a flat edition) and cs.wikipedia (flat). The template text the code writes must
-pass its own checks in every language; each broken variant must be rejected with a problem
-the agent can act on. Only English has a catalog: in any other language the template is
-English, and the agent must also translate the interface labels (``facts.ui``).
+Runs use the fake world (no network): ``astronomy`` in uk.wikipedia (+20 % in
+January–August 2026 against the same months of 2025, the edition flat) and cs.wikipedia
+(flat). The template text the code writes must pass its own checks in every language; each
+broken variant must be rejected with a problem the agent can act on. Only English has a
+catalog: in any other language the template is English, and the agent must also translate
+the interface labels (``facts.ui``).
 """
 
 # ruff: noqa: RUF001  -- Russian text in the fixtures is intentional.
@@ -94,7 +95,7 @@ def _russian(facts: Facts) -> Narrative:
                 Paragraph(
                     text=(
                         "В украинской Википедии статью открывают около 4 300 раз в месяц. "
-                        "За последний год её доля в чтении раздела выросла на 21 %, хотя сам "
+                        "За последний год её доля в чтении раздела выросла на 20 %, хотя сам "
                         "раздел читают столько же: тема набирает внимание сама."
                     ),
                     uses=["size:astronomy/uk", VS_UK],
@@ -128,8 +129,8 @@ class TestFacts:
         observations = {o.id: o for o in facts.observations}
         vs = observations[VS_UK]
         assert vs.weight == "high"
-        assert "+21 %" in vs.statement
-        assert any(q.value == 21 and q.percent for q in vs.numbers)
+        assert "+20 %" in vs.statement
+        assert any(q.value == 20 and q.percent for q in vs.numbers)
         assert observations[START_WITH].weight == "decision"
         assert facts.rules
         assert facts.example["narrative"]["story"][0]["uses"]
@@ -167,7 +168,7 @@ class TestFacts:
         _, run_dir = _run(tmp_path, "en")
         summary = load_summary(run_dir)
         assert summary.narrative_source == "template"
-        assert any("+21" in paragraph for paragraph in summary.happening)
+        assert any("+20" in paragraph for paragraph in summary.happening)
         assert all(a.robustness_line is None for a in summary.assessments)
 
 
@@ -318,7 +319,7 @@ class TestRejections:
             ("За последний год спад ускорился.", [VS_UK], "says the change speeds up"),
             ("Україна Wikipedia читає менше.", [VS_UK], "not a country"),
             (
-                "Доля +21 %, просмотры +21 %, раздел +0 %, снова +21 %, и +21 %.",
+                "Доля +20 %, просмотры +20 %, раздел +0 %, снова +20 %, и +20 %.",
                 [VS_UK],
                 "percentages",
             ),

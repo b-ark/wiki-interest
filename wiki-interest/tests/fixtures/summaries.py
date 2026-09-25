@@ -13,9 +13,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from wiki_interest.contracts.charts import (
+    AudienceLine,
+    AudienceYear,
+    AudienceYears,
     ChartSeries,
     ChartSpec,
-    ShareChange,
     ShareLine,
     ShareMark,
     ShareSegment,
@@ -728,10 +730,32 @@ def share_years_data(lines: int = 2) -> ShareYears:
             ShareMark(kind="step", line=0, x="2023-08", y=24.0, observation="step:x/uk"),
             ShareMark(kind="spike", line=0, x="2022-08", y=80.0, observation="spike:x/uk"),
         ],
-        changes=[
-            ShareChange(label=line.label, article=-20.0 - n, edition=-7.0)
-            for n, line in enumerate(out)
-        ],
-        changes_start="2025-09",
-        changes_end="2026-08",
+    )
+
+
+def audience_years_data(lines: int = 2) -> AudienceYears:
+    """The views by year: 2021–2025 and a partial 2026, the second audience far smaller.
+
+    The first year has no year before it; the others gained, held or lost their share.
+    """
+    moves = ("gained", "held", "lost")
+    return AudienceYears(
+        lines=[
+            AudienceLine(
+                label=("uk", "cs", "pl")[n],
+                years=[
+                    AudienceYear(
+                        year=year,
+                        start=f"{year}-01",
+                        end="2026-08" if year == 2026 else f"{year}-12",
+                        views=(84_000.0, 6_400.0, 490.0)[n] * 0.8 ** (year - 2021),
+                        change=None if year == 2021 else -20.0 - n,
+                        move=None if year == 2021 else moves[(year + n) % 3],  # type: ignore[arg-type]
+                        partial=year == 2026,
+                    )
+                    for year in range(2021, 2027)
+                ],
+            )
+            for n in range(lines)
+        ]
     )

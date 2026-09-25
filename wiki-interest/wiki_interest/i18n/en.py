@@ -602,7 +602,7 @@ MESSAGES: dict[str, str] = {
         "last {months} months against the same months a year earlier, article views {article} and "
         "edition traffic {edition}, so the share keeps rising."
     ),
-    "chart.share.title": "Share of attention by year",
+    "chart.share.title": "Share of Wikipedia views, by year",
     "chart.share.subtitle": (
         "Of every million page views of the whole Wikipedia in that language, how many went to "
         "this article."
@@ -618,8 +618,16 @@ MESSAGES: dict[str, str] = {
     "chart.share.month": "{month} {year}",
     "chart.share.step": "level changed: {month}",
     "chart.share.spike": "one-off burst: {month}",
-    "chart.share.changes": "Views over the last 12 months ({start} – {end}):",
-    "chart.share.change": "{label}: the article {article}, Wikipedia overall {edition}",
+    "chart.audience.title": "Average monthly article views, by year",
+    "chart.audience.subtitle": (
+        "Bars show average monthly views and the year-over-year change.\n"
+        "Below: whether the article gained (▲), held (≈) or lost (▼) its share of views within "
+        "that Wikipedia."
+    ),
+    "chart.audience.partial": "{year}: {first}–{last} vs the same months of {previous}.",
+    "chart.audience.gained": "▲ gained share",
+    "chart.audience.held": "≈ held share",
+    "chart.audience.lost": "▼ lost share",
     "chart.axis_growth": "change, %",
     # Months that stand out, as the PDF's footer names them.
     "chart.note.event": "{month} ×{multiple}",
@@ -633,8 +641,9 @@ MESSAGES: dict[str, str] = {
     "chart.season_period": "Computed on {start} – {end}.",
     "report.happening": "What is going on",
     "report.footer_share": (
-        "Attention share: article views per 1 million views of the whole edition. Change: {basis}; "
-        "recent months: {recent}."
+        "Share of Wikipedia views: article views per 1 million views of the whole Wikipedia in "
+        "that language. Change: each calendar year against the same months a year earlier (a "
+        "partial year against the same months only); recent months: {recent}."
     ),
     "report.footer_caveats": (
         "Views show curiosity, not willingness to pay; a language edition is not a country."

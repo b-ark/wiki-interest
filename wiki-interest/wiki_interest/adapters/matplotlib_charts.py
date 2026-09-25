@@ -28,7 +28,7 @@ from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
 from matplotlib.typing import RcKeyType
 
 from wiki_interest.adapters.report_theme import ReportTheme
-from wiki_interest.contracts.charts import ChartSeries, ChartSpec, ShareYears
+from wiki_interest.contracts.charts import AudienceYears, ChartSeries, ChartSpec, ShareYears
 from wiki_interest.errors import RenderError
 
 if TYPE_CHECKING:
@@ -117,12 +117,25 @@ VALUE_HIGHER_PT = 14
 END_LABEL_GAP = 0.07
 """Least distance between two audiences' names at the lines' ends, as a share of the axis."""
 NOTE_LINE_HEIGHT = 1.4
-NOTE_START = 0.36
-"""Where the note under the main chart starts, right of the legend's column (figure share)."""
 LEGEND_SPACING = 0.3
 LEGEND_HANDLE = 1.8
 MARK_SCALE = 1.6
 """A burst's point is this many times the theme's marker, to stand out of the pale line."""
+AUDIENCE_BAR = 0.92
+"""Share of its slot a bar of the views by year takes: a hairline apart from its neighbour."""
+AUDIENCE_HEADROOM = 1.3
+"""Room over the tallest bar for its two lines of label."""
+AUDIENCE_LINE_SPACING = 1.15
+AUDIENCE_LABEL_SHRINK = 2.0
+"""The most a bar's label gets smaller than the small size to fit its slot, in points."""
+AUDIENCE_TICKS_PT = 14.0
+"""Where the rows under the years start, below the plot: clear of the year labels."""
+PARTIAL_ALPHA = 0.45
+PARTIAL_HATCH = "///"
+"""A partial year's bar is pale and hatched: its months are not a whole year."""
+QUIET_ALPHA = 0.8
+MINUS = "\u2212"
+NARROW_NO_BREAK_SPACE = "\u202f"
 
 
 class MatplotlibChartRenderer:
@@ -204,6 +217,8 @@ class MatplotlibChartRenderer:
         chart = self._theme.chart
         if spec.kind == "share_years":
             return self._draw_share_years(spec)
+        if spec.kind == "audience_years":
+            return self._draw_audience_years(spec)
         width, height = {
             "half": (chart.half_width_mm, chart.half_height_mm),
             "strip": (chart.width_mm, chart.strip_height_mm),
@@ -252,11 +267,12 @@ class MatplotlibChartRenderer:
             ticks = STRIP_X_TICKS if spec.size == "strip" else None
             self._draw_lines(axes, spec.series, legend=legend, max_ticks=ticks)
 
-    def _frame(self, figure: Figure, width_mm: float) -> None:
+    def _frame(self, figure: Figure, width_mm: float, left_texts: Sequence[Any] = ()) -> None:
         """Put the plot between the edges every full-width chart shares.
 
-        Value labels wider than the left margin (long category names) push the plot right by
-        as much as they would stick out, rather than get cut.
+        Value labels wider than the left margin (long category names), or ``left_texts``
+        standing there, push the plot right by as much as they would stick out, rather than
+        get cut.
         """
         figure.subplots_adjust(left=FRAME_LEFT_MM / width_mm, right=1 - FRAME_RIGHT_MM / width_mm)
         FigureCanvasAgg(figure)  # a canvas to measure the labels on
@@ -265,8 +281,8 @@ class MatplotlibChartRenderer:
             for axes in figure.axes
             if axes.get_visible()
             for text in (*axes.get_yticklabels(), axes.yaxis.label)
-            if text.get_text()
-        ]
+            if text.get_text() and axes.yaxis.get_visible()
+        ] + list(left_texts)
         if not labels:
             return
         start_inches = min(t.get_window_extent().x0 for t in labels) / figure.dpi
@@ -507,9 +523,13 @@ class MatplotlibChartRenderer:
         used_mm = chart.title_size_pt * PT_TO_MM * SUBTITLE_LINE_HEIGHT + HEADER_GAP_MM
         if spec.subtitle:
             char_mm = chart.small_size_pt * CHAR_MM_PER_PT
-            lines = textwrap.wrap(
-                spec.subtitle, int(chart.width_mm * SUBTITLE_WIDTH_SHARE / char_mm)
-            )
+            width = int(chart.width_mm * SUBTITLE_WIDTH_SHARE / char_mm)
+            # A line break in the subtitle starts a new line; each line wraps on its own.
+            lines = [
+                wrapped
+                for part in spec.subtitle.split("\n")
+                for wrapped in textwrap.wrap(part, width)
+            ]
             figure.text(
                 0.01,
                 1 - used_mm / height_mm,
@@ -537,9 +557,8 @@ class MatplotlibChartRenderer:
         theme = self._theme
         chart = theme.chart
         small = chart.small_size_pt
-        # The legend in a column on the left, the note beside it: one band under the plot.
-        rows = max(len(spec.legend), spec.note.count("\n") + 1 if spec.note else 0)
-        bottom_mm = rows * small * PT_TO_MM * NOTE_LINE_HEIGHT + HEADER_GAP_MM
+        # The legend in a column on the left, under the plot.
+        bottom_mm = len(spec.legend) * small * PT_TO_MM * NOTE_LINE_HEIGHT + HEADER_GAP_MM
         height = spec.height_mm or chart.height_mm * SHARE_HEIGHT_SCALE
         figure = Figure(figsize=(chart.width_mm / MM_PER_INCH, height / MM_PER_INCH), dpi=chart.dpi)
         axes = figure.add_subplot()
@@ -615,16 +634,6 @@ class MatplotlibChartRenderer:
             labelspacing=LEGEND_SPACING,
             handlelength=LEGEND_HANDLE,
         )
-        if spec.note:
-            figure.text(
-                NOTE_START,
-                0.01,
-                spec.note,
-                fontsize=small,
-                ha="left",
-                va="bottom",
-                linespacing=NOTE_LINE_HEIGHT,
-            )
         header = self._figure_header(figure, spec, height)
         figure.tight_layout(rect=(0, bottom_mm / height, 1, header))
         self._frame(figure, chart.width_mm)
@@ -777,6 +786,169 @@ class MatplotlibChartRenderer:
         if absolute or value >= LARGE_VALUE:
             return self._localised(f"{value:,.0f}")
         return self._localised(f"{value:,.1f}")
+
+    # -- views by calendar year ------------------------------------------------------------
+
+    def _draw_audience_years(self, spec: ChartSpec) -> Figure:
+        """Each year's mean monthly views, the audiences side by side on one scale.
+
+        Over each bar its change against a year earlier and its views; under the years one
+        row per audience saying whether its share gained, held or lost. A partial year is
+        hatched and pale. The quiet line under the header says what the partial year is
+        compared with; the legend stands at its right.
+        """
+        audience = spec.audience
+        assert audience is not None
+        theme = self._theme
+        chart = theme.chart
+        small = chart.small_size_pt
+        count = len(audience.lines)
+        row_mm = small * PT_TO_MM * NOTE_LINE_HEIGHT
+        band_mm = row_mm + HEADER_GAP_MM
+        # The rows under the years count in the layout (they are the axes' annotations): the
+        # figure grows by them so the plot keeps its height.
+        height = spec.height_mm or chart.height_mm + count * row_mm + band_mm
+        figure = Figure(figsize=(chart.width_mm / MM_PER_INCH, height / MM_PER_INCH), dpi=chart.dpi)
+        axes = figure.add_subplot()
+        axes.yaxis.set_visible(False)
+        for side in ("top", "right", "left"):
+            axes.spines[side].set_visible(False)
+
+        years = sorted({y.year for line in audience.lines for y in line.years})
+        width = GROUP_WIDTH / count
+        label_size = self._audience_label_size(audience, len(years))
+        tallest = max(y.views for line in audience.lines for y in line.years)
+        for index, line in enumerate(audience.lines):
+            color = theme.palette[index % len(theme.palette)]
+            offset = (index - (count - 1) / 2) * width
+            for year in line.years:
+                x = years.index(year.year) + offset
+                bar = axes.bar(x, year.views, width=width * AUDIENCE_BAR, color=color)[0]
+                if year.partial:
+                    bar.set_alpha(PARTIAL_ALPHA)
+                    bar.set_hatch(PARTIAL_HATCH)
+                    bar.set_edgecolor(color)
+                axes.annotate(
+                    self._audience_label(year.views, year.change),
+                    (x, year.views),
+                    xytext=(0, VALUE_LABEL_OFFSET_PT - 1),
+                    textcoords="offset points",
+                    ha="center",
+                    va="bottom",
+                    color=color,
+                    fontsize=label_size,
+                    linespacing=AUDIENCE_LINE_SPACING,
+                )
+        axes.set_ylim(0, tallest * AUDIENCE_HEADROOM if tallest > 0 else 1.0)
+        axes.set_xlim(-HALF_BAR, len(years) - HALF_BAR)
+        axes.set_xticks(range(len(years)))
+        axes.set_xticklabels(spec.year_labels[: len(years)], fontsize=small)
+        axes.tick_params(axis="x", length=0)
+        rows = self._audience_rows(axes, spec, years)
+
+        top = self._figure_header(figure, spec, height)
+        if spec.note:
+            figure.text(
+                0.01,
+                top,
+                spec.note,
+                fontsize=small - 1,
+                color=theme.muted_color,
+                alpha=QUIET_ALPHA,
+                ha="left",
+                va="top",
+            )
+        handles = [Patch(color=theme.palette[i % len(theme.palette)]) for i in range(count)]
+        figure.legend(
+            handles,
+            [line.label for line in audience.lines],
+            loc="upper right",
+            ncol=count,
+            frameon=False,
+            fontsize=small,
+            bbox_to_anchor=(1 - FRAME_RIGHT_MM / chart.width_mm, top + HEADER_GAP_MM / height),
+            borderaxespad=0.0,
+            handlelength=1.0,
+            columnspacing=1.2,
+        )
+        figure.tight_layout(rect=(0, HEADER_GAP_MM / height, 1, top - band_mm / height))
+        self._frame(figure, chart.width_mm, rows)
+        return figure
+
+    def _audience_label(self, views: float, change: float | None) -> str:
+        """``-48 %`` over ``43,000``: the change a year on, then the views."""
+        count = self._localised(f"{views:,.0f}")
+        if change is None:
+            return count
+        # The percent sign as the report writes it: "15%", or "15 %" in the Slavic styles.
+        space = "" if self._decimal_sep == "." else NARROW_NO_BREAK_SPACE
+        percent = f"{change:+.0f}{space}%".replace("-", MINUS)
+        return f"{percent}\n{count}"
+
+    def _audience_label_size(self, audience: AudienceYears, years: int) -> float:
+        """The label size at which the widest label keeps within its bar's slot.
+
+        Three audiences leave each bar a narrow slot; a smaller label keeps the numbers of
+        neighbouring bars apart, down to a floor below which they would not be legible.
+        """
+        small = self._theme.chart.small_size_pt
+        plot_mm = self._theme.chart.width_mm - FRAME_LEFT_MM - FRAME_RIGHT_MM
+        slot_mm = plot_mm / years * GROUP_WIDTH / len(audience.lines)
+        widest = max(
+            len(part)
+            for line in audience.lines
+            for y in line.years
+            for part in self._audience_label(y.views, y.change).split("\n")
+        )
+        fitting = slot_mm / (widest * CHAR_MM_PER_PT)
+        return max(min(small, fitting), small - AUDIENCE_LABEL_SHRINK)
+
+    def _audience_rows(self, axes: Axes, spec: ChartSpec, years: Sequence[int]) -> list[Any]:
+        """Under the years, a row per audience: its name, then gained, held or lost.
+
+        Returns the names, which stand left of the plot: the frame makes room for them.
+        """
+        audience = spec.audience
+        assert audience is not None
+        small = self._theme.chart.small_size_pt
+        row_pt = small * NOTE_LINE_HEIGHT
+        names = []
+        for index, line in enumerate(audience.lines):
+            color = self._theme.palette[index % len(self._theme.palette)]
+            down = -(AUDIENCE_TICKS_PT + index * row_pt)
+            names.append(
+                axes.annotate(
+                    line.label,
+                    (0, 0),
+                    xycoords="axes fraction",
+                    xytext=(-LABEL_OFFSET_PT, down),
+                    textcoords="offset points",
+                    ha="right",
+                    va="top",
+                    color=color,
+                    fontsize=small,
+                    fontweight="bold",
+                    annotation_clip=False,
+                )
+            )
+            for year in line.years:
+                if year.move is None:
+                    continue
+                axes.annotate(
+                    spec.move_labels.get(year.move, year.move),
+                    (years.index(year.year), 0),
+                    xycoords=("data", "axes fraction"),
+                    xytext=(0, down),
+                    textcoords="offset points",
+                    ha="center",
+                    va="top",
+                    color=color,
+                    fontsize=small,
+                    # "Held" is the quiet answer; a gain or a loss is what the eye should find.
+                    fontweight="normal" if year.move == "held" else "bold",
+                    annotation_clip=False,
+                )
+        return names
 
     # -- size and change ------------------------------------------------------------------
 

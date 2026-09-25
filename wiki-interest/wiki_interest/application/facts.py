@@ -85,9 +85,9 @@ RULES: tuple[str, ...] = (
     "paragraph. The story gives two numbers the reader needs: how big the interest is (the "
     "views per million views of the size observation) and how the article moved against its "
     "whole edition (the edition's change and the article's, from the vs_edition observation).",
-    "Name periods as the observations do ('in 2021', 'January–August 2026', 'over the last 12 "
-    "months'), never 'N years ago'. A calendar year and the last 12 months are different "
-    "periods: keep each number with its own. A partial year stays partial, with its caution.",
+    "Name periods as the observations do ('in 2021', 'January–August 2026 against the same "
+    "months of 2025'), never 'N years ago'. A change keeps the comparison it was made on, and "
+    "a partial year stays partial, with its caution.",
     "Views are how often the article is opened ('the article is opened about 560 times a "
     "month'), never a number of people, never demand or a market.",
     "Every cause or guess comes from an observation and keeps its 'possibly' or 'probably'; "
@@ -118,9 +118,9 @@ EXAMPLE: Mapping[str, object] = {
         {
             "id": "vs_edition:beekeeping/nl",
             "weight": "high",
-            "statement": "Over the last 12 months the Dutch Wikipedia as a whole was read less "
-            "(−9 %), yet beekeeping held up (+4 % views): its share rose +14 %. The topic "
-            "gains attention against a shrinking Wikipedia.",
+            "statement": "In January–August 2026 (against the same months of 2025) the Dutch "
+            "Wikipedia as a whole was read less (−9 %), yet beekeeping held up (+4 % views): "
+            "its share rose +14 %. The topic gains attention against a shrinking Wikipedia.",
         },
         {
             "id": "season:beekeeping/nl",
@@ -150,8 +150,9 @@ EXAMPLE: Mapping[str, object] = {
             {
                 "text": "In January–August 2026 the article is opened about 2,400 times a "
                 "month, 5.1 views per million views of the Dutch Wikipedia, much as in 2021. "
-                "That looks flat, but it hides a rise: over the last 12 months the Dutch "
-                "Wikipedia as a whole was read 9 % less, while beekeeping gained 4 % views. "
+                "That looks flat, but it hides a rise: against the same months of 2025 the "
+                "Dutch Wikipedia as a whole was read 9 % less, while beekeeping gained 4 % "
+                "views. "
                 "As a share of everything read there, it got about one and a half times more "
                 "attention in 2025 than in 2021, and it rose almost every year.",
                 "uses": [

@@ -151,14 +151,16 @@ period the charts show: a trend, a wave, a season or a step needs years to be to
 from noise. A period the user named is read on its own; the season still on the whole
 window. The level and the long view read calendar years: "now" is the last calendar year (a
 partial one averaged over the months it has, the last full year if it has fewer than 3), the
-long trend reads full calendar years only. Changes compare like with like over 12-month
-windows counted back from the last month ("the last 12 months").
+long trend reads full calendar years only. A change compares like with like: "now" against
+the same months a year earlier (2025 against 2024; January–August 2026 against
+January–August 2025, so a partial year's missing season does not read as a fall), the last
+3 months against the same months a year earlier.
 
 | Observation | Fires when |
 |---|---|
 | `size` | always: how often the article is opened in the last calendar year, and in the first full year of the window; a partial year whose months usually run 10 % or more from the topic's yearly level says so |
 | `long_term` | at least 3 full calendar years: a steady decline or rise (the last full year below 0.7 or above 1/0.7 of the first, falling or rising in all but one year), a wave (a middle year peaks above the first and the last is below 3/4 of the peak), or a flat range |
-| `vs_edition` | 24 months: the last 12 months' change of the article's views, of the edition's, and of the share; says whether the fall is Wikipedia losing readers or the topic |
+| `vs_edition` | 24 months, and every month of "now" and of the same months a year earlier: the change of the article's views, of the edition's, and of the share; a share change beyond ±10 % gained or lost attention, within it moved with the edition; says whether the fall is Wikipedia losing readers or the topic |
 | `season` | 3 years: the median over years of each calendar month against its year; a school-year rhythm (a September–November peak above +60 % and a summer below −15 %), another rhythm (spread above 30 points), or none |
 | `spike` | a month more than 3 times what that calendar month usually brings, the next month back |
 | `wave`, `unusual` | 3 or more months in a row above 3 times the median; flat (at least 9 months, highest below twice the lowest) and abrupt reads as automated traffic (a caution) |
@@ -257,16 +259,28 @@ environment variable (`WIKI_INTEREST_SEASON_MIN_YEARS=6`, `WIKI_INTEREST_MIN_MOM
 
 ### Charts
 
-- **Main chart**, every report: the attention share (views without normalisation) of up to
-  three audiences on one scale, over the calendar years the observations read. A pale line
-  gives each month; a segment at each year's average carries its value, the same number the
-  text quotes; a partial last year is dashed. The share already sets the topic against its
-  Wikipedia: an article falling faster than its edition makes the line fall. The last 3 months
-  are shaded; a step or a one-off burst is marked when the text cites it (a burst above the
-  other months shows its value at the top edge either way). Under the chart, the last 12
-  months' change of each article's views and of its whole edition. The chart's labels are
-  built when the report is rendered, in the report's language.
-- **Second chart**, four or more audiences: the mean share (log axis) against its headline
+- **Main chart**, every report ("Share of Wikipedia views, by year"): the share of Wikipedia
+  views (views without normalisation) of up to three audiences on one scale, over the
+  calendar years the observations read. A pale line gives each month; a segment at each
+  year's average carries its value, the same number the text quotes; a partial last year is
+  dashed. The share already sets the topic against its Wikipedia: an article falling faster
+  than its edition makes the line fall. The last 3 months are shaded; a step or a one-off
+  burst is marked when the text cites it (a burst above the other months shows its value at
+  the top edge either way).
+- **Views by year**, under it (not when the user asked for raw views: the main chart shows
+  them): the same audiences and calendar years, each year's mean monthly views as a bar, the
+  audiences side by side on one scale, so a large share of a small Wikipedia is not taken
+  for a large audience. Over each bar, the views against the same months a year earlier (a
+  partial year against the same months only, said in a line under the title). Under the
+  years, one row per audience: whether the article's share of its Wikipedia's views gained
+  (▲), held (≈) or lost (▼) over the same comparison. The share's change is
+  `(article_t / article_t−1) / (edition_t / edition_t−1) − 1`; beyond +10 % it gained, below
+  −10 % it lost, within it held: the threshold at which `vs_edition` calls the share moved,
+  so the row and the text never disagree. Views can grow while the share falls, when the
+  whole Wikipedia grows faster; the two charts together show both. Numbers are rounded as
+  the text rounds them (560, 3,800, 69,000).
+- The labels of both are built when the report is rendered, in the report's language.
+- **Further chart**, four or more audiences: the mean share (log axis) against its headline
   change, one point per audience.
 - **Seasons**: the calendar-month profile, when section 6 says it deserves a chart, with the
   months it was computed on.

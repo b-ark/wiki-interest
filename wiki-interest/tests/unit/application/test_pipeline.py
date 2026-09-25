@@ -95,10 +95,11 @@ class TestSuccessfulRun:
         assess = _pipeline(tmp_path).run(
             _request(question_type="assess", projects=["uk"]), _context(tmp_path, "assess")
         )
-        assert [c.kind for c in assess.summary.charts] == ["share_years"]
+        assert [c.kind for c in assess.summary.charts] == ["share_years", "audience_years"]
         rank = _pipeline(tmp_path).run(_request(question_type="rank"), _context(tmp_path, "rank"))
-        # Two editions of one topic: the main chart holds both, whatever the question.
-        assert [c.kind for c in rank.summary.charts] == ["share_years"]
+        # Two editions of one topic: the main chart and the views by year hold both, whatever
+        # the question.
+        assert [c.kind for c in rank.summary.charts] == ["share_years", "audience_years"]
         assert [line.label for line in rank.summary.charts[0].share.lines] == ["uk", "cs"]  # type: ignore[union-attr]
         assert [r.rank for r in rank.summary.ranking] == [1, 2]
         assert rank.summary.ranking[0].project == "uk.wikipedia"
