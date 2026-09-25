@@ -5,10 +5,12 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from fixtures.summaries import example_summary
+from fixtures.summaries import example_summary, share_years_data
 from wiki_interest.adapters.matplotlib_charts import MatplotlibChartRenderer
-from wiki_interest.contracts.charts import ChartNote, ChartPanel, ChartPoint, ChartSeries, ChartSpec
+from wiki_interest.application.chart_plan import share_years_spec
+from wiki_interest.contracts.charts import ChartPoint, ChartSeries, ChartSpec
 from wiki_interest.errors import RenderError
+from wiki_interest.i18n import Translator
 
 PNG_MAGIC = b"\x89PNG"
 
@@ -184,69 +186,50 @@ def test_invalid_theme_file_raises_render_error(tmp_path: Path) -> None:
         MatplotlibChartRenderer(theme_path=broken)
 
 
-def _panels(count: int) -> ChartSpec:
-    months = [f"2025-{m:02d}" for m in range(1, 13)]
-    panels = [
-        ChartPanel(
-            title=f"edition {n}",
-            series=[
-                ChartSeries(
-                    label="months",
-                    x=months,
-                    y=[100.0 + i for i in range(12)],
-                    style="points",
-                    color=0,
-                ),
-                ChartSeries(
-                    label="article",
-                    x=months,
-                    y=[None, None, *[101.0 + i for i in range(10)]],
-                    color=0,
-                ),
-                ChartSeries(label="edition", x=months, y=[100.0] * 12, style="dashed", color=1),
-            ],
-            notes=[
-                ChartNote(x="2025-05", text="2025-05 ×1.9, possibly bots"),
-                ChartNote(x="2025-07", text="2025-07 edition ×1.7", series=2),
-            ],
-        )
-        for n in range(count)
-    ]
-    return ChartSpec(
-        id="main",
-        kind="panels",
-        title="Article views against edition traffic",
-        subtitle="Index: mean of the first 12 months = 100. " * 4,
-        y_label="index",
-        panels=panels,
-        reference_y=100.0,
-    )
+def _share(lines: int = 2, cited: frozenset[str] = frozenset({"step:x/uk"})) -> ChartSpec:
+    return share_years_spec(share_years_data(lines), Translator("en"), cited)
 
 
-@pytest.mark.parametrize("count", [1, 2, 4, 5])
-def test_panels_render_one_per_edition_with_notes(
-    renderer: MatplotlibChartRenderer, tmp_path: Path, count: int
+@pytest.mark.parametrize("lines", [1, 2, 3])
+def test_the_main_chart_names_each_audience_and_writes_each_year(
+    renderer: MatplotlibChartRenderer, tmp_path: Path, lines: int
 ) -> None:
-    _, svg = renderer.render(_panels(count), tmp_path)
+    _, svg = renderer.render(_share(lines), tmp_path)
     text = svg.read_text(encoding="utf-8")
-    assert f"edition {count - 1}" in text
-    assert "possibly bots" in text
+    assert all(code in text for code in ("uk", "cs", "pl")[:lines])
+    assert "24.0" in text  # the first audience's years after its step
+    assert "(Jan – Aug)" in text  # the partial year says which months it has
+    assert "average over the calendar year" in text
+    assert "Wikipedia overall" in text
 
 
-def test_dumbbell_and_scatter_render(renderer: MatplotlibChartRenderer, tmp_path: Path) -> None:
-    dumbbell = ChartSpec(
-        id="before-after",
-        kind="dumbbell",
-        title="Before and now",
-        y_label="",
-        x_label="per million",
-        series=[
-            ChartSeries(label="before", x=["ru", "uk", "pl"], y=[33.7, 28.4, None], style="points"),
-            ChartSeries(label="now", x=["ru", "uk", "pl"], y=[27.9, 22.1, 23.1]),
-        ],
-    )
-    _, svg = renderer.render(dumbbell, tmp_path)
-    assert "27.9" in svg.read_text(encoding="utf-8")
+def test_the_main_chart_marks_only_what_the_text_cites(
+    renderer: MatplotlibChartRenderer, tmp_path: Path
+) -> None:
+    _, svg = renderer.render(_share(cited=frozenset({"step:x/uk"})), tmp_path)
+    text = svg.read_text(encoding="utf-8")
+    assert "level changed: Aug 2023" in text
+    # An uncited burst over the top edge keeps its value, not a label.
+    assert "one-off burst" not in text
+    assert "80.0" in text
+    _, svg = renderer.render(_share(cited=frozenset({"spike:x/uk"})), tmp_path)
+    text = svg.read_text(encoding="utf-8")
+    assert "one-off burst: Aug 2022 (80.0)" in text
+    assert "level changed" not in text
+
+
+def test_the_main_chart_of_raw_views_writes_whole_numbers(
+    renderer: MatplotlibChartRenderer, tmp_path: Path
+) -> None:
+    data = share_years_data(1).model_copy(update={"absolute": True})
+    spec = share_years_spec(data, Translator("en"), set())
+    _, svg = renderer.render(spec, tmp_path)
+    text = svg.read_text(encoding="utf-8")
+    assert "Views by year" in text
+    assert ">24<" in text or "24</" in text or " 24" in text
+
+
+def test_scatter_renders(renderer: MatplotlibChartRenderer, tmp_path: Path) -> None:
     scatter = ChartSpec(
         id="size-change",
         kind="scatter",
@@ -265,17 +248,9 @@ def test_dumbbell_and_scatter_render(renderer: MatplotlibChartRenderer, tmp_path
 
 def test_a_chart_without_the_data_its_kind_needs_is_rejected() -> None:
     with pytest.raises(ValueError, match="no data"):
-        ChartSpec(id="main", kind="panels", title="t", y_label="y")
+        ChartSpec(id="share", kind="share_years", title="t", y_label="y")
     with pytest.raises(ValueError, match="no data"):
         ChartSpec(id="s", kind="scatter", title="t", y_label="y")
-    with pytest.raises(ValueError, match="no data"):
-        ChartSpec(
-            id="d",
-            kind="dumbbell",
-            title="t",
-            y_label="y",
-            series=[ChartSeries(label="a", x=["x"], y=[1.0])],
-        )
 
 
 def test_a_strip_is_as_wide_as_a_wide_chart_and_lower(
@@ -292,10 +267,13 @@ def test_a_strip_is_as_wide_as_a_wide_chart_and_lower(
     assert sizes["strip"][1] < sizes["wide"][1]
 
 
-def test_full_width_charts_share_the_edges_of_their_plot(
+def test_full_width_charts_share_the_left_edge_of_their_plot(
     renderer: MatplotlibChartRenderer,
 ) -> None:
-    """Charts stacked in the report line up: a legend or long labels never move the plot."""
+    """Charts stacked in the report line up: a legend or long labels never move the plot.
+
+    The main chart ends earlier on the right: the audiences' names stand at its lines' ends.
+    """
     months = [f"2025-{m:02d}" for m in range(1, 13)]
     strip = ChartSpec(
         id="change",
@@ -309,11 +287,11 @@ def test_full_width_charts_share_the_edges_of_their_plot(
         ],
         reference_y=0.0,
     )
-    edges = set()
-    for spec in (_panels(2), _panels(5), strip):
+    lefts, rights = [], []
+    for spec in (_share(1), _share(3), strip):
         figure = renderer._draw(spec)
         visible = [a for a in figure.axes if a.get_visible()]
-        left = min(a.get_position().x0 for a in visible)
-        right = max(a.get_position().x1 for a in visible)
-        edges.add((round(left, 3), round(right, 3)))
-    assert len(edges) == 1, edges
+        lefts.append(round(min(a.get_position().x0 for a in visible), 3))
+        rights.append(round(max(a.get_position().x1 for a in visible), 3))
+    assert len(set(lefts)) == 1, lefts
+    assert rights[0] == rights[1] < rights[2]

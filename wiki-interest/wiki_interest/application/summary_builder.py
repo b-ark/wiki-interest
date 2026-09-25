@@ -27,7 +27,11 @@ from wiki_interest.application.assessment import (
     conclude,
     headline_growth,
 )
-from wiki_interest.application.chart_plan import ChartPlanner
+from wiki_interest.application.chart_plan import (
+    SHARE_CHART_ID,
+    ChartPlanner,
+    share_years_data,
+)
 from wiki_interest.application.coverage import CoverageGap, CoverageOption
 from wiki_interest.application.insights import (
     Insight,
@@ -37,7 +41,7 @@ from wiki_interest.application.insights import (
     season_visibility,
     select_insights,
 )
-from wiki_interest.application.observations import outcome_cautions, to_out
+from wiki_interest.application.observations import outcome_cautions, to_out, trend_start
 from wiki_interest.application.question import option_text
 from wiki_interest.application.resolution import ResolvedTopic
 from wiki_interest.contracts.charts import ChartSpec
@@ -91,7 +95,7 @@ from wiki_interest.domain.models import (
     TrendMetrics,
     WikiProject,
 )
-from wiki_interest.domain.observations import Observation
+from wiki_interest.domain.observations import Observation, PairHistory
 from wiki_interest.errors import ClarificationNeededError, TopicNotFoundError
 from wiki_interest.i18n import Translator
 
@@ -161,7 +165,7 @@ class SummaryBuilder:
 
     # -- entry points ---------------------------------------------------------------------
 
-    def build(
+    def build(  # noqa: PLR0913 -- a run's every result goes into its summary
         self,
         *,
         request: AnalysisRequest,
@@ -169,6 +173,7 @@ class SummaryBuilder:
         resolved: Sequence[ResolvedTopic],
         analysis: AnalysisResult,
         observations: Sequence[Observation] = (),
+        histories: Sequence[PairHistory] = (),
     ) -> AnalysisSummary:
         """Compose the full summary of a successful run.
 
@@ -179,12 +184,20 @@ class SummaryBuilder:
             analysis: The measured pairs.
             observations: What the detectors found (:func:`run_observations`); editions
                 without an article or with a substitute add their cautions here.
+            histories: The pairs' long series (:func:`pair_histories`), for the main chart.
         """
         context = self._context
         labels = _TopicLabels(resolved)
         normalised = request.normalization == "per_million"
         season_requested = request.report.seasonality == "show"
         charts = self._charts(request, analysis, labels)
+        share_chart = share_years_data(
+            histories,
+            observations,
+            trend_start=trend_start(request, period),
+            absolute=not normalised,
+            topic_labels={t.topic_id: labels.topic(t.topic_id) for t in resolved},
+        )
         insights = select_insights(
             analysis, self._insight_settings, season_requested=season_requested
         )
@@ -215,6 +228,7 @@ class SummaryBuilder:
             comparison=self._comparison_rows(analysis, labels),
             ranking=self._ranking_rows(request, analysis, labels),
             charts=charts,
+            share_chart=share_chart,
             verdict=self._verdict(
                 request,
                 analysis,
@@ -231,7 +245,9 @@ class SummaryBuilder:
             limitations=self._limitations(request, period, resolved, labels),
             general_limitations=self._general_limitations(),
             next_steps=self._next_steps(request, period, resolved, analysis, labels),
-            artifacts=_artifacts(context, [c.id for c in charts]),
+            artifacts=_artifacts(
+                context, [*([SHARE_CHART_ID] if share_chart else []), *(c.id for c in charts)]
+            ),
             provenance=self._provenance(period),
         )
 
@@ -596,7 +612,7 @@ class SummaryBuilder:
     def _charts(
         self, request: AnalysisRequest, analysis: AnalysisResult, labels: _TopicLabels
     ) -> list[ChartSpec]:
-        """The main chart, a second one chosen by the number of audiences, and the seasons.
+        """The charts besides the main one: the scatter for many audiences, the seasons.
 
         See :class:`~wiki_interest.application.chart_plan.ChartPlanner` for what each shows.
         """
@@ -612,7 +628,7 @@ class SummaryBuilder:
             return visibility is SeasonVisibility.CHART
 
         plots = ChartPlanner(self._t, labels.pair, labels.short, show_season=charted)
-        return plots.plan(with_data, normalised=normalised, single_topic=len(request.topics) == 1)
+        return plots.plan(with_data, normalised=normalised)
 
     # -- prose ----------------------------------------------------------------------------
 

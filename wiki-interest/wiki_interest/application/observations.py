@@ -27,7 +27,14 @@ from wiki_interest.domain.observations import (
     observe,
 )
 
-__all__ = ["observation_start", "outcome_cautions", "run_observations", "to_out"]
+__all__ = [
+    "observation_start",
+    "outcome_cautions",
+    "pair_histories",
+    "run_observations",
+    "to_out",
+    "trend_start",
+]
 
 _YEAR = 12
 _SUBSTITUTE = re.compile(r"\((.+)\)\s*$")
@@ -48,19 +55,14 @@ def observation_start(
     return min(six_years, period.start) if request.period is not None else six_years
 
 
-def run_observations(
-    loaded: Sequence[LoadedSeries],
-    resolved: Sequence[ResolvedTopic],
-    request: AnalysisRequest,
-    period: Period,
-) -> list[Observation]:
-    """The detectors' observations for every pair with an article.
+def pair_histories(
+    loaded: Sequence[LoadedSeries], resolved: Sequence[ResolvedTopic]
+) -> list[PairHistory]:
+    """The long monthly series of every pair with an article, as the detectors read them.
 
     Args:
         loaded: The fetched series, with the long window (``long_views``, ``long_total``).
         resolved: The topics, for their labels and substitute articles.
-        request: The request: a named period is read on its own.
-        period: The analysed period.
     """
     labels = {t.topic_id: t.label or t.query for t in resolved}
     substitutes = {
@@ -89,8 +91,25 @@ def run_observations(
                 edition=tuple(by_month.get(m) for m in views.periods),
             )
         )
-    trend_start = period.start if request.period is not None else None
-    found = observe(histories, trend_start=trend_start)
+    return histories
+
+
+def trend_start(request: AnalysisRequest, period: Period) -> date | None:
+    """First month the trend detectors read: a period the user named is read on its own."""
+    return period.start if request.period is not None else None
+
+
+def run_observations(
+    histories: Sequence[PairHistory], request: AnalysisRequest, period: Period
+) -> list[Observation]:
+    """The detectors' observations for every pair with an article.
+
+    Args:
+        histories: The pairs' long series (:func:`pair_histories`).
+        request: The request: a named period is read on its own.
+        period: The analysed period.
+    """
+    found = observe(histories, trend_start=trend_start(request, period))
     if request.normalization == "absolute":
         found.insert(0, _RAW_VIEWS)
     return found

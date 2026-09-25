@@ -22,11 +22,13 @@ matplotlib.use("Agg")  # Must precede any pyplot/figure import: never rely on a 
 import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
 from matplotlib.typing import RcKeyType
 
 from wiki_interest.adapters.report_theme import ReportTheme
-from wiki_interest.contracts.charts import ChartPanel, ChartSeries, ChartSpec
+from wiki_interest.contracts.charts import ChartSeries, ChartSpec, ShareYears
 from wiki_interest.errors import RenderError
 
 if TYPE_CHECKING:
@@ -82,33 +84,47 @@ MIN_PLOT_MM = 15.0
 """The lowest a plot is drawn: a chart asked to be lower grows back until every row of it
 has this much, and the PDF shrinks it instead."""
 MAX_REGROWS = 3
-MAX_PANEL_COLUMNS = 3
-EXTRA_ROW_HEIGHT = 0.65
-"""Each further row of panels adds this share of a one-row chart's height."""
 PT_TO_MM = 0.3528
 HEADER_GAP_MM = 2.0
 POINT_ALPHA = 0.35
 POINT_SCALE = 0.8
 DASHED_WIDTH = 0.9
-PANEL_ROW_HEIGHT = 1.25
-"""A one-row panel chart is this many times a wide chart's height: header, legend, ticks."""
-MIN_PANEL_TICKS = 3
-MAX_NOTE_LINES = 2
-"""Lines of month notes under a panel title; what does not fit ends in an ellipsis."""
-PANEL_SPACING_SHARE = 0.9
-"""Share of a column a panel's plot takes; the rest is the gap between panels."""
 LOG_TICK_STEPS = (1.0, 2.0, 3.0, 5.0, 7.0)
 """Where a log axis is labelled within each decade: round values, never two crowding."""
 SCATTER_MARGIN = 0.12
 """Room around the outermost points of a scatter, so they and their labels are not cut."""
 LEGEND_ROW_MM = 7.0
-RING_SCALE = 2.2
-DUMBBELL_LINE_WIDTH = 2.0
 LABEL_OFFSET_PT = 4
+SHARE_HEIGHT_SCALE = 1.4
+"""The main chart is this many times a wide chart's height: legend and notes under it."""
+SHARE_RIGHT_MM = 14.0
+"""Room right of the main chart's plot for the audiences' names at the ends of their lines."""
+SHARE_HEADROOM = 1.12
+"""Room over the highest year or month for the value labels."""
+STEP_LABEL_BAND = 0.14
+"""More room at the top, as a share of the highest value, when a step's label runs there."""
+MONTH_LINE_WIDTH = 0.7
+SEGMENT_END = 0.9
+"""A year's segment ends this far into its last month, so the next year's starts clear of it."""
+PARTIAL_DASHES = (0, (3, 2))
+"""A partial year is dashed: its months lack part of the season, not every year is comparable."""
+CLOSE_SHARE = 0.1
+"""Two values closer than this share of the axis would print on top of each other."""
+VALUE_UNDER_PT = 11
+VALUE_HIGHER_PT = 14
+END_LABEL_GAP = 0.07
+"""Least distance between two audiences' names at the lines' ends, as a share of the axis."""
+NOTE_LINE_HEIGHT = 1.4
+NOTE_START = 0.36
+"""Where the note under the main chart starts, right of the legend's column (figure share)."""
+LEGEND_SPACING = 0.3
+LEGEND_HANDLE = 1.8
+MARK_SCALE = 1.6
+"""A burst's point is this many times the theme's marker, to stand out of the pale line."""
 
 
 class MatplotlibChartRenderer:
-    """Renders ``lines``, ``bars``, ``grouped_bars`` and ``trend`` charts in the report theme.
+    """Renders the charts of :data:`~wiki_interest.contracts.charts.ChartKind` in the report theme.
 
     Args:
         theme_path: Theme JSON to use; ``None`` selects ``assets/report_theme.json``.
@@ -184,8 +200,8 @@ class MatplotlibChartRenderer:
 
     def _draw_figure(self, spec: ChartSpec) -> Figure:
         chart = self._theme.chart
-        if spec.kind == "panels":
-            return self._draw_panels(spec)
+        if spec.kind == "share_years":
+            return self._draw_share_years(spec)
         width, height = {
             "half": (chart.half_width_mm, chart.half_height_mm),
             "strip": (chart.width_mm, chart.strip_height_mm),
@@ -222,8 +238,6 @@ class MatplotlibChartRenderer:
         """The data of one single-axes chart, by its kind."""
         if spec.kind == "scatter":
             self._draw_scatter(axes, spec)
-        elif spec.kind == "dumbbell":
-            self._draw_dumbbell(axes, spec)
         elif _is_empty(spec):
             self._draw_empty(axes, spec.series[0].x)
         elif spec.kind == "bars":
@@ -483,123 +497,6 @@ class MatplotlibChartRenderer:
             )
         self._label_x(axes, series.x)
 
-    # -- small multiples ----------------------------------------------------------------------
-
-    def _draw_panels(self, spec: ChartSpec) -> Figure:
-        """One panel per edition on a shared value axis, the title and subtitle above all."""
-        theme = self._theme
-        chart = theme.chart
-        count = len(spec.panels)
-        columns = 2 if count == 4 else min(MAX_PANEL_COLUMNS, count)  # noqa: PLR2004 -- 2x2
-        rows = math.ceil(count / columns)
-        height = spec.height_mm or chart.height_mm * (
-            PANEL_ROW_HEIGHT + EXTRA_ROW_HEIGHT * (rows - 1)
-        )
-        figure = Figure(figsize=(chart.width_mm / MM_PER_INCH, height / MM_PER_INCH), dpi=chart.dpi)
-        grid = figure.subplots(rows, columns, sharey=True, squeeze=False)
-        cells = [axes for row in grid for axes in row]
-        ticks = max(MIN_PANEL_TICKS, chart.max_x_ticks // (2 * columns))
-        panel_mm = (chart.width_mm - FRAME_LEFT_MM - FRAME_RIGHT_MM) / columns
-        note_chars = int(panel_mm * PANEL_SPACING_SHARE / (chart.small_size_pt * CHAR_MM_PER_PT))
-        for axes, panel in zip(cells, spec.panels, strict=False):
-            self._draw_panel(axes, panel, spec, ticks, note_chars)
-        for axes in cells[count:]:
-            axes.set_visible(False)
-        # One axis label and one legend for all panels, the legend under them.
-        handles, labels = cells[0].get_legend_handles_labels()
-        legend_band = LEGEND_ROW_MM / height
-        figure.legend(
-            handles,
-            labels,
-            loc="lower center",
-            ncol=len(labels),
-            frameon=False,
-            fontsize=chart.small_size_pt,
-            bbox_to_anchor=(0.5, 0.0),
-        )
-        top = self._figure_header(figure, spec, height)
-        figure.tight_layout(rect=(0.02, legend_band, 1, top))
-        self._frame(figure, chart.width_mm)
-        self._panels_label(figure, spec.y_label, height)
-        return figure
-
-    def _panels_label(self, figure: Figure, label: str, height_mm: float) -> None:
-        """The value axis label, centred on the panels and wrapped to their height.
-
-        Centred on the figure, a long label ran into the subtitle of a low chart.
-        """
-        visible = [a for a in figure.axes if a.get_visible()]
-        bottom = min(a.get_position().y0 for a in visible)
-        top = max(a.get_position().y1 for a in visible)
-        small = self._theme.chart.small_size_pt
-        width = max(1, int((top - bottom) * height_mm / (small * CHAR_MM_PER_PT)))
-        figure.supylabel(
-            "\n".join(textwrap.wrap(label, width)),
-            fontsize=small,
-            x=0.005,
-            y=(top + bottom) / 2,
-        )
-
-    def _draw_panel(
-        self, axes: Axes, panel: ChartPanel, spec: ChartSpec, ticks: int, note_chars: int
-    ) -> None:
-        """One edition; months that stand out are ringed and listed under the panel title.
-
-        The list wraps to the panel's width (``note_chars`` characters a line), at most
-        :data:`MAX_NOTE_LINES` lines: in three columns one line held two months at most.
-        """
-        theme = self._theme
-        small = theme.chart.small_size_pt
-        pad = TITLE_PAD_PT
-        if panel.notes:
-            lines = _note_lines([note.text for note in panel.notes], note_chars)
-            axes.annotate(
-                "\n".join(lines),
-                xy=(0, 1),
-                xycoords="axes fraction",
-                xytext=(0, TITLE_PAD_PT / 2),
-                textcoords="offset points",
-                fontsize=small,
-                color=theme.muted_color,
-                ha="left",
-                va="bottom",
-            )
-            pad += len(lines) * small * SUBTITLE_LINE_HEIGHT
-        axes.set_title(panel.title, fontsize=theme.chart.font_size_pt, loc="left", pad=pad)
-        axes.grid(True, axis="y", color=theme.grid_color, linewidth=0.6)
-        axes.set_axisbelow(True)
-        for side in ("top", "right"):
-            axes.spines[side].set_visible(False)
-        for index, one in enumerate(panel.series):
-            self._plot_series(axes, one, index, markers=False)
-        if spec.reference_y is not None:
-            axes.axhline(
-                spec.reference_y,
-                color=theme.muted_color,
-                linewidth=REFERENCE_LINE_WIDTH,
-                linestyle=":",
-            )
-        labels = _longest_x(panel.series)
-        for note in panel.notes:
-            if note.x not in labels:
-                continue
-            position = labels.index(note.x)
-            target = panel.series[min(note.series, len(panel.series) - 1)]
-            value = target.y[position] if position < len(target.y) else None
-            if value is None:
-                continue
-            axes.plot(
-                [position],
-                [value],
-                marker="o",
-                markersize=theme.chart.marker_size * RING_SCALE,
-                markerfacecolor="none",
-                markeredgecolor=theme.text_color,
-                markeredgewidth=0.8,
-                linestyle="none",
-            )
-        self._label_x(axes, labels, max_ticks=ticks)
-
     def _figure_header(self, figure: Figure, spec: ChartSpec, height_mm: float) -> float:
         """Title and subtitle across the whole figure; returns the top of the plotting area."""
         theme = self._theme
@@ -623,48 +520,252 @@ class MatplotlibChartRenderer:
             used_mm += len(lines) * chart.small_size_pt * PT_TO_MM * SUBTITLE_LINE_HEIGHT
         return 1 - (used_mm + HEADER_GAP_MM) / height_mm
 
-    # -- before and after, size and change ---------------------------------------------------
+    # -- the attention share by calendar year ----------------------------------------------
 
-    def _draw_dumbbell(self, axes: Axes, spec: ChartSpec) -> None:
-        """Per category, the earlier value and the later one joined by a line, top to bottom."""
+    def _draw_share_years(self, spec: ChartSpec) -> Figure:
+        """Months as a pale line, each calendar year as a segment at its average, per audience.
+
+        The value of each year stands over its segment (the lower of two close ones under
+        it), the audience's name at the end of its line, the last months shaded; the steps
+        and bursts the text cites are marked. A burst above the other months is drawn at the
+        top edge with its value, so it does not flatten everything else.
+        """
+        share = spec.share
+        assert share is not None
         theme = self._theme
-        before, after = spec.series
-        count = len(before.x)
-        positions = [count - 1 - i for i in range(count)]
-        for position, start, end in zip(positions, before.y, after.y, strict=True):
-            if start is None or end is None:
-                continue
+        chart = theme.chart
+        small = chart.small_size_pt
+        # The legend in a column on the left, the note beside it: one band under the plot.
+        rows = max(len(spec.legend), spec.note.count("\n") + 1 if spec.note else 0)
+        bottom_mm = rows * small * PT_TO_MM * NOTE_LINE_HEIGHT + HEADER_GAP_MM
+        height = spec.height_mm or chart.height_mm * SHARE_HEIGHT_SCALE
+        figure = Figure(figsize=(chart.width_mm / MM_PER_INCH, height / MM_PER_INCH), dpi=chart.dpi)
+        axes = figure.add_subplot()
+        axes.set_ylabel(spec.y_label, fontsize=small)
+        axes.grid(True, axis="y", color=theme.grid_color, linewidth=0.6)
+        axes.set_axisbelow(True)
+        for side in ("top", "right"):
+            axes.spines[side].set_visible(False)
+
+        spikes = {(m.line, m.x) for m in share.marks if m.kind == "spike"}
+        top = 0.0
+        for index, line in enumerate(share.lines):
+            color = theme.palette[index % len(theme.palette)]
+            x = [_month_number(m) for m in line.x]
             axes.plot(
-                [start, end],
-                [position, position],
-                color=theme.grid_color,
-                linewidth=DUMBBELL_LINE_WIDTH,
-                zorder=1,
+                x, _as_array(line.y), color=color, linewidth=MONTH_LINE_WIDTH, alpha=POINT_ALPHA
             )
-        for index, one in enumerate((before, after)):
-            color = theme.palette[
-                (one.color if one.color is not None else index) % len(theme.palette)
-            ]
-            xs = [v for v in one.y if v is not None]
-            ys = [p for p, v in zip(positions, one.y, strict=True) if v is not None]
-            axes.scatter(xs, ys, color=color, zorder=2, label=one.label, s=28)
-        for position, end in zip(positions, after.y, strict=True):
-            if end is not None:
-                axes.annotate(
-                    self._value_label(end, spec.value_suffix),
-                    (end, position),
-                    xytext=(LABEL_OFFSET_PT, LABEL_OFFSET_PT),
-                    textcoords="offset points",
-                    fontsize=theme.chart.small_size_pt,
+            for segment in line.years:
+                axes.hlines(
+                    segment.value,
+                    _month_number(segment.start),
+                    _month_number(segment.end) + SEGMENT_END,
+                    color=color,
+                    linewidth=chart.line_width,
+                    linestyles=PARTIAL_DASHES if segment.partial else "solid",
                 )
-        axes.set_yticks(positions)
-        axes.set_yticklabels(before.x, fontsize=theme.chart.small_size_pt)
-        axes.set_ylim(-0.7, count - 0.3)
-        axes.grid(True, axis="x", color=theme.grid_color, linewidth=0.6)
-        axes.grid(False, axis="y")
-        if spec.x_label:
-            axes.set_xlabel(spec.x_label, fontsize=theme.chart.small_size_pt)
-        axes.legend(frameon=False, fontsize=theme.chart.small_size_pt, loc="best")
+                top = max(top, segment.value)
+            usual = [
+                v
+                for m, v in zip(line.x, line.y, strict=True)
+                if v is not None and (index, m) not in spikes
+            ]
+            top = max(top, *usual) if usual else top
+        labelled_step = any(
+            m.kind == "step" and label is not None
+            for m, label in zip(share.marks, spec.mark_labels, strict=False)
+        )
+        # A step's label runs along the top edge: a band over the values keeps it clear.
+        headroom = SHARE_HEADROOM + (STEP_LABEL_BAND if labelled_step else 0.0)
+        ceiling = top * headroom if top > 0 else 1.0
+        axes.set_ylim(0, ceiling)
+
+        self._share_values(axes, share, ceiling)
+        self._share_marks(axes, spec, ceiling)
+        last = max(_month_number(line.x[-1]) for line in share.lines)
+        axes.axvspan(
+            last - share.recent_months + 1 - HALF_BAR,
+            last + HALF_BAR,
+            color=theme.highlight_color,
+            alpha=theme.highlight_alpha,
+            linewidth=0,
+        )
+        self._share_ends(axes, share, ceiling)
+        self._share_years_axis(axes, spec, last)
+        axes.yaxis.set_major_formatter(FuncFormatter(lambda v, _: self._tick_label(v)))
+        axes.tick_params(axis="y", labelsize=small)
+
+        handles = [
+            Line2D([], [], color=theme.muted_color, linewidth=chart.line_width),
+            Line2D([], [], color=theme.muted_color, linewidth=MONTH_LINE_WIDTH, alpha=0.6),
+            Patch(color=theme.highlight_color, alpha=theme.highlight_alpha, linewidth=0),
+        ]
+        figure.legend(
+            handles,
+            spec.legend,
+            loc="lower left",
+            ncol=1,
+            frameon=False,
+            fontsize=small,
+            labelcolor=theme.muted_color,
+            bbox_to_anchor=(0.0, 0.0),
+            borderaxespad=0.2,
+            labelspacing=LEGEND_SPACING,
+            handlelength=LEGEND_HANDLE,
+        )
+        if spec.note:
+            figure.text(
+                NOTE_START,
+                0.01,
+                spec.note,
+                fontsize=small,
+                ha="left",
+                va="bottom",
+                linespacing=NOTE_LINE_HEIGHT,
+            )
+        header = self._figure_header(figure, spec, height)
+        figure.tight_layout(rect=(0, bottom_mm / height, 1, header))
+        self._frame(figure, chart.width_mm)
+        figure.subplots_adjust(right=1 - SHARE_RIGHT_MM / chart.width_mm)
+        return figure
+
+    def _share_values(self, axes: Axes, share: ShareYears, ceiling: float) -> None:
+        """Each year's value over its segment; of two close values, the lower goes under."""
+        small = self._theme.chart.small_size_pt
+        close = ceiling * CLOSE_SHARE
+        for index, line in enumerate(share.lines):
+            color = self._theme.palette[index % len(self._theme.palette)]
+            for segment in line.years:
+                others = [
+                    s.value
+                    for j, other in enumerate(share.lines)
+                    if j != index
+                    for s in other.years
+                    if s.year == segment.year
+                ]
+                above = [o for o in others if 0 < o - segment.value < close]
+                below = [o for o in others if 0 <= segment.value - o < close]
+                if above and segment.value > ceiling * CLOSE_SHARE:
+                    offset = -VALUE_UNDER_PT
+                elif below and min(below) <= ceiling * CLOSE_SHARE:
+                    offset = VALUE_HIGHER_PT  # the lower one stays over its segment: go higher
+                else:
+                    offset = VALUE_LABEL_OFFSET_PT
+                middle = (_month_number(segment.start) + _month_number(segment.end)) / 2
+                axes.annotate(
+                    self._share_value(segment.value, absolute=share.absolute),
+                    (middle + HALF_BAR, segment.value),
+                    xytext=(0, offset),
+                    textcoords="offset points",
+                    ha="center",
+                    va="bottom",
+                    color=color,
+                    fontsize=small,
+                )
+
+    def _share_marks(self, axes: Axes, spec: ChartSpec, ceiling: float) -> None:
+        """The steps and bursts the text cites: a dashed line or a point, with its label.
+
+        A burst the text does not cite gets no label, but when it rises over the top edge its
+        value stands there, so the line leaving the chart is not left unexplained.
+        """
+        share = spec.share
+        assert share is not None
+        small = self._theme.chart.small_size_pt
+        for mark, label in zip(share.marks, spec.mark_labels, strict=False):
+            color = self._theme.palette[mark.line % len(self._theme.palette)]
+            x = _month_number(mark.x)
+            if mark.kind == "step":
+                if label is None:
+                    continue
+                axes.axvline(x, color=color, linewidth=REFERENCE_LINE_WIDTH, linestyle="--")
+                axes.annotate(
+                    label,
+                    (x, ceiling),
+                    xytext=(3, -2),
+                    textcoords="offset points",
+                    color=color,
+                    fontsize=small,
+                    va="top",
+                )
+                continue
+            if mark.y is None:
+                continue
+            over = mark.y > ceiling
+            if label is None and not over:
+                continue
+            y = min(mark.y, ceiling)
+            axes.plot(
+                [x],
+                [y],
+                marker="^" if over else "o",
+                color=color,
+                markersize=self._theme.chart.marker_size * MARK_SCALE,
+                clip_on=False,
+            )
+            value = self._share_value(mark.y, absolute=share.absolute)
+            text = label or ""
+            if over:
+                text = f"{text} ({value})" if text else value
+            axes.annotate(
+                text,
+                (x, y),
+                xytext=(LABEL_OFFSET_PT + 2, -2),
+                textcoords="offset points",
+                va="top",
+                color=color,
+                fontsize=small,
+            )
+
+    def _share_ends(self, axes: Axes, share: ShareYears, ceiling: float) -> None:
+        """Each audience's name at the end of its line, moved apart when they would touch."""
+        ends = sorted(
+            (line.years[-1].value, index, line.label) for index, line in enumerate(share.lines)
+        )
+        placed: list[float] = []
+        for value, index, label in ends:
+            y = value
+            if placed and y - placed[-1] < ceiling * END_LABEL_GAP:
+                y = placed[-1] + ceiling * END_LABEL_GAP
+            placed.append(y)
+            end = _month_number(share.lines[index].years[-1].end) + SEGMENT_END
+            axes.annotate(
+                label,
+                (end, y),
+                xytext=(LABEL_OFFSET_PT * 2, 0),
+                textcoords="offset points",
+                color=self._theme.palette[index % len(self._theme.palette)],
+                fontsize=self._theme.chart.font_size_pt,
+                fontweight="bold",
+                va="center",
+                annotation_clip=False,
+            )
+
+    def _share_years_axis(self, axes: Axes, spec: ChartSpec, last: float) -> None:
+        """One label per calendar year, under its middle."""
+        share = spec.share
+        assert share is not None
+        spans: dict[int, tuple[float, float]] = {}
+        for line in share.lines:
+            for segment in line.years:
+                start, end = _month_number(segment.start), _month_number(segment.end)
+                known = spans.get(segment.year, (start, end))
+                spans[segment.year] = (min(known[0], start), max(known[1], end))
+        years = sorted(spans)
+        axes.set_xticks([(spans[y][0] + spans[y][1]) / 2 + HALF_BAR for y in years])
+        axes.set_xticklabels(
+            spec.year_labels[: len(years)], fontsize=self._theme.chart.small_size_pt
+        )
+        axes.tick_params(axis="x", length=0)
+        axes.set_xlim(spans[years[0]][0] - HALF_BAR, last + 1 + HALF_BAR)
+
+    def _share_value(self, value: float, *, absolute: bool) -> str:
+        """``23.6``, ``145``, ``4,300`` in the report's number style."""
+        if absolute or value >= LARGE_VALUE:
+            return self._localised(f"{value:,.0f}")
+        return self._localised(f"{value:,.1f}")
+
+    # -- size and change ------------------------------------------------------------------
 
     def _draw_scatter(self, axes: Axes, spec: ChartSpec) -> None:
         """Labelled points: size of the share (often on a log axis) against its change."""
@@ -721,23 +822,6 @@ class MatplotlibChartRenderer:
         return [png, svg]
 
 
-def _note_lines(notes: Sequence[str], width: int) -> list[str]:
-    """Notes joined by " · " into lines of at most ``width`` characters.
-
-    The last line ends in an ellipsis when notes are left over.
-    """
-    lines: list[str] = []
-    for note in notes:
-        if lines and len(lines[-1]) + len(" · ") + len(note) <= width:
-            lines[-1] += f" · {note}"
-        elif len(lines) < MAX_NOTE_LINES:
-            lines.append(note)
-        else:
-            lines[-1] += " …"
-            break
-    return lines
-
-
 def _taller(figure: Figure) -> float | None:
     """The height in millimetres at which every row of plots gets ``MIN_PLOT_MM``.
 
@@ -769,6 +853,12 @@ def _is_empty(spec: ChartSpec) -> bool:
 def _longest_x(series: Sequence[ChartSeries]) -> Sequence[str]:
     """Period labels of the longest series; series of one chart share the same window."""
     return max((one.x for one in series), key=len)
+
+
+def _month_number(month: str) -> float:
+    """``2026-08`` as a count of months, the horizontal axis of the main chart."""
+    year, number = month.split("-")
+    return int(year) * 12 + int(number) - 1
 
 
 def _as_array(values: Sequence[float | None]) -> NDArray[np.float64]:

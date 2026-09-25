@@ -53,8 +53,12 @@ __all__ = [
     "PairHistory",
     "Quoted",
     "Weight",
+    "YearLevel",
     "edition_name",
     "observe",
+    "round_count",
+    "round_share",
+    "year_levels",
 ]
 
 MONTH_NAMES = [
@@ -131,6 +135,7 @@ class Observation:
         weight: How much it matters.
         statement: The statement in plain English, numbers as a reader sees them.
         numbers: The numbers ``statement`` quotes.
+        month: The month a ``step`` or a ``spike`` happened in, for the chart to mark it.
     """
 
     id: str
@@ -139,6 +144,7 @@ class Observation:
     weight: Weight
     statement: str
     numbers: tuple[Quoted, ...] = ()
+    month: date | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +248,17 @@ def edition_name(project: str) -> str:
 # -- wording ---------------------------------------------------------------------------------
 
 
+def round_count(value: float) -> float:
+    """A count as a reader pictures it: 560, 3,800, 69,000."""
+    digits = -3 if value >= _TEN_THOUSANDS else -2 if value >= _THOUSANDS else -1
+    return round(value, digits)
+
+
+def round_share(value: float) -> float:
+    """An attention share as statements write it: 19.2, 145."""
+    return round(value, 1) if value < 100 else round(value)  # noqa: PLR2004
+
+
 @dataclass(slots=True)
 class _Words:
     """Formats numbers for a statement and remembers them, so the text may quote them."""
@@ -256,8 +273,7 @@ class _Words:
 
     def count(self, value: float) -> str:
         """A count a reader can picture: "about 560", "about 3,800", "about 69,000"."""
-        digits = -3 if value >= _TEN_THOUSANDS else -2 if value >= _THOUSANDS else -1
-        rounded = round(value, digits)
+        rounded = round_count(value)
         self.quoted.append(Quoted(rounded))
         return f"about {rounded:,.0f}"
 
@@ -301,7 +317,7 @@ class _Words:
 
     def per_million(self, value: float) -> str:
         """An attention share: "19.2", "145"."""
-        rounded = round(value, 1) if value < 100 else round(value)  # noqa: PLR2004
+        rounded = round_share(value)
         self.quoted.append(Quoted(rounded))
         return f"{rounded:,}"
 
@@ -528,7 +544,16 @@ class _Detector:
         self.long_dir = "unknown"
         self.last_change: float | None = None
 
-    def add(self, kind: str, weight: Weight, words: _Words, statement: str, key: str = "") -> None:
+    def add(  # noqa: PLR0913 -- an observation's every field
+        self,
+        kind: str,
+        weight: Weight,
+        words: _Words,
+        statement: str,
+        key: str = "",
+        *,
+        month: date | None = None,
+    ) -> None:
         suffix = f":{key}" if key else ""
         self.out.append(
             Observation(
@@ -538,6 +563,7 @@ class _Detector:
                 weight=weight,
                 statement=statement[0].upper() + statement[1:],
                 numbers=tuple(words.quoted),
+                month=month,
             )
         )
 
@@ -823,6 +849,7 @@ class _Detector:
             f"In {_month(p.history.months[k])} {self.topic} was read several times as much as "
             f"that month usually brings in {self.ed}, and the next month it was back: a one-off "
             "burst, possibly news. A burst like this is not lasting interest.",
+            month=p.history.months[k],
         )
 
     def step(self) -> None:
@@ -856,7 +883,7 @@ class _Detector:
                 "the edition is counted or reached, not from the topic."
             )
         weight = Weight.HIGH if abs(d) > math.log(s.strong_step) else Weight.MEDIUM
-        self.add("step", weight, w, text)
+        self.add("step", weight, w, text, month=h.months[i])
 
     def recent(self) -> None:  # noqa: PLR0912 -- one wording per case
         p, s = self.p, self.s
@@ -1123,6 +1150,64 @@ def _topics(standings: Sequence[_Standing], settings: ObservationSettings) -> li
                     f"In {ed} attention grows for {names} while other topics asked about lose it: "
                     f"{names} is the stronger candidate there."
                 ),
+            )
+        )
+    return out
+
+
+@dataclass(frozen=True, slots=True)
+class YearLevel:
+    """The attention share and views of one calendar year, as the observations read them.
+
+    Attributes:
+        year: The calendar year.
+        first: Its first month with data in the window.
+        last: Its last month in the window.
+        share: Views per million views of the edition over those months.
+        views: Mean monthly views over those months.
+        partial: Fewer than 12 months (the last year of the data).
+    """
+
+    year: int
+    first: date
+    last: date
+    share: float
+    views: float
+    partial: bool
+
+
+def year_levels(
+    history: PairHistory,
+    *,
+    trend_start: date | None = None,
+    settings: ObservationSettings = _DEFAULT,
+) -> list[YearLevel]:
+    """The calendar years the observations read for ``history``, for a chart to draw.
+
+    The same windows as ``size`` and ``long_term``: from the first January of the window, a
+    partial last year only with enough months to stand for "now".
+    """
+    trimmed = _from_first_data(history)
+    if trimmed is None:
+        return []
+    pair = _prepare(trimmed, _index_of(trimmed.months, trend_start), settings)
+    months = trimmed.months
+    out: list[YearLevel] = []
+    for window in pair.calendar_years():
+        if window.partial and window.stop - window.first < settings.partial_months:
+            continue
+        share = pair.share(window.first, window.stop)
+        views = pair.views_mean(window.first, window.stop)
+        if share is None or views is None:
+            continue
+        out.append(
+            YearLevel(
+                year=months[window.first].year,
+                first=months[window.first],
+                last=months[window.stop - 1],
+                share=share,
+                views=views,
+                partial=window.partial,
             )
         )
     return out

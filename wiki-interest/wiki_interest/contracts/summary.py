@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from wiki_interest.contracts.charts import ChartSpec
+from wiki_interest.contracts.charts import ChartSpec, ShareYears
 from wiki_interest.contracts.request import AnalysisRequest, Period, SubstituteChoice
 from wiki_interest.domain.assessment import EditionRelation, Momentum, RelativeSize, Robustness
 from wiki_interest.domain.models import (
@@ -572,6 +572,9 @@ class AnalysisSummary(_Model):
     comparison: list[ComparisonRow] = Field(default_factory=list)
     ranking: list[RankedRow] = Field(default_factory=list)
     charts: list[ChartSpec] = Field(default_factory=list)
+    share_chart: ShareYears | None = None
+    """The data of the main chart; its spec is built when the report is rendered, in the
+    report's language and with the marks the text cites (see ``cited``)."""
     verdict: Verdict
     assessments: list[AssessmentOut] = Field(default_factory=list)
     """One per (topic, edition), in the order of ``comparison``."""
@@ -589,6 +592,8 @@ class AnalysisSummary(_Model):
     general_limitations: list[str] = Field(default_factory=list)
     """Limitations of the method that hold for every run (views measure curiosity...)."""
     next_steps: list[str] = Field(default_factory=list)
+    cited: list[str] = Field(default_factory=list)
+    """Ids of the observations the report text cites: the chart marks only what it explains."""
     narrative_source: Literal["template", "agent"] = "template"
     """Who wrote the headline, happening, robustness and decision text: the code's templates,
     or the agent (``narrative.json``, checked against ``facts.json``)."""

@@ -9,6 +9,11 @@ import pytest
 
 from fakes import AstronomyWorld, FakePage, astronomy_world, fake_container
 from wiki_interest.application.analysis import analyse
+from wiki_interest.application.observations import (
+    observation_start,
+    pair_histories,
+    run_observations,
+)
 from wiki_interest.application.summary_builder import (
     ProvenanceInput,
     RunContext,
@@ -41,7 +46,10 @@ def _build(
     container = fake_container(world or astronomy_world(), tmp_path)
     assert request.period is not None
     resolved = container.resolver().resolve_request(request)
-    loaded = container.loader(request).load(resolved, request.period)
+    loaded = container.loader(request).load(
+        resolved, request.period, observe_from=observation_start(request, request.period)
+    )
+    histories = pair_histories(loaded, resolved)
     analysis = analyse(
         resolved,
         loaded,
@@ -50,7 +58,12 @@ def _build(
     )
     context = RunContext("run-1", None, tmp_path / "run-1", datetime(2026, 9, 22, tzinfo=UTC))
     return SummaryBuilder(Translator(language), context, PROVENANCE).build(
-        request=request, period=request.period, resolved=resolved, analysis=analysis
+        request=request,
+        period=request.period,
+        resolved=resolved,
+        analysis=analysis,
+        observations=run_observations(histories, request, request.period),
+        histories=histories,
     )
 
 
@@ -171,23 +184,21 @@ class TestCompare:
 
     def test_charts_for_compare(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
-        assert [(c.id, c.kind, c.size) for c in summary.charts] == [
-            ("main", "panels", "wide"),
-            ("change", "lines", "strip"),
-        ]
-        main = summary.charts[0]
-        assert main.subtitle is not None
-        assert [p.title for p in main.panels] == ["uk.wikipedia", "cs.wikipedia"]
-        assert main.panels[0].series[0].x[0] == "2024-09"
-        change = summary.charts[1]
-        assert [s.label for s in change.series] == ["uk.wikipedia", "cs.wikipedia"]
-        assert change.reference_y == 0.0
+        # Two audiences and no season: the main chart alone, its spec built when rendered.
+        assert summary.charts == []
+        share = summary.share_chart
+        assert share is not None
+        assert [line.label for line in share.lines] == ["uk", "cs"]  # pl has no article
+        uk = share.lines[0]
+        assert uk.x[0] == "2025-01"  # the named period's first calendar year
+        assert [(y.year, y.partial) for y in uk.years] == [(2025, False), (2026, True)]
 
     def test_artifacts_point_into_the_run_dir(self, tmp_path: Path) -> None:
         summary = _build(tmp_path)
         assert summary.artifacts.run_dir == str(tmp_path / "run-1")
         assert summary.artifacts.charts == [
-            str(tmp_path / "run-1" / "charts" / f"{c.id}.png") for c in summary.charts
+            str(tmp_path / "run-1" / "charts" / f"{chart_id}.png")
+            for chart_id in ("share", *(c.id for c in summary.charts))
         ]
         assert summary.provenance.request_count == 3
 
@@ -211,7 +222,8 @@ class TestCompare:
         assert summary.happening[0].startswith("Article views per month, average over the period")
         assert any("without normalising" in lim for lim in summary.limitations)
         assert any("per-million" in step for step in summary.next_steps)
-        assert summary.charts[1].title.startswith("Article views")
+        assert summary.share_chart is not None
+        assert summary.share_chart.absolute
 
 
 class TestAssessAndRank:
@@ -222,9 +234,8 @@ class TestAssessAndRank:
         assert summary.happening[1] == (
             "Attention share, last 12 months vs the 12 before: uk.wikipedia +21%."
         )
-        assert [c.id for c in summary.charts] == ["main", "change"]
-        assert [p.title for p in summary.charts[0].panels] == ["uk.wikipedia"]
-        assert (summary.charts[0].reference_y, summary.charts[1].reference_y) == (100.0, 0.0)
+        assert summary.share_chart is not None
+        assert [line.label for line in summary.share_chart.lines] == ["uk"]
         assert summary.decision is not None
         assert summary.decision.lines == []  # one audience: the answer says it all
 
@@ -235,7 +246,7 @@ class TestAssessAndRank:
         assert "attention share +21%" in summary.ranking[0].rationale
         assert summary.ranking[-1].rationale == "insufficient data for ranking"
         assert any(step.startswith("Research next") for step in summary.next_steps)
-        assert summary.charts[-1].id == "change"  # scores are in the ranking table
+        assert summary.share_chart is not None  # scores are in the ranking table
 
 
 def test_rank_headline_admits_that_every_edition_declines(tmp_path: Path) -> None:

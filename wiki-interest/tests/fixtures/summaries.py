@@ -12,7 +12,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from wiki_interest.contracts.charts import ChartSeries, ChartSpec
+from wiki_interest.contracts.charts import (
+    ChartSeries,
+    ChartSpec,
+    ShareChange,
+    ShareLine,
+    ShareMark,
+    ShareSegment,
+    ShareYears,
+)
 from wiki_interest.contracts.request import AnalysisRequest, Period, QuestionType
 from wiki_interest.contracts.summary import (
     AnalysisSummary,
@@ -646,8 +654,8 @@ def _charts(projects: list[str], translator: Translator) -> list[ChartSpec]:
             id="intermittent-fasting-per-million",
             kind="lines",
             size="wide",
-            title=translator.t("chart.index_title"),
-            subtitle=translator.t("chart.index_subtitle"),
+            title=translator.t("chart.share.title"),
+            subtitle=translator.t("chart.share.subtitle"),
             y_label=translator.t("chart.axis_per_million"),
             series=per_million_series,
         ),
@@ -655,16 +663,18 @@ def _charts(projects: list[str], translator: Translator) -> list[ChartSpec]:
             id="intermittent-fasting-growth",
             kind="grouped_bars",
             size="half",
-            title=translator.t("chart.yoy_title", metric=translator.t("metric.attention_share")),
+            title=translator.t(
+                "chart.scatter_title", metric=translator.t("metric.attention_share")
+            ),
             y_label=translator.t("chart.axis_growth"),
             series=[
                 ChartSeries(
-                    label=translator.t("chart.series_article_smooth"),
+                    label=translator.t("metric.article_views"),
                     x=codes,
                     y=[_GROWTH_YOY[p] * 100 for p in projects],
                 ),
                 ChartSeries(
-                    label=translator.t("chart.series_edition_short"),
+                    label=translator.t("chart.share.legend_month"),
                     x=codes,
                     y=[-5.0 for _ in projects],
                 ),
@@ -676,12 +686,52 @@ def _charts(projects: list[str], translator: Translator) -> list[ChartSpec]:
             id="intermittent-fasting-uk-trend",
             kind="trend",
             size="half",
-            title=translator.t(
-                "chart.dumbbell_title", metric=translator.t("metric.attention_share")
-            ),
+            title=translator.t("chart.season_title"),
             y_label=translator.t("chart.axis_per_million"),
             series=[ChartSeries(label=_TITLES["uk.wikipedia"], x=MONTHS, y=uk_values)],
             trend_y=trend_y,
             highlight_x=[_SPIKE_MONTH],
         ),
     ]
+
+
+def share_years_data(lines: int = 2) -> ShareYears:
+    """The main chart's data: calendar years 2021–2025 and a partial 2026 per audience.
+
+    The first line takes a step in 2023-08 and a burst in 2022-08 far above its other months.
+    """
+    months = [f"{y}-{m:02d}" for y in range(2021, 2027) for m in range(1, 13)][:68]
+    out = []
+    for n in range(lines):
+        base = 20.0 - 5 * n
+        values: list[float | None] = [
+            base
+            + (4.0 if month >= "2023-08" else 0.0)
+            + (60.0 if n == 0 and month == "2022-08" else 0.0)
+            for month in months
+        ]
+        values[5] = None  # a month without data
+        years = [
+            ShareSegment(
+                year=year,
+                start=f"{year}-01",
+                end="2026-08" if year == 2026 else f"{year}-12",
+                value=round(base + (4.0 if year >= 2024 else 0.0), 1),
+                partial=year == 2026,
+            )
+            for year in range(2021, 2027)
+        ]
+        out.append(ShareLine(label=("uk", "cs", "pl")[n], x=months, y=values, years=years))
+    return ShareYears(
+        lines=out,
+        marks=[
+            ShareMark(kind="step", line=0, x="2023-08", y=24.0, observation="step:x/uk"),
+            ShareMark(kind="spike", line=0, x="2022-08", y=80.0, observation="spike:x/uk"),
+        ],
+        changes=[
+            ShareChange(label=line.label, article=-20.0 - n, edition=-7.0)
+            for n, line in enumerate(out)
+        ],
+        changes_start="2025-09",
+        changes_end="2026-08",
+    )

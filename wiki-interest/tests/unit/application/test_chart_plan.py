@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import date
 
-import pytest
-
-from wiki_interest.application.analysis import MonthFinding, PairAnalysis, PairFindings
-from wiki_interest.application.chart_plan import ChartPlanner
-from wiki_interest.contracts.charts import ChartSpec
+from wiki_interest.application.analysis import PairAnalysis, PairFindings
+from wiki_interest.application.chart_plan import ChartPlanner, share_years_data, share_years_spec
+from wiki_interest.contracts.charts import ChartSpec, ShareYears
 from wiki_interest.domain.findings import SeasonalProfile
 from wiki_interest.domain.models import (
     ArticleRef,
@@ -27,6 +25,7 @@ from wiki_interest.domain.models import (
     TrendMetrics,
     WikiProject,
 )
+from wiki_interest.domain.observations import PairHistory, observe
 from wiki_interest.domain.seasonality import SeasonEvidence, SeasonReason
 from wiki_interest.i18n import Translator
 
@@ -101,82 +100,113 @@ def _ids(charts: list[ChartSpec]) -> list[str]:
     return [c.id for c in charts]
 
 
+def _history(
+    views: Callable[[int], float | None],
+    *,
+    topic: str = "astronomy",
+    project: str = "uk.wikipedia",
+    edition: float = 1e8,
+) -> PairHistory:
+    """72 months from 2020-09 to 2026-08: full calendar years 2021–2025 and a partial 2026."""
+    months = tuple(date(2020 + (8 + k) // 12, (8 + k) % 12 + 1, 1) for k in range(72))
+    return PairHistory(
+        topic_id=topic,
+        topic=topic,
+        project=project,
+        months=months,
+        views=tuple(views(k) for k in range(72)),
+        edition=tuple(edition for _ in range(72)),
+    )
+
+
+def _level(views: float) -> Callable[[int], float]:
+    return lambda _k: views
+
+
+def _data(*histories: PairHistory, absolute: bool = False) -> ShareYears:
+    data = share_years_data(
+        histories,
+        observe(histories),
+        trend_start=None,
+        absolute=absolute,
+        topic_labels={"astronomy": "astronomy", "telescope": "telescope"},
+    )
+    assert data is not None
+    return data
+
+
 class TestMainChart:
-    def test_one_panel_per_edition_article_against_edition_as_indexes(self) -> None:
-        rising = [100.0 + 5 * i for i in range(24)]
-        chart = _planner().main([_pair(UK, rising), _pair(CS, [50.0] * 24)])
-        assert chart is not None
-        assert (chart.kind, chart.size, chart.reference_y) == ("panels", "wide", 100.0)
-        assert [p.title for p in chart.panels] == ["uk.wikipedia", "cs.wikipedia"]
-        assert chart.subtitle is not None
-        assert "loses attention share" in chart.subtitle
-        points, smooth, edition = chart.panels[0].series
-        assert (points.style, smooth.style, edition.style) == ("points", "line", "dashed")
-        assert points.color == smooth.color != edition.color
-        # The first year averages 100; three-month averages start in the third month.
-        first_year = [v for v in points.y[:12] if v is not None]
-        assert sum(first_year) / 12 == pytest.approx(100.0, abs=0.1)
-        assert smooth.y[:2] == [None, None]
-        assert edition.y[2] == 100.0
+    def test_the_years_are_the_calendar_years_the_observations_read(self) -> None:
+        data = _data(_history(lambda _k: 5_000.0))
+        (line,) = data.lines
+        assert line.label == "uk"
+        assert line.x[0] == "2021-01"  # the cut 2020 is left out, as the observations do
+        assert [s.year for s in line.years] == [2021, 2022, 2023, 2024, 2025, 2026]
+        last = line.years[-1]
+        assert (last.start, last.end, last.partial) == ("2026-01", "2026-08", True)
+        assert {s.value for s in line.years} == {50.0}  # per million, rounded as statements do
+        assert (data.changes_start, data.changes_end) == ("2025-09", "2026-08")
 
-    def test_months_that_stand_out_are_labelled(self) -> None:
-        spike = MonthFinding(
-            date(2025, 5, 1),
-            (("article_views", 1.9), ("attention_share", 1.85)),
-            "possible_bot",
-            in_change=True,
-            in_recent=False,
-            change_without=-0.1,
+    def test_raw_views_draw_views_a_month(self) -> None:
+        data = _data(_history(lambda _k: 5_000.0), absolute=True)
+        assert {s.value for s in data.lines[0].years} == {5_000.0}
+
+    def test_steps_and_bursts_carry_the_observation_that_found_them(self) -> None:
+        def shape(k: int) -> float:
+            return (6_000.0 if k < 50 else 2_500.0) * (8 if k == 20 else 1)
+
+        data = _data(_history(shape))
+        marks = {(m.kind, m.x, m.observation) for m in data.marks}
+        assert ("step", "2024-11", "step:astronomy/uk") in marks
+        assert ("spike", "2022-05", "spike:astronomy/uk") in marks
+
+    def test_the_last_12_months_are_set_against_the_whole_edition(self) -> None:
+        data = _data(_history(lambda k: 10_000.0 * 0.6 ** (k / 12)))
+        (change,) = data.changes
+        assert change.label == "uk"
+        assert change.article == -40.0
+        assert change.edition == 0.0
+
+    def test_lines_are_named_by_the_topic_when_one_edition_has_several(self) -> None:
+        data = _data(
+            _history(lambda _k: 5_000.0),
+            _history(lambda _k: 1_000.0, topic="telescope"),
         )
-        pair = _pair(UK, [10.0] * 24, findings=PairFindings(months=(spike,)))
-        chart = _planner().main([pair])
-        assert chart is not None
-        (note,) = chart.panels[0].notes
-        assert (note.x, note.text) == ("2025-05", "2025-05 ×1.9, possibly bots")
+        assert [line.label for line in data.lines] == ["astronomy", "telescope"]
 
-    def test_editions_without_data_are_left_out(self) -> None:
-        assert _planner().main([_pair(UK, None)]) is None
-        assert _planner().plan([_pair(UK, None)], normalised=True, single_topic=True) == []
+    def test_more_than_three_audiences_keep_the_three_largest(self) -> None:
+        histories = [
+            _history(_level(views), project=f"{code}.wikipedia")
+            for code, views in (("uk", 1_000.0), ("cs", 4_000.0), ("pl", 3_000.0), ("de", 2_000.0))
+        ]
+        assert [line.label for line in _data(*histories).lines] == ["cs", "pl", "de"]
+
+    def test_the_spec_speaks_the_report_language_and_marks_what_the_text_cites(self) -> None:
+        def shape(k: int) -> float:
+            return 6_000.0 if k < 50 else 2_500.0
+
+        data = _data(_history(shape))
+        t = Translator("uk")
+        t.override({"chart.share.title": "Частка уваги за роками"})
+        spec = share_years_spec(data, t, cited=set())
+        assert spec.title == "Частка уваги за роками"
+        assert spec.mark_labels == [None]  # the text does not cite the step: no label
+        assert spec.year_labels[-1] == "2026 (Jan – Aug)"
+        cited = share_years_spec(data, Translator("en"), cited={"step:astronomy/uk"})
+        assert cited.mark_labels == ["level changed: Nov 2024"]
+        assert cited.note is not None
+        assert "uk: the article" in cited.note
 
 
 class TestSecondChart:
-    def test_one_topic_in_two_editions_gets_the_change_month_by_month(self) -> None:
-        rising = [100.0 * 1.02**i for i in range(24)]
-        charts = _planner().plan(
-            [_pair(UK, rising), _pair(CS, [50.0] * 24)], normalised=True, single_topic=True
-        )
-        assert _ids(charts) == ["main", "change"]
-        change = charts[1]
-        assert change.kind == "lines"
-        assert change.reference_y == 0.0
-        uk, cs = change.series
-        assert uk.x[0] == "2025-03"  # 3 months against the same 3 a year earlier
-        assert uk.y[0] == pytest.approx((1.02**12 - 1) * 100, abs=0.2)
-        assert set(cs.y) == {0.0}
-        assert change.title.startswith("Attention share")
+    def test_up_to_three_audiences_need_no_second_chart(self) -> None:
+        pairs = [_pair(p, [10.0] * 24, metrics=_metrics(10.0, 0.1)) for p in (UK, CS, PL)]
+        assert _planner().plan(pairs, normalised=True) == []
 
-    def test_up_to_four_audiences_get_before_and_after(self) -> None:
-        pairs = [_pair(p, [10.0] * 12 + [12.0] * 12) for p in (UK, CS, PL)]
-        charts = _planner().plan(pairs, normalised=True, single_topic=True)
-        assert _ids(charts) == ["main", "before-after"]
-        before, after = charts[1].series
-        assert before.x == ["uk", "cs", "pl"]
-        assert (before.y, after.y) == ([10.0] * 3, [12.0] * 3)
-        assert before.label == "previous 12 months"
-        assert charts[1].x_label == "article views per million edition views"
+    def test_editions_without_data_are_left_out(self) -> None:
+        assert _planner().plan([_pair(UK, None)], normalised=True) == []
 
-    def test_two_topics_in_one_edition_are_compared_before_and_after(self) -> None:
-        pairs = [_pair(UK, [10.0] * 24), _pair(CS, [20.0] * 24)]
-        charts = _planner().plan(pairs, normalised=True, single_topic=False)
-        assert _ids(charts) == ["main", "before-after"]
-
-    def test_a_short_period_compares_halves(self) -> None:
-        chart = _planner().before_after([_pair(UK, [10.0] * 8 + [20.0] * 8)], normalised=True)
-        assert chart is not None
-        assert chart.series[0].label == "first half"
-        assert chart.series[1].y == [20.0]
-
-    def test_five_or_more_audiences_get_size_against_change(self) -> None:
+    def test_four_or_more_audiences_get_size_against_change(self) -> None:
         pairs = [
             _pair(p, [10.0] * 24, metrics=_metrics(share, change))
             for p, share, change in (
@@ -187,18 +217,14 @@ class TestSecondChart:
                 (FR, 1.0, -0.3),
             )
         ]
-        charts = _planner().plan(pairs, normalised=True, single_topic=True)
-        assert _ids(charts) == ["main", "size-change"]
-        scatter = charts[1]
+        charts = _planner().plan(pairs, normalised=True)
+        assert _ids(charts) == ["size-change"]
+        scatter = charts[0]
         assert (scatter.kind, scatter.log_x) == ("scatter", True)
         first = scatter.points[0]
         assert (first.label, first.x, first.y) == ("uk", 40.0, 20.0)
-
-    def test_raw_views_when_not_normalised(self) -> None:
-        pairs = [_pair(p, [10.0] * 12 + [12.0] * 12) for p in (UK, CS, PL)]
-        chart = _planner().before_after(pairs, normalised=False)
-        assert chart is not None
-        assert chart.title.startswith("Article views")
+        raw = _planner().plan(pairs, normalised=False)
+        assert raw[0].title.startswith("Article views")
 
 
 def test_season_is_drawn_only_when_the_calendar_matters() -> None:

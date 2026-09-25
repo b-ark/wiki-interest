@@ -532,6 +532,9 @@ def apply_narrative(
         update={
             "verdict": summary.verdict.model_copy(update={"headline": narrative.headline}),
             "happening": [p.text for p in narrative.story],
+            "cited": list(
+                dict.fromkeys(oid for p in (*narrative.story, narrative.meaning) for oid in p.uses)
+            ),
             "assessments": assessments,
             "decision": decision,
             "narrative_source": source,

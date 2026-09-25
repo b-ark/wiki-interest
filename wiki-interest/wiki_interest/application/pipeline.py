@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Literal, Protocol
 
 from wiki_interest.application.analysis import AnalysisSettings, analyse
+from wiki_interest.application.chart_plan import SHARE_CHART_ID, share_years_spec
 from wiki_interest.application.coverage import CoverageAdvisor
 from wiki_interest.application.facts import (
     apply_narrative,
@@ -25,7 +26,11 @@ from wiki_interest.application.facts import (
 )
 from wiki_interest.application.loading import SeriesLoader
 from wiki_interest.application.narrative_check import check_narrative
-from wiki_interest.application.observations import observation_start, run_observations
+from wiki_interest.application.observations import (
+    observation_start,
+    pair_histories,
+    run_observations,
+)
 from wiki_interest.application.question import compose_question, label_problems
 from wiki_interest.application.resolution import TopicResolver
 from wiki_interest.application.runs import ATTEMPTS_FILENAME, CHAT_BRIEF_FILENAME, previous_run
@@ -323,12 +328,14 @@ class Pipeline:
             weights=request.ranking_weights.to_domain(),
             settings=services.analysis_settings,
         )
+        histories = pair_histories(loaded, resolved)
         summary = builder.build(
             request=request,
             period=period,
             resolved=resolved,
             analysis=analysis,
-            observations=run_observations(loaded, resolved, request, period),
+            observations=run_observations(histories, request, period),
+            histories=histories,
         )
         # The report shows the code's own text until the agent's is accepted: the same
         # blocks, so the PDF has one layout whoever wrote it.
@@ -442,6 +449,7 @@ class Pipeline:
         )
         png_files: list[Path] = []
         with translator.recording() as used:
+            summary = _with_share_chart(summary, translator)
             for spec in summary.charts:
                 written = renderers.charts.render(spec, charts_dir)
                 png_files.extend(p for p in written if p.suffix == ".png")
@@ -464,6 +472,19 @@ class Pipeline:
         run_dir.mkdir(parents=True, exist_ok=True)
         renderers.agent_summary.render(summary, [], run_dir / SUMMARY_MD)
         _write_summary_json(summary, run_dir)
+
+
+def _with_share_chart(summary: AnalysisSummary, translator: Translator) -> AnalysisSummary:
+    """The summary with its main chart first, built now in the report's language.
+
+    The labels the agent translated apply, and only the steps and bursts the report text
+    cites are marked; a spec of an earlier rendering is replaced.
+    """
+    others = [c for c in summary.charts if c.id != SHARE_CHART_ID]
+    if summary.share_chart is None:
+        return summary.model_copy(update={"charts": others})
+    spec = share_years_spec(summary.share_chart, translator, set(summary.cited))
+    return summary.model_copy(update={"charts": [spec, *others]})
 
 
 def load_run_summary(run_dir: Path) -> AnalysisSummary:

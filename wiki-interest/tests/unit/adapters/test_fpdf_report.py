@@ -7,12 +7,13 @@ import pytest
 from fpdf import FPDF
 from pypdf import PdfReader
 
-from fixtures.summaries import example_summary
+from fixtures.summaries import example_summary, share_years_data
 from wiki_interest.adapters import fpdf_report
 from wiki_interest.adapters.fpdf_report import FpdfReportRenderer
 from wiki_interest.adapters.matplotlib_charts import MatplotlibChartRenderer
 from wiki_interest.adapters.report_theme import ReportTheme
-from wiki_interest.contracts.charts import ChartPanel, ChartSeries, ChartSpec
+from wiki_interest.application.chart_plan import share_years_spec
+from wiki_interest.contracts.charts import ChartSeries, ChartSpec
 from wiki_interest.contracts.summary import AnalysisSummary
 from wiki_interest.errors import RenderError
 from wiki_interest.i18n import Translator
@@ -255,18 +256,9 @@ def test_render_error_when_no_layout_fits(
 
 
 def _stacked_charts() -> list[ChartSpec]:
-    """Panels over a strip, as most reports have them."""
+    """The main chart over a strip."""
     months = [f"2025-{m:02d}" for m in range(1, 13)]
-    line = [ChartSeries(label="article", x=months, y=[100.0 + i for i in range(12)])]
-    panels = ChartSpec(
-        id="main",
-        kind="panels",
-        title="Article views against edition traffic",
-        subtitle="Index: mean of the first 12 months = 100.",
-        y_label="index, first 12 months = 100",
-        panels=[ChartPanel(title=f"{code}.wikipedia", series=line) for code in ("uk", "cs")],
-        reference_y=100.0,
-    )
+    main = share_years_spec(share_years_data(2), Translator("en"), {"step:x/uk"})
     strip = ChartSpec(
         id="change",
         kind="lines",
@@ -278,7 +270,7 @@ def _stacked_charts() -> list[ChartSpec]:
             for code in ("uk", "cs")
         ],
     )
-    return [panels, strip]
+    return [main, strip]
 
 
 def test_charts_too_tall_are_drawn_lower_at_the_full_width_and_line_up(

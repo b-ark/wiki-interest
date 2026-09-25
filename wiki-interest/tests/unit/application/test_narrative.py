@@ -499,6 +499,28 @@ class TestNarrate:
         saved = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
         assert saved["narrative_source"] == "agent"
 
+    def test_the_main_chart_is_drawn_again_in_the_report_language(self, tmp_path: Path) -> None:
+        """Its labels are composed when the report is rendered, so the agent's translations
+        reach the chart as they reach the rest of the PDF."""
+        pipeline, run_dir = _run(tmp_path, "ru")
+        facts = _facts(run_dir)
+        assert "chart.share.title" in facts.ui
+        narrative = _russian(facts)
+        ui = {**narrative.ui, "chart.share.title": "Доля внимания по годам"}
+        outcome = pipeline.narrate(run_dir, narrative.model_copy(update={"ui": ui}))
+        assert outcome.status == "accepted", outcome.problems
+        main = outcome.summary.charts[0]
+        assert (main.id, main.title) == ("share", "Доля внимания по годам")
+        assert outcome.summary.cited == [
+            "size:astronomy/uk",
+            VS_UK,
+            EDITIONS,
+            VERDICT_UK,
+            START_WITH,
+        ]
+        svg = (run_dir / "charts" / "share.svg").read_text(encoding="utf-8")
+        assert "Доля внимания по годам" in svg
+
     def test_one_rejection_then_the_template_stays(self, tmp_path: Path) -> None:
         pipeline, run_dir = _run(tmp_path, "ru")
         template_report = (run_dir / "summary.md").read_text(encoding="utf-8")
