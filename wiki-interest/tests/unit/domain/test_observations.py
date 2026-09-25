@@ -6,6 +6,8 @@ a trend, a calendar rhythm or an event. Numbers in a statement are the numbers i
 text citing it may quote them.
 """
 
+# ruff: noqa: RUF001  -- the statements write the minus sign, as the report does.
+
 from __future__ import annotations
 
 import math
@@ -78,7 +80,9 @@ class TestTrends:
         assert "A long, steady decline" in long_term.statement
         assert "in 2025 it was about a third of what it was in 2021" in long_term.statement
         assert "loses attention" in found["vs_edition:astronomy/uk"].statement
-        assert "no growing interest" in found["decision:verdict:astronomy/uk"].statement
+        verdict = found["decision:verdict:astronomy/uk"].statement
+        assert "is shrinking, faster than its Wikipedia" in verdict
+        assert "invest" not in verdict
 
     def test_a_rise_that_came_back_is_a_wave(self) -> None:
         def wave(k: int, _m: date) -> float:
@@ -95,7 +99,8 @@ class TestTrends:
         found = _by_id(observe([shrinking]))
         vs = found["vs_edition:astronomy/uk"].statement
         assert "comes from Wikipedia losing readers, not from the topic" in vs
-        assert "neither supports nor rules out" in found["decision:verdict:astronomy/uk"].statement
+        verdict = found["decision:verdict:astronomy/uk"].statement
+        assert "read less, but no more than its Wikipedia" in verdict
 
     def test_a_named_short_period_reads_no_long_trend_but_the_season(self) -> None:
         found = _by_id(observe([_history(_school)], trend_start=date(2024, 9, 1)))
@@ -145,7 +150,8 @@ class TestCalendarYears:
         uk = _history(_flat(4_000.0))
         cs = _history(_flat(2_000.0), project="cs.wikipedia", edition=lambda _: EDITION / 4)
         editions = _by_id(observe([uk, cs]))["editions:astronomy"].statement
-        assert "in January–August 2026 (" in editions
+        assert editions.startswith("In January–August 2026 the article")
+        assert "Against the same months of 2025 both hold steady" in editions
 
     def test_a_partial_year_is_compared_with_the_same_months_a_year_earlier(self) -> None:
         # Set against the whole of 2025, January–August 2026 would lose the September peak.
@@ -261,9 +267,51 @@ class TestAcrossPairs:
         cs = _history(_flat(2_000.0), project="cs.wikipedia", edition=lambda _: EDITION / 4)
         found = _by_id(observe([uk, cs]))
         editions = found["editions:astronomy"].statement
-        assert "about twice as much attention in the Czech Wikipedia" in editions
-        assert "the Ukrainian Wikipedia is the bigger audience" in editions
-        assert "start with the Ukrainian Wikipedia for reach" in (
+        assert "the Ukrainian Wikipedia is the larger audience (about twice as much)" in editions
+        # Twice the views, half the attention: the Czech Wikipedia is four times smaller.
+        assert "it is the other way round: the Czech Wikipedia gives the topic more" in editions
+        assert "(80.3 against 40.2 views per million" in editions
+        assert "the article held attention share in both" in editions
+        assert found["decision:editions:astronomy"].statement == (
+            "The Ukrainian Wikipedia offers the larger existing audience, but neither edition "
+            "shows growing interest in astronomy."
+        )
+
+    def test_an_order_of_magnitude_and_a_sharper_fall(self) -> None:
+        ru = _history(_decline(80_000.0, 0.6), project="ru.wikipedia")
+        uk = _history(_decline(6_000.0, 0.4), edition=lambda _: EDITION / 6)
+        editions = _by_id(observe([ru, uk]))["editions:astronomy"].statement
+        assert "the Russian Wikipedia is the much larger audience" in editions
+        assert "the gap narrows" in editions
+        assert "both are read less: the Russian Wikipedia −40 %, the Ukrainian Wikipedia −60 %" in (
+            editions
+        )
+        assert "more sharply in the Ukrainian Wikipedia" in editions
+        assert "lost attention share in both" in editions
+
+    def test_a_small_audience_that_grows_is_an_early_signal(self) -> None:
+        en = _history(
+            _decline(20_000.0, 0.8), project="en.wikipedia", edition=lambda _: EDITION * 8
+        )
+        uk = _history(lambda k, _m: 900.0 * 1.3 ** (k / 12), edition=lambda _: EDITION / 8)
+        found = _by_id(observe([en, uk]))
+        editions = found["editions:astronomy"].statement
+        assert "went down in the English Wikipedia (−20 %) and went up in the Ukrainian" in (
+            editions
+        )
+        assert "lost attention share in the English Wikipedia and gained it in the Ukrainian" in (
+            editions
+        )
+        hint = found["decision:editions:astronomy"].statement
+        assert "only the Ukrainian Wikipedia grows: an early signal" in hint
+        assert "small base" in hint
+
+    def test_about_the_same_audiences_say_so(self) -> None:
+        pl = _history(_flat(3_300.0), project="pl.wikipedia")
+        uk = _history(_flat(3_000.0))
+        found = _by_id(observe([pl, uk]))
+        assert "opened about as often in" in found["editions:astronomy"].statement
+        assert "about the same size, and neither grows" in (
             found["decision:editions:astronomy"].statement
         )
 
@@ -273,6 +321,66 @@ class TestAcrossPairs:
         found = _by_id(observe([rising, falling]))
         assert "gets the most attention" in found["topics:uk"].statement
         assert "rust is the stronger candidate" in found["decision:topics:uk"].statement
+
+
+class TestSignals:
+    """What Wikipedia signals for the next check: never a decision to invest."""
+
+    @pytest.mark.parametrize(
+        ("views", "edition", "expected"),
+        [
+            (1.3, 1.0, "grows, faster than its Wikipedia: a signal worth checking further"),
+            (1.3, 1.3, "grows with its Wikipedia"),
+            (1.3, 1.6, "grows, but more slowly than its Wikipedia: a weak signal"),
+            (0.6, 1.0, "is shrinking, faster than its Wikipedia"),
+            (0.8, 0.8, "read less, but no more than its Wikipedia"),
+            (1.0, 0.7, "holds steady while its Wikipedia is read less"),
+            (1.0, 1.0, "holds steady: Wikipedia shows neither growth nor a decline"),
+            # Five years of a growing Wikipedia leave the share in a long decline.
+            (1.0, 1.3, "holds steady now after a longer decline"),
+        ],
+    )
+    def test_the_audience_and_its_share_make_the_signal(
+        self, views: float, edition: float, expected: str
+    ) -> None:
+        history = _history(
+            lambda k, _m: 5_000.0 * views ** (k / 12),
+            edition=lambda k: EDITION * edition ** (k / 12),
+        )
+        verdict = _by_id(observe([history]))["decision:verdict:astronomy/uk"].statement
+        assert expected in verdict
+        assert "invest" not in verdict
+
+
+class TestSeasonEvidence:
+    def test_a_steady_fall_is_no_season(self) -> None:
+        # Against its own year's median, the first months of every year of a fall look high.
+        found = _by_id(observe([_history(_decline(10_000.0, 0.5))]))
+        assert "decision:timing:astronomy/uk" not in found
+        assert "no marked season" in found["season:astronomy/uk"].statement
+
+    def test_three_years_are_limited_evidence(self) -> None:
+        def january(k: int, m: date) -> float:
+            return 1_000.0 * (1.6 if m.month == 1 else 1.0) * (1 + 0.02 * math.sin(k))
+
+        found = _by_id(observe([_history(january, count=42)]))
+        assert "decision:timing:astronomy/uk" not in found
+        season = found["season:astronomy/uk"]
+        assert season.weight is Weight.LOW
+        assert "limited evidence" in season.statement
+
+    def test_a_peak_that_moves_between_months_is_limited_evidence(self) -> None:
+        def wandering(k: int, m: date) -> float:
+            peak = 1 if m.year % 2 else 4  # January in odd years, April in even ones
+            return 1_000.0 * (1.8 if m.month == peak else 1.0) * (1 + 0.02 * math.sin(k))
+
+        found = _by_id(observe([_history(wandering)]))
+        assert "decision:timing:astronomy/uk" not in found
+
+    def test_a_school_rhythm_over_three_years_names_no_audience(self) -> None:
+        found = _by_id(observe([_history(_school, count=42)]))
+        assert "decision:audience:astronomy/uk" not in found
+        assert "like the school year" in found["season:astronomy/uk"].statement
 
 
 class TestStatements:
