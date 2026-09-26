@@ -768,17 +768,17 @@
     },
     {
       "id": "pl-fasting-no-article",
-      "name": "Polish query for a topic without a Polish article: find it via English, ask, measure the choice",
+      "name": "Ukrainian query for a topic without a Polish article: ask, measure the choice",
       "tags": [
         "clarification",
         "missing-article",
-        "pl"
+        "uk"
       ],
       "turns": [
-        "Jak zmienia się zainteresowanie postem przerywanym w polskiej i czeskiej Wikipedii w ostatnich dwóch latach?",
-        "Weź ogólny artykuł o poście."
+        "Як змінюється інтерес до інтервального голодування в польській і чеській Вікіпедії за останні два роки?",
+        "Візьми загальну статтю про піст."
       ],
-      "expected": "The Polish wording finds no Wikidata item; the English wording (query_en) finds intermittent fasting. pl.wikipedia has no article, so the first run asks what to measure there. After the user picks the broader article, the rerun measures Polish 'Post' labelled as such, never presents it as intermittent fasting itself, and answers in Polish.",
+      "expected": "The query (with its English wording in query_en) finds intermittent fasting. pl.wikipedia has no article, so the first run asks what to measure there. After the user picks the broader article, the rerun measures Polish 'Post' labelled as such, never presents it as intermittent fasting itself, and answers in Ukrainian.",
       "assertions": [
         {
           "type": "tool_called",
@@ -856,21 +856,21 @@
         },
         {
           "id": "user-language",
-          "criterion": "The answer is written in Polish, the language the user wrote in."
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
         }
       ]
     },
     {
       "id": "pl-yoga-compare",
-      "name": "Polish user: yoga in Polish vs Czech Wikipedia",
+      "name": "Russian user: yoga in Polish vs Czech Wikipedia",
       "tags": [
         "compare",
-        "pl"
+        "ru"
       ],
       "turns": [
-        "Porównaj zainteresowanie jogą w polskiej i czeskiej Wikipedii. Który rynek wygląda lepiej?"
+        "Сравни интерес к йоге в польской и чешской Википедии. Какой рынок выглядит лучше?"
       ],
-      "expected": "Compare pl/cs, report in Polish.",
+      "expected": "Compare pl/cs, report in Russian.",
       "assertions": [
         {
           "type": "tool_called",
@@ -908,7 +908,7 @@
         {
           "type": "summary_field",
           "path": "request.report.language",
-          "equals": "pl"
+          "equals": "ru"
         },
         {
           "type": "narrative_accepted"
@@ -928,7 +928,7 @@
         },
         {
           "id": "user-language",
-          "criterion": "The answer is written in Polish, the language the user wrote in."
+          "criterion": "The answer is written in Russian, the language the user wrote in."
         }
       ]
     },
@@ -1522,13 +1522,13 @@
       "name": "Full run: the Rust programming language (Q575650)",
       "tags": [
         "meaning",
-        "pl",
+        "en",
         "report-v5"
       ],
       "turns": [
-        "Prowadzę kurs programowania. Jak rośnie zainteresowanie językiem Rust w polskiej i angielskiej Wikipedii?"
+        "I run a programming course. How is interest in the Rust language growing in the Polish and English Wikipedia?"
       ],
-      "expected": "The topic resolves to the Rust programming language (Q575650) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in Polish and points to report.pdf.",
+      "expected": "The topic resolves to the Rust programming language (Q575650) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in English and points to report.pdf.",
       "assertions": [
         {
           "type": "tool_called",
@@ -1582,7 +1582,7 @@
         },
         {
           "id": "user-language",
-          "criterion": "The answer is written in Polish, the language the user wrote in."
+          "criterion": "The answer is written in English, the language the user wrote in."
         },
         {
           "id": "states-findings",
@@ -1814,13 +1814,13 @@
       "name": "Full run: veganism (Q181138)",
       "tags": [
         "plain",
-        "cs",
+        "uk",
         "report-v5"
       ],
       "turns": [
-        "Roste zájem o veganství v ruské a české Wikipedii?"
+        "Чи зростає інтерес до веганства в російській і чеській Вікіпедії?"
       ],
-      "expected": "The topic resolves to veganism (Q181138) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in Czech and points to report.pdf.",
+      "expected": "The topic resolves to veganism (Q181138) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in Ukrainian and points to report.pdf.",
       "assertions": [
         {
           "type": "tool_called",
@@ -1874,7 +1874,7 @@
         },
         {
           "id": "user-language",
-          "criterion": "The answer is written in Czech, the language the user wrote in."
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
         },
         {
           "id": "states-findings",
@@ -1887,13 +1887,13 @@
       "name": "Full run: meditation (Q108458)",
       "tags": [
         "plain",
-        "pl",
+        "ru",
         "report-v5"
       ],
       "turns": [
-        "Jak zmienia się zainteresowanie medytacją w polskiej i ukraińskiej Wikipedii?"
+        "Как меняется интерес к медитации в польской и украинской Википедии?"
       ],
-      "expected": "The topic resolves to meditation (Q108458) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in Polish and points to report.pdf.",
+      "expected": "The topic resolves to meditation (Q108458) without asking the user about the meaning; the run completes and the agent relays summary.md (findings, key numbers, trust with a reason, caveats) in Russian and points to report.pdf.",
       "assertions": [
         {
           "type": "tool_called",
@@ -1947,7 +1947,7 @@
         },
         {
           "id": "user-language",
-          "criterion": "The answer is written in Polish, the language the user wrote in."
+          "criterion": "The answer is written in Russian, the language the user wrote in."
         },
         {
           "id": "states-findings",

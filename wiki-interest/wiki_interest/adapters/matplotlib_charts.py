@@ -103,6 +103,8 @@ SHARE_HEADROOM = 1.12
 """Room over the highest year or month for the value labels."""
 STEP_LINE_WIDTH = 0.6
 STEP_LINE_ALPHA = 0.55
+STEP_LABEL_ROOM_MONTHS = 12
+"""Months a step's label takes along the axis: a closer step's label goes a row lower."""
 STEP_LABEL_BAND = 0.14
 """More room at the top, as a share of the highest value, when a step's label runs there."""
 MONTH_LINE_WIDTH = 0.7
@@ -136,6 +138,13 @@ PARTIAL_ALPHA = 0.45
 PARTIAL_HATCH = "///"
 """A partial year's bar is pale and hatched: its months are not a whole year."""
 QUIET_ALPHA = 0.8
+MOVE_SYMBOLS = {"gained": "▲", "held": "≈", "lost": "▼"}
+"""What the row under the years writes for a share that gained, held or lost."""
+MOVE_SYMBOL_GROWTH = 1.5
+"""A symbol alone is set this many points over the small size, to be read at a glance."""
+Y_LABEL_CHARS = 24
+"""Longest line of the main chart's value-axis label; longer ones wrap."""
+"""A symbol alone is set this many points over the small size, to be read at a glance."""
 MINUS = "\u2212"
 NARROW_NO_BREAK_SPACE = "\u202f"
 
@@ -564,7 +573,8 @@ class MatplotlibChartRenderer:
         height = spec.height_mm or chart.height_mm * SHARE_HEIGHT_SCALE
         figure = Figure(figsize=(chart.width_mm / MM_PER_INCH, height / MM_PER_INCH), dpi=chart.dpi)
         axes = figure.add_subplot()
-        axes.set_ylabel(spec.y_label, fontsize=small)
+        # A long unit in a longer language would run past the plot's height: it wraps.
+        axes.set_ylabel("\n".join(textwrap.wrap(spec.y_label, Y_LABEL_CHARS)), fontsize=small)
         axes.grid(True, axis="y", color=theme.grid_color, linewidth=0.6)
         axes.set_axisbelow(True)
         for side in ("top", "right"):
@@ -594,12 +604,10 @@ class MatplotlibChartRenderer:
                 if v is not None and (index, m) not in spikes
             ]
             top = max(top, *usual) if usual else top
-        labelled_step = any(
-            m.kind == "step" and label is not None
-            for m, label in zip(share.marks, spec.mark_labels, strict=False)
-        )
-        # A step's label runs along the top edge: a band over the values keeps it clear.
-        headroom = SHARE_HEADROOM + (STEP_LABEL_BAND if labelled_step else 0.0)
+        rows = _step_rows(spec)
+        # A step's label runs along the top edge: a band over the values keeps it clear, one
+        # line of it for each row the labels of close steps take.
+        headroom = SHARE_HEADROOM + STEP_LABEL_BAND * (max(rows.values()) + 1 if rows else 0)
         ceiling = top * headroom if top > 0 else 1.0
         axes.set_ylim(0, ceiling)
 
@@ -689,7 +697,9 @@ class MatplotlibChartRenderer:
         share = spec.share
         assert share is not None
         small = self._theme.chart.small_size_pt
-        for mark, label in zip(share.marks, spec.mark_labels, strict=False):
+        rows = _step_rows(spec)
+        last = max(_month_number(line.x[-1]) for line in share.lines)
+        for index, (mark, label) in enumerate(zip(share.marks, spec.mark_labels, strict=False)):
             color = self._theme.palette[mark.line % len(self._theme.palette)]
             x = _month_number(mark.x)
             if mark.kind == "step":
@@ -704,13 +714,17 @@ class MatplotlibChartRenderer:
                     alpha=STEP_LINE_ALPHA,
                     zorder=0,
                 )
+                # Near the right edge the label runs left of its line, not out of the chart;
+                # a step close to another takes the row under its label.
+                left = last - x < STEP_LABEL_ROOM_MONTHS
                 axes.annotate(
                     label,
                     (x, ceiling),
-                    xytext=(3, -2),
+                    xytext=(-3 if left else 3, -2 - rows.get(index, 0) * small * NOTE_LINE_HEIGHT),
                     textcoords="offset points",
                     color=color,
                     fontsize=small,
+                    ha="right" if left else "left",
                     va="top",
                 )
                 continue
@@ -914,9 +928,11 @@ class MatplotlibChartRenderer:
         return max(min(small, fitting), small - AUDIENCE_LABEL_SHRINK)
 
     def _audience_rows(self, axes: Axes, spec: ChartSpec, years: Sequence[int]) -> list[Any]:
-        """Under the years, a row per audience: its name, then gained, held or lost.
+        """Under the years, a row per audience: its name, then ▲ gained, ≈ held or ▼ lost.
 
-        Returns the names, which stand left of the plot: the frame makes room for them.
+        Symbols, not words: the subtitle says what they mean, and a word in a longer language
+        would run into the next year's. Returns the names, which stand left of the plot: the
+        frame makes room for them.
         """
         audience = spec.audience
         assert audience is not None
@@ -945,7 +961,7 @@ class MatplotlibChartRenderer:
                 if year.move is None:
                     continue
                 axes.annotate(
-                    spec.move_labels.get(year.move, year.move),
+                    MOVE_SYMBOLS[year.move],
                     (years.index(year.year), 0),
                     xycoords=("data", "axes fraction"),
                     xytext=(0, down),
@@ -953,9 +969,9 @@ class MatplotlibChartRenderer:
                     ha="center",
                     va="top",
                     color=color,
-                    fontsize=small,
+                    fontsize=small + MOVE_SYMBOL_GROWTH,
                     # "Held" is the quiet answer; a gain or a loss is what the eye should find.
-                    fontweight="normal" if year.move == "held" else "bold",
+                    alpha=QUIET_ALPHA if year.move == "held" else 1.0,
                     annotation_clip=False,
                 )
         return names
@@ -1015,6 +1031,29 @@ class MatplotlibChartRenderer:
         figure.savefig(png, format="png", dpi=self._theme.chart.dpi, metadata=PNG_METADATA)
         figure.savefig(svg, format="svg", metadata=SVG_METADATA)
         return [png, svg]
+
+
+def _step_rows(spec: ChartSpec) -> dict[int, int]:
+    """The row of each labelled step's label: the next row when it would touch the last one.
+
+    Keyed by the mark's index in ``share.marks``; row 0 runs along the top edge.
+    """
+    share = spec.share
+    if share is None:
+        return {}
+    labelled = sorted(
+        (_month_number(mark.x), index)
+        for index, (mark, label) in enumerate(zip(share.marks, spec.mark_labels, strict=False))
+        if mark.kind == "step" and label is not None
+    )
+    rows: dict[int, int] = {}
+    placed: list[tuple[float, int]] = []
+    for x, index in labelled:
+        taken = {row for other, row in placed if x - other < STEP_LABEL_ROOM_MONTHS}
+        row = next(r for r in range(len(labelled) + 1) if r not in taken)
+        rows[index] = row
+        placed.append((x, row))
+    return rows
 
 
 def _taller(figure: Figure) -> float | None:

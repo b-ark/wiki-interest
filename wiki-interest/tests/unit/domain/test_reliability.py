@@ -177,7 +177,7 @@ class TestAutomated:
         ("share", "status", "key"),
         [
             (T.automated_share_warn - 0.01, CheckStatus.PASS, "automated.low"),
-            (T.automated_share_warn, CheckStatus.WARN, "automated.high"),
+            (T.automated_share_warn, CheckStatus.INFO, "automated.high"),
         ],
     )
     def test_boundaries(self, share: float, status: CheckStatus, key: str) -> None:

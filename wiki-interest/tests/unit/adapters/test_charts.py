@@ -6,9 +6,9 @@ import pytest
 from PIL import Image
 
 from fixtures.summaries import audience_years_data, example_summary, share_years_data
-from wiki_interest.adapters.matplotlib_charts import MatplotlibChartRenderer
+from wiki_interest.adapters.matplotlib_charts import MatplotlibChartRenderer, _step_rows
 from wiki_interest.application.chart_plan import audience_years_spec, share_years_spec
-from wiki_interest.contracts.charts import ChartPoint, ChartSeries, ChartSpec
+from wiki_interest.contracts.charts import ChartPoint, ChartSeries, ChartSpec, ShareMark
 from wiki_interest.errors import RenderError
 from wiki_interest.i18n import Translator
 
@@ -206,16 +206,30 @@ def test_the_main_chart_names_each_audience_and_writes_each_year(
 def test_the_main_chart_marks_only_what_the_text_cites(
     renderer: MatplotlibChartRenderer, tmp_path: Path
 ) -> None:
+    # A mark says its month only: the text that cites it says what happened.
     _, svg = renderer.render(_share(cited=frozenset({"step:x/uk"})), tmp_path)
     text = svg.read_text(encoding="utf-8")
-    assert "level changed: Aug 2023" in text
+    assert "Aug 2023" in text
     # An uncited burst over the top edge keeps its value, not a label.
-    assert "one-off burst" not in text
+    assert "Aug 2022" not in text
     assert "80.0" in text
     _, svg = renderer.render(_share(cited=frozenset({"spike:x/uk"})), tmp_path)
     text = svg.read_text(encoding="utf-8")
-    assert "one-off burst: Aug 2022 (80.0)" in text
-    assert "level changed" not in text
+    assert "Aug 2022 (80.0)" in text
+    assert "Aug 2023" not in text
+
+
+def test_close_steps_put_their_labels_on_two_rows() -> None:
+    data = share_years_data(1)
+    marks = [
+        ShareMark(kind="step", line=0, x="2025-04", observation="step:a"),
+        ShareMark(kind="step", line=0, x="2025-08", observation="step:b"),
+        ShareMark(kind="step", line=0, x="2022-01", observation="step:c"),
+    ]
+    spec = share_years_spec(
+        data.model_copy(update={"marks": marks}), Translator("en"), {"step:a", "step:b", "step:c"}
+    )
+    assert _step_rows(spec) == {2: 0, 0: 0, 1: 1}
 
 
 def test_the_main_chart_of_raw_views_writes_whole_numbers(
@@ -239,9 +253,11 @@ def test_the_views_by_year_write_each_change_and_whether_the_share_moved(
     assert all(code in text for code in ("uk", "cs", "pl")[:lines])
     assert "84,000" in text  # views rounded, as the text rounds them
     assert "\u221220%" in text  # the change against a year earlier, over the bar
-    assert "gained share" in text
-    assert "held share" in text
-    assert "lost share" in text
+    # Symbols, not words: they fit under a year in any language.
+    assert "▲" in text
+    assert "≈" in text
+    assert "▼" in text
+    assert "gained share" not in text
     assert "2026: January–August vs the same months of 2025." in text
     assert "2026 (Jan – Aug)" in text
 

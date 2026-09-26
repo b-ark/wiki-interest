@@ -189,10 +189,8 @@ class ChartSpec(_Model):
         year_labels: Axis labels of a ``share_years`` or ``audience_years`` chart, one per
             year of its lines (``2026 (Jan – Aug)`` for a partial one), in the order of the
             years.
-        mark_labels: Labels of the marks it shows (``level changed, Aug 2023``), aligned
-            with ``share.marks``; a mark without a label is not shown.
-        move_labels: What an ``audience_years`` chart writes under a year for each
-            :data:`~wiki_interest.domain.observations.ShareMove` (``▲ gained share``).
+        mark_labels: Labels of the marks it shows, their month (``Aug 2023``), aligned with
+            ``share.marks``; a mark without a label is not shown.
         legend: Legend entries of a ``share_years`` chart: the yearly average, each month,
             the shaded last months.
         note: A quiet line under the header of an ``audience_years`` chart: what its partial
@@ -220,7 +218,6 @@ class ChartSpec(_Model):
     audience: AudienceYears | None = None
     year_labels: list[str] = Field(default_factory=list)
     mark_labels: list[str | None] = Field(default_factory=list)
-    move_labels: dict[ShareMove, str] = Field(default_factory=dict)
     legend: list[str] = Field(default_factory=list)
     note: str | None = None
     trend_y: list[float | None] | None = None

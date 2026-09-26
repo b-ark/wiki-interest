@@ -51,7 +51,6 @@ from wiki_interest.domain.models import WikiProject
 from wiki_interest.domain.observations import (
     Observation,
     PairHistory,
-    ShareMove,
     YearLevel,
     round_count,
     round_share,
@@ -72,7 +71,6 @@ __all__ = [
 
 SHARE_CHART_ID = "share"
 AUDIENCE_CHART_ID = "audience"
-_MOVES: tuple[ShareMove, ...] = ("gained", "held", "lost")
 _RECENT = 3
 _RECENT_OBSERVATION = "recent:"
 _MAX_SHARE_LINES = 3
@@ -238,7 +236,6 @@ def audience_years_spec(data: AudienceYears, t: Translator) -> ChartSpec:
         y_label=t.t("chart.absolute.axis"),
         audience=data,
         year_labels=_year_labels(years, t),
-        move_labels={move: t.t(f"chart.audience.{move}") for move in _MOVES},
         note=note,
     )
 
@@ -277,9 +274,9 @@ def share_years_spec(data: ShareYears, t: Translator, cited: Collection[str]) ->
     year_labels = _year_labels(
         ((s.year, s.start, s.end, s.partial) for line in data.lines for s in line.years), t
     )
-    # Every mark's label is composed, cited or not: the labels the agent must translate are
-    # the ones composed, and a text written later may cite any of them.
-    labels = [t.t(f"chart.share.{mark.kind}", month=_month_name(mark.x, t)) for mark in data.marks]
+    # A mark says its month only: the text that cites it says what happened, and a longer
+    # label in a longer language would run into the next one.
+    labels = [_month_name(mark.x, t) for mark in data.marks]
     mark_labels = [
         label if mark.observation in cited else None
         for mark, label in zip(data.marks, labels, strict=True)
@@ -288,8 +285,11 @@ def share_years_spec(data: ShareYears, t: Translator, cited: Collection[str]) ->
     # is one more layer to read.
     recent = any(oid.startswith(_RECENT_OBSERVATION) for oid in cited)
     legend = [t.t("chart.share.legend_year"), t.t("chart.share.legend_month")]
+    # Composed whether shown or not: the labels the agent translates are the ones composed,
+    # and its text may cite the last months after the translations were asked for.
+    recent_label = t.t("chart.share.legend_recent", months=data.recent_months)
     if recent:
-        legend.append(t.t("chart.share.legend_recent", months=data.recent_months))
+        legend.append(recent_label)
     kind = "absolute" if data.absolute else "share"
     return ChartSpec(
         id=SHARE_CHART_ID,

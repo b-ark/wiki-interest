@@ -191,7 +191,7 @@ class TestMainChart:
         assert spec.mark_labels == [None]  # the text does not cite the step: no label
         assert spec.year_labels[-1] == "2026 (Jan – Aug)"
         cited = share_years_spec(data, Translator("en"), cited={"step:astronomy/uk"})
-        assert cited.mark_labels == ["level changed: Nov 2024"]
+        assert cited.mark_labels == ["Nov 2024"]
         assert cited.title == "Attention share over time"
         # The last months are shaded only when the text speaks of them.
         assert cited.share is not None
@@ -236,15 +236,11 @@ class TestAudienceChart:
 
     def test_the_spec_says_what_the_partial_year_is_compared_with(self) -> None:
         data = _audience(_history(lambda k: 10_000.0 * 0.6 ** (k / 12)))
-        t = Translator("uk")
-        t.override({"chart.audience.lost": "▼ втратила частку"})
-        spec = audience_years_spec(data, t)
+        spec = audience_years_spec(data, Translator("uk"))
         assert spec.kind == "audience_years"
         assert spec.title == "Average monthly article views, by year"
         assert spec.year_labels[-1] == "2026 (Jan – Aug)"
         assert spec.note == "2026: January–August vs the same months of 2025."
-        assert spec.move_labels["lost"] == "▼ втратила частку"
-        assert set(spec.move_labels) == {"gained", "held", "lost"}
 
     def test_full_years_need_no_note(self) -> None:
         full = _history(lambda _k: 5_000.0)

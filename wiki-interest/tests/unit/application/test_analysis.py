@@ -89,7 +89,9 @@ class TestPairs:
         assert pair.metrics is not None
         assert pair.metrics.automated_share == pytest.approx(0.5)
         check = next(c for c in pair.reliability.checks if c.name == "automated")
-        assert check.status is CheckStatus.WARN
+        # Already left out of the numbers (agent=user): noted, not held against the data.
+        assert check.status is CheckStatus.INFO
+        assert check.reason_key == "automated.high"
 
     def test_automated_check_is_unavailable_without_matching_user_traffic(self) -> None:
         loaded = replace(_loaded(UK, _rising()), main_automated=_total(level=100.0))

@@ -238,7 +238,7 @@ pass.
 | `spikes` | spike share < 20 % | 20-40 % | > 40 % |
 | `trend` | p < 0.05 | not significant | - |
 | `resolution` | main article from a sitelink | found via search, or a redirect chosen as substitute | no article, or a broader/mentioning article chosen as substitute |
-| `automated` | automated share < 30 % | above | - |
+| `automated` | automated share < 30 % | never: the automated class is already left out of the numbers (`agent=user`); from 30 % a note that some bots may have passed the classifier | - |
 | `volume` | >= 300 views/month | below | - |
 
 Aggregation: any fail -> **low**; two or more warns -> **medium**; otherwise **high**. A low

@@ -225,14 +225,19 @@ def _resolution_rule(ctx: _Context) -> Check:
 
 
 def _automated(ctx: _Context) -> Check:
-    """A large automated share means the user series may be contaminated too."""
+    """How much of the article's traffic Wikimedia classified as automated, for information.
+
+    The series are fetched with ``agent=user``: the automated share is already left out of
+    every number. A large share only hints that some bots may have passed the classifier, so
+    it is noted, not held against the data.
+    """
     share = ctx.metrics.automated_share
     if share is None:
         return Check("automated", CheckStatus.INFO, "automated.unavailable")
     params = {"share": share}
     if share < ctx.thresholds.automated_share_warn:
         return Check("automated", CheckStatus.PASS, "automated.low", params)
-    return Check("automated", CheckStatus.WARN, "automated.high", params)
+    return Check("automated", CheckStatus.INFO, "automated.high", params)
 
 
 def _volume(ctx: _Context) -> Check:

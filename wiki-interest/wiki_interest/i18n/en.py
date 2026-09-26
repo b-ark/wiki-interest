@@ -30,8 +30,14 @@ MESSAGES: dict[str, str] = {
     "resolution.not_found": (
         "No article in this edition: absence of an article is not zero interest"
     ),
-    "automated.low": "Automated traffic is {share:.0%}: bot influence is small",
-    "automated.high": "Automated traffic is {share:.0%}: bots may inflate the numbers",
+    "automated.low": (
+        "Wikimedia classified {share:.0%} of the visits as automated; they are left out of "
+        "the numbers"
+    ),
+    "automated.high": (
+        "Wikimedia classified {share:.0%} of the visits as automated; they are left out of "
+        "the numbers, though with this many some bots may remain among the counted views"
+    ),
     "automated.unavailable": "Automated traffic data is unavailable for this edition and period",
     "volume.ok": "About {views_avg:,.0f} views per month: enough for a stable signal",
     "volume.low": "Only about {views_avg:,.0f} views per month: the signal is noisy",
@@ -608,7 +614,7 @@ MESSAGES: dict[str, str] = {
     ),
     "chart.share.title": "Attention share over time",
     "chart.share.subtitle": "Article views per 1M views of that Wikipedia.",
-    "chart.share.axis": "views per 1M Wikipedia views",
+    "chart.share.axis": "per 1M views",
     "chart.absolute.title": "Views by year",
     "chart.absolute.subtitle": "How many times a month the article was opened.",
     "chart.absolute.axis": "views a month",
@@ -617,8 +623,6 @@ MESSAGES: dict[str, str] = {
     "chart.share.legend_recent": "the last {months} months",
     "chart.share.partial_year": "{year} ({first} – {last})",
     "chart.share.month": "{month} {year}",
-    "chart.share.step": "level changed: {month}",
-    "chart.share.spike": "one-off burst: {month}",
     "chart.audience.title": "Average monthly article views, by year",
     "chart.audience.subtitle": (
         "Bars show average monthly views and the year-over-year change.\n"
@@ -626,9 +630,6 @@ MESSAGES: dict[str, str] = {
         "that Wikipedia."
     ),
     "chart.audience.partial": "{year}: {first}–{last} vs the same months of {previous}.",
-    "chart.audience.gained": "▲ gained share",
-    "chart.audience.held": "≈ held share",
-    "chart.audience.lost": "▼ lost share",
     "chart.axis_growth": "change, %",
     "chart.scatter_title": "{metric}: size and change",
     "chart.scatter_subtitle": "Right: a larger share; above the line: growing, below: shrinking.",

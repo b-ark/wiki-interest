@@ -304,6 +304,14 @@ class TestComparison:
         assert "size:astronomy/uk" not in told
         assert VS_UK not in told
 
+    def test_the_chart_labels_to_translate_include_those_shown_only_when_cited(
+        self, tmp_path: Path
+    ) -> None:
+        # The last months are shaded only when the text cites them, which it does after the
+        # translations were asked for: their label is asked for anyway.
+        _, run_dir = _run(tmp_path, "ru")
+        assert "chart.share.legend_recent" in _facts(run_dir).ui
+
     def test_the_next_step_names_the_edition_that_grows(self, tmp_path: Path) -> None:
         # uk grows against the same months of 2025, cs holds: check where the growth is.
         _, run_dir = _run(tmp_path, "en")

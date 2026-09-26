@@ -80,7 +80,8 @@ SECTION_KEYS = [
     "chart.share.title",
     "chart.share.legend_year",
     "chart.audience.title",
-    *[f"chart.audience.{move}" for move in ("gained", "held", "lost")],
+    "chart.audience.subtitle",
+    "chart.share.legend_recent",
     "report.footer_share",
     "report.footer_caveats",
     "chart.season_title",
@@ -138,7 +139,7 @@ def test_a_share_in_a_template_reads_like_the_other_percentages() -> None:
     assert (
         Translator("en")
         .t("automated.low", share=share)
-        .startswith(f"Automated traffic is {format_percent(share, style_for('en'))}:")
+        .startswith(f"Wikimedia classified {format_percent(share, style_for('en'))} of the visits")
     )
     ukrainian = Translator("uk").t("automated.low", share=share)
     assert f"23{NARROW_NO_BREAK_SPACE}%" in ukrainian
