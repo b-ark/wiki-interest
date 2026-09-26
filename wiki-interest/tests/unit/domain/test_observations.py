@@ -224,6 +224,17 @@ class TestEvents:
         assert "probably automated traffic" in unusual.statement
         assert "spike:astronomy/uk" not in found
 
+    @pytest.mark.parametrize("growth", [15, 30])
+    def test_a_steady_rise_is_neither_a_wave_nor_automated(self, growth: int) -> None:
+        """Held to the median of all six years, its last months looked far above usual."""
+        found = _by_id(observe([_history(lambda k, _m: 1_000.0 * growth ** (k / (MONTHS - 1)))]))
+        assert not [oid for oid in found if oid.startswith(("wave:", "unusual:"))]
+        assert "risen" in found["long_term:astronomy/uk"].statement
+
+    def test_a_run_that_lasts_to_the_end_did_not_go_back(self) -> None:
+        found = _by_id(observe([_history(lambda k, _m: 5_000.0 * (5 if k >= MONTHS - 10 else 1))]))
+        assert not [oid for oid in found if oid.startswith(("wave:", "unusual:"))]
+
     def test_a_short_uneven_run_is_a_wave_of_attention(self) -> None:
         run = {20: 4, 21: 7, 22: 5}
         found = _by_id(observe([_history(lambda k, _m: 5_000.0 * run.get(k, 1))]))

@@ -95,6 +95,8 @@ _RECENT = 3
 _STEP_HALF = 6
 _HALF_WINDOW = 6
 _MIN_WINDOW = 9
+_PLATEAU_BASE_MONTHS = 6
+"""Known months before a run needed to know the usual level it rises above."""
 _SUMMER = (6, 7, 8)
 _SCHOOL_PEAKS = (9, 10, 11)
 _THOUSANDS = 1_000
@@ -569,22 +571,7 @@ def _prepare(history: PairHistory, start: int, settings: ObservationSettings) ->
         for v, e in zip(history.views, history.edition, strict=True)
     )
     n = len(shares)
-    known = [s for s in shares if s is not None]
-    base = median(known) if known else 0.0
-    high = [s is not None and base > 0 and s > settings.outlier * base for s in shares]
-    plateau: tuple[int, int] | None = None
-    k = 0
-    while k < n:
-        if not high[k]:
-            k += 1
-            continue
-        j = k
-        while j + 1 < n and high[j + 1]:
-            j += 1
-        longer = plateau is None or j - k > plateau[1] - plateau[0]
-        if j - k + 1 >= settings.plateau_months and longer:
-            plateau = (k, j)
-        k = j + 1
+    plateau = _plateau(shares, settings)
     flat = False
     if plateau is not None:
         inside = [s for s in shares[plateau[0] : plateau[1] + 1] if s]
@@ -611,6 +598,45 @@ def _prepare(history: PairHistory, start: int, settings: ObservationSettings) ->
         spikes=spikes,
         profile=_profile(history.months, shares, skip=skip),
     )
+
+
+def _plateau(
+    shares: Sequence[float | None], settings: ObservationSettings
+) -> tuple[int, int] | None:
+    """The longest run of months far above the level before it that then came back down.
+
+    A run is held to the median of up to 12 months before it: a month is far above it when
+    its share is over ``outlier`` times that level. The run counts only when the first known
+    month after it is back under that bar. Held to the median of the whole window instead, a
+    topic that grew fifteen-fold in six years had its last months called a wave "that went
+    back", and at thirty-fold a flat run "probably automated traffic" (audit of 2026-09-26),
+    though nothing came back. A run that lasts to the end of the data is a new level, which
+    the step and the long-term view describe; a run with too few months before it to know
+    the usual level is not judged.
+    """
+    n = len(shares)
+    best: tuple[int, int] | None = None
+    k = 0
+    while k < n:
+        before = [s for s in shares[max(k - _YEAR, 0) : k] if s is not None]
+        share = shares[k]
+        if len(before) < _PLATEAU_BASE_MONTHS or share is None:
+            k += 1
+            continue
+        bar = settings.outlier * median(before)
+        if bar <= 0 or share <= bar:
+            k += 1
+            continue
+        j = k
+        while j + 1 < n and (s := shares[j + 1]) is not None and s > bar:
+            j += 1
+        after = next((s for s in shares[j + 1 :] if s is not None), None)
+        came_back = after is not None and after <= bar
+        longer = best is None or j - k > best[1] - best[0]
+        if came_back and j - k + 1 >= settings.plateau_months and longer:
+            best = (k, j)
+        k = j + 1
+    return best
 
 
 def _year_level(shares: Sequence[float | None], k: int) -> float | None:
