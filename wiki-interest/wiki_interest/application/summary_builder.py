@@ -13,7 +13,7 @@ report its next step, so the answer, the cards and the recommendations cannot di
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -124,6 +124,17 @@ _GROWTH_CONCLUSIONS = frozenset({"strong", "emerging", "single_growing"})
 _DEMAND_CONCLUSIONS = frozenset(
     {"no_growth", "no_growth_ranked", "no_growth_split", "single_flat", "single_declining"}
 )
+
+
+def _by_basis(
+    pairs: Sequence[tuple[PairAssessment, str]],
+    basis: Callable[[PairAssessment], str | None],
+) -> list[tuple[str | None, list[tuple[PairAssessment, str]]]]:
+    """``pairs`` grouped by the basis of their change, in the order the bases first come."""
+    groups: dict[str | None, list[tuple[PairAssessment, str]]] = {}
+    for pair in pairs:
+        groups.setdefault(basis(pair[0]), []).append(pair)
+    return list(groups.items())
 
 
 @dataclass(frozen=True, slots=True)
@@ -792,13 +803,15 @@ class SummaryBuilder:
             if sized:
                 out.append(t.t("happening.size_views", metric=views, items=items(sized)))
         changed = [(a, t.percent(a.change, signed=True)) for a in shown if a.change is not None]
-        if changed:
+        # Each edition's change has its own basis (a gap in one turns its year over year into
+        # halves): one sentence per basis, never one basis for all.
+        for basis, group in _by_basis(changed, lambda a: a.basis):
             out.append(
                 t.t(
                     "happening.change",
                     metric=share if normalised else views,
-                    basis=t.t(f"basis.{changed[0][0].basis}"),
-                    items=items(changed),
+                    basis=t.t(f"basis.{basis}"),
+                    items=items(group),
                 )
             )
         split = [
@@ -813,14 +826,14 @@ class SummaryBuilder:
             for a in shown
             if a.article_change is not None and a.edition_change is not None
         ]
-        if split and normalised:
+        for basis, group in _by_basis(split if normalised else [], lambda a: a.relation_basis):
             out.append(
                 t.t(
                     "happening.vs_edition",
                     article=views,
                     edition=edition[:1].lower() + edition[1:],  # mid-sentence
-                    basis=t.t(f"basis.{split[0][0].relation_basis}"),
-                    items=items(split),
+                    basis=t.t(f"basis.{basis}"),
+                    items=items(group),
                 )
             )
         missing = [labels.pair(a.topic_id, a.project) for a in assessments if not a.measured]

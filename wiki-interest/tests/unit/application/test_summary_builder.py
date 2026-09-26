@@ -21,7 +21,7 @@ from wiki_interest.application.summary_builder import (
 )
 from wiki_interest.contracts.request import AnalysisRequest
 from wiki_interest.contracts.summary import AnalysisSummary
-from wiki_interest.domain.models import EntityCandidate, WikiProject
+from wiki_interest.domain.models import Access, Agent, EntityCandidate, Granularity, WikiProject
 from wiki_interest.errors import ClarificationNeededError
 from wiki_interest.i18n import Translator
 
@@ -86,6 +86,20 @@ class TestCompare:
         # The edition without an article comes first, so it is never read as zero interest.
         first = summary.findings[0]
         assert (first.kind, first.project) == ("no_article", "pl.wikipedia")
+
+    def test_each_basis_of_a_change_gets_its_own_sentence(self, tmp_path: Path) -> None:
+        """Gaps in one edition take its year over year away; one basis was shown for all."""
+        world = astronomy_world()
+        key = ("cs.wikipedia", "Astronomie", Granularity.MONTHLY, Agent.USER, Access.ALL)
+        series = world.pageviews.articles[key]
+        for month in sorted(series)[-12:-8]:
+            del series[month]
+        happening = _build(tmp_path, world=world).happening
+        changes = [line for line in happening if line.startswith("Attention share, ")]
+        assert len(changes) == 2
+        assert changes[0].startswith("Attention share, last 12 months vs the 12 before: uk.")
+        assert "cs.wikipedia" in changes[1]
+        assert "last 12 months" not in changes[1]
 
     def test_assessments_split_a_change_into_article_and_edition(self, tmp_path: Path) -> None:
         summary = _build(tmp_path, question_type="assess", projects=["uk"])
