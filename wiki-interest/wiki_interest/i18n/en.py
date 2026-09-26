@@ -95,7 +95,7 @@ MESSAGES: dict[str, str] = {
     "chat.follow_ups": "What else I can do:",
     "chat.follow_up.seasons": "I can show which months of the year are strongest",
     "chat.follow_up.longer_period": "I can look at a longer period, back to 2015-07",
-    "chat.follow_up.add_editions": "I can add more language editions to compare",
+    "chat.follow_up.add_sections": "I can add more language editions to compare",
     "chat.follow_up.raw_views": "I can compare raw article views instead of the attention share",
     "chat.follow_up.method_page": "I can add a page with the method and the data checks",
     "chat.instant": "instant: the data are already loaded",
@@ -660,14 +660,16 @@ MESSAGES: dict[str, str] = {
     "rec.why": "{parts}.",
     "rec.why_part": "{label}: {verdict} ({start} → {end}, {slope} a year)",
     "rec.why_part_none": "{label}: {verdict}",
-    "rec.none_growing": "No edition shows growth.",
+    "rec.none_growing": "None of the Wikipedias shows growth.",
     "rec.none_growing_topics": "No topic shows growth.",
     "rec.pick": "If you pick one: {choice}.",
     "rec.confidence": "Trust in the choice: {level}.",
     "rec.next.related": (
         "Next check: the neighbouring articles {items}; I can add them to this analysis."
     ),
-    "rec.next.editions": "Next check: the same article in more editions ({items}); I can add them.",
+    "rec.next.editions": (
+        "Next check: the same article in more Wikipedias ({items}); I can add them."
+    ),
     "rec.next.external": "Next check: outside Wikipedia, with Google Trends or a small ad test.",
     "chat.follow_up.related_topics": "I can add the neighbouring articles to this analysis",
     # -- v0.2: the trust in each verdict

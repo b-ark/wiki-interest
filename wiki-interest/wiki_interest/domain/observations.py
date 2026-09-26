@@ -866,8 +866,8 @@ class _Detector:
         share = p.share(window.first, window.stop)
         if share:
             text += (
-                f": {w.per_million(share)} views per million views of the edition (its "
-                "attention share, the size of interest comparable across editions)"
+                f": {w.per_million(share)} views per million views of this Wikipedia (its "
+                "attention share: the size of interest, comparable across Wikipedias of any size)"
             )
         self.add("size", Weight.HIGH, w, text + ".")
 
@@ -970,7 +970,7 @@ class _Detector:
             " (Twelve months against twelve: whether this is a steady move or one past step, "
             "the trend observation says.)"
         )
-        self.add("vs_edition", weight, w, text)
+        self.add("vs_wikipedia", weight, w, text)
 
     def season(self) -> None:
         p, s = self.p, self.s
@@ -1120,7 +1120,7 @@ class _Detector:
             ):
                 text += (
                     f" {self.ed} as a whole changed at the same time, so the step may come from "
-                    "how the edition is counted or reached, not from the topic."
+                    "how this Wikipedia is counted or reached, not from the topic."
                 )
             if not inside:
                 weight = Weight.CONTEXT
@@ -1389,15 +1389,15 @@ def _editions(a: _Standing, b: _Standing, settings: ObservationSettings) -> list
     hint = _where_to_look(topic, (big, small), name)
     return [
         Observation(
-            id=f"editions:{topic_id}",
-            kind="editions",
+            id=f"sections:{topic_id}",
+            kind="sections",
             pair=None,
             weight=Weight.HIGH,
             statement=text,
             numbers=tuple(w.quoted),
         ),
         Observation(
-            id=f"decision:editions:{topic_id}",
+            id=f"decision:sections:{topic_id}",
             kind="decision",
             pair=None,
             weight=Weight.DECISION,
@@ -1534,14 +1534,14 @@ def _where_to_look(topic: str, two: _Two, name: Callable[[_Standing], str]) -> s
     vb, vs = big.verdict, small.verdict
     if vb == vs:
         return {
-            TrendVerdict.GROWING: f"Interest in {topic} grows in both editions: {name(big)}, "
+            TrendVerdict.GROWING: f"Interest in {topic} grows in both Wikipedias: {name(big)}, "
             "the larger audience, is the natural place to check further.",
-            TrendVerdict.STABLE: f"Interest in {topic} holds steady in both editions, with no "
+            TrendVerdict.STABLE: f"Interest in {topic} holds steady in both Wikipedias, with no "
             f"sign of growth: {name(big)} offers the larger existing audience.",
-            TrendVerdict.DECLINING: f"Interest in {topic} shrinks in both editions: Wikipedia "
+            TrendVerdict.DECLINING: f"Interest in {topic} shrinks in both Wikipedias: Wikipedia "
             f"gives no growth signal; {name(big)} is still the larger audience.",
             TrendVerdict.INSUFFICIENT_DATA: f"The data give no verdict on {topic} in either "
-            "edition.",
+            "Wikipedia.",
         }[vb]
     if _RANK[vb] > _RANK[vs]:
         return (
@@ -1574,7 +1574,7 @@ def _topics(standings: Sequence[_Standing], settings: ObservationSettings) -> li
             parts.append(f"{name} gets {w.times(ratio)} as {x.pair.history.topic}")
     text = f"In {ed}, {name} gets the most attention of the topics asked about"
     if parts:
-        text += " (relative to the edition): " + "; ".join(parts)
+        text += " (relative to this Wikipedia): " + "; ".join(parts)
     text += "."
     judged = [x for x in ranked if x.verdict is not TrendVerdict.INSUFFICIENT_DATA]
     if judged:

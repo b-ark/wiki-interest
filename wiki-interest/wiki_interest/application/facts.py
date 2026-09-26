@@ -43,11 +43,11 @@ _FIVE_YEARS = 60
 _TEMPLATE_PARAGRAPHS = 4
 _TEMPLATE_STATEMENTS = 3
 _TEMPLATE_DECISIONS = 3
-_COMPARISONS = ("editions", "topics")
+_COMPARISONS = ("sections", "topics")
 """Observations that set editions or topics against each other: the story leads with them."""
-_COMPARED = ("size", "vs_edition")
+_COMPARED = ("size", "vs_wikipedia")
 """What a comparison already says of each pair."""
-_TRADE_OFFS = ("decision:editions:", "decision:topics:")
+_TRADE_OFFS = ("decision:sections:", "decision:topics:")
 _COMPARED_EDITIONS = 2
 _PERIOD_START = "limitation.period_start"
 _CHAT_FOLLOW_UPS = 3
@@ -75,9 +75,9 @@ RULES: tuple[str, ...] = (
     "Write in the report language, for a founder who decides where to look for an audience "
     "and whether the topic is worth checking further, and who does not know how the data "
     "were computed; use audience_note when given. Explain, do not list statistics.",
-    "The code writes the headline and one verdict line per edition from the trend "
+    "The code writes the headline and one verdict line per Wikipedia from the trend "
     "observations (trend:...): they are the report's verdicts over the analysis window. Write "
-    "no headline; tell each edition's direction as its trend observation does, never another.",
+    "no headline; tell each Wikipedia's direction as its trend observation does, never another.",
     "History before the analysis window (long_term, a step or a burst before it) is context "
     "only: name it as such ('in the wider context since 2021') and never as the window's "
     "direction.",
@@ -88,39 +88,39 @@ RULES: tuple[str, ...] = (
     "observations are your notes, not text to translate: say what they mean together, in "
     "your own words. Leave the rest out. Each paragraph lists the ids of the observations it "
     "relies on in 'uses'.",
-    "Several editions of a topic (or several topics): the story compares them, built on the "
-    "comparison observation (editions:..., topics:...), which it cites. Say where the "
+    "Several Wikipedias of a topic (or several topics): the story compares them, built on the "
+    "comparison observation (sections:..., topics:...), which it cites. Say where the "
     "audience is larger; whether the gap holds once each Wikipedia's size is taken into "
     "account (the attention share); where the views moved, and more sharply where; whether "
-    "each article gained, held or lost its attention share. Never one paragraph per edition: "
-    "an edition's exception (a one-off burst, a step, a partial-year caution) takes one "
-    "sentence. Editions move in opposite directions only when one rises and the other falls; "
+    "each article gained, held or lost its attention share. Never one paragraph per Wikipedia: "
+    "one Wikipedia's exception (a one-off burst, a step, a partial-year caution) takes one "
+    "sentence. Wikipedias move in opposite directions only when one rises and the other falls; "
     "when both fall, say both fall and where more sharply.",
     f"meaning: what it means for the next step (at most {LIMITS['meaning']} characters). "
-    "The code has made the recommendation (recommendation:...): which edition or topic to "
+    "The code has made the recommendation (recommendation:...): which Wikipedia or topic to "
     "choose, why, how far to trust it, and the next check; it prints them word for word. "
-    "Explain that choice in the user's words, name the chosen edition or topic, cite the "
+    "Explain that choice in the user's words, name the chosen Wikipedia or topic, cite the "
     "recommendation and the decision observations you use, and never pick another. With "
-    "several editions, the trade-off: a larger audience against a stronger verdict. "
+    "several Wikipedias, the trade-off: a larger audience against a stronger verdict. "
     "Wikipedia is a signal to check further, never a reason to invest or not to.",
     "check: leave it empty; the code writes the next check (the recommendation's), which the "
     "skill can run itself.",
     f"limits: one line (at most {LIMITS['limits']} characters): page views show interest, "
-    "not willingness to pay; an edition is a language, not a country.",
+    "not willingness to pay; a Wikipedia is a language, not a country.",
     "Numbers: only those of the observations a paragraph cites (rounding is fine); never "
     "compute a new one (no ratios, 'N times', sums or differences). Prefer the words and "
     "counts given ('about half', 'about 560 times a month'); at most four percentages in a "
-    "paragraph. The story gives the numbers the reader needs: for one edition, how big the "
+    "paragraph. The story gives the numbers the reader needs: for one Wikipedia, how big the "
     "interest is (the views per million views of the size observation) and how the article "
-    "moved against its whole edition (the vs_edition observation); for several, those of "
+    "moved against its whole Wikipedia (the vs_wikipedia observation); for several, those of "
     "the comparison observation.",
     "Words, as the charts use them: the audience is how often the article is opened (views); "
     "the attention share is its views per million views of that Wikipedia.",
-    "In Ukrainian an edition is 'мовний розділ' (never 'видання' or 'редакція'), interest is "
-    "'інтерес' (never 'цікавість'), views are 'перегляди' (never 'переглядання'), the share "
-    "is 'частка уваги'; write 'порівняно з', 'в абсолютних'. In Russian an edition is "
-    "'языковой раздел' (never 'издание' or 'редакция'), the share 'доля внимания'. The check "
-    "rejects the other words.",
+    "In Ukrainian a language Wikipedia is 'мовний розділ' (never 'видання' or 'редакція'), "
+    "interest is 'інтерес' (never 'цікавість'), views are 'перегляди' (never "
+    "'переглядання'), the share is 'частка уваги'; write 'порівняно з', 'в абсолютних'. "
+    "In Russian it is 'языковой раздел' (never 'издание' or 'редакция'), the share "
+    "'доля внимания'. The check rejects the other words.",
     "Name periods as the observations do ('in 2021', 'January–August 2026 against the same "
     "months of 2025'), never 'N years ago'. A change keeps the comparison it was made on, and "
     "a partial year stays partial, with its caution.",
@@ -128,9 +128,9 @@ RULES: tuple[str, ...] = (
     "month'), never a number of people, never demand or a market.",
     "Every cause or guess comes from an observation and keeps its 'possibly' or 'probably'; "
     "add no causes of your own and no outside events.",
-    "Name editions by their language ('the Polish Wikipedia'), never by a country.",
-    "Cite every caution observation of an edition your text talks about.",
-    "An edition measured through a substitute article (a caution says so) is not the topic: "
+    "Name each Wikipedia by its language ('the Polish Wikipedia'), never by a country.",
+    "Cite every caution observation of a Wikipedia your text talks about.",
+    "A Wikipedia measured through a substitute article (a caution says so) is not the topic: "
     "say it has no article on the topic, name the article that was measured, and never set "
     "its numbers against the topic's as the same audience.",
     "When the user asked for raw views (caution:raw_views), say that the views are not "
@@ -159,7 +159,7 @@ EXAMPLE: Mapping[str, object] = {
             "verdict: tell the same direction.",
         },
         {
-            "id": "editions:beekeeping",
+            "id": "sections:beekeeping",
             "weight": "high",
             "statement": "In September 2025 – August 2026 the article on beekeeping is opened "
             "about 2,400 times a month in the Dutch Wikipedia against about 400 in the Polish "
@@ -202,7 +202,7 @@ EXAMPLE: Mapping[str, object] = {
             "picks another.",
         },
         {
-            "id": "decision:editions:beekeeping",
+            "id": "decision:sections:beekeeping",
             "weight": "decision",
             "statement": "The Dutch Wikipedia is the larger audience for beekeeping and its "
             "interest grows, while in the Polish Wikipedia it declines: the Dutch Wikipedia is "
@@ -220,7 +220,7 @@ EXAMPLE: Mapping[str, object] = {
                 "Wikipedias, but not all of it: relative to everything read there, the Dutch "
                 "Wikipedia still gives beekeeping about twice the attention (5.1 against 2.4 "
                 "views per million).",
-                "uses": ["editions:beekeeping"],
+                "uses": ["sections:beekeeping"],
             },
             {
                 "text": "Over the analysis period the two move apart. The Dutch share grows, "
@@ -241,7 +241,7 @@ EXAMPLE: Mapping[str, object] = {
             "read most every year.",
             "uses": [
                 "recommendation:beekeeping",
-                "decision:editions:beekeeping",
+                "decision:sections:beekeeping",
                 "decision:timing:beekeeping/nl",
             ],
         },
@@ -548,8 +548,8 @@ def _follow_ups(summary: AnalysisSummary) -> list[FollowUpFact]:
         )
     out.append(
         FollowUpFact(
-            id="add_editions",
-            what="more language editions to compare",
+            id="add_sections",
+            what="more Wikipedias (language sections) to compare",
             change="append to projects",
             cached=False,
         )

@@ -121,10 +121,10 @@ must not use, and what to write instead."""
 _UI_MISSING_SHARE = 0.5
 """More labels than this share left out: the report's headings and charts stay English."""
 _UI_MISSING_SHOWN = 6
-_COMPARISONS = ("editions", "topics")
+_COMPARISONS = ("sections", "topics")
 """Observations that set editions or topics against each other: a story of several must cite
 them, or it tells each apart instead of comparing (the user's report spec, 2026-09-25)."""
-_TRADE_OFFS = ("decision:editions:", "decision:topics:")
+_TRADE_OFFS = ("decision:sections:", "decision:topics:")
 """The decision of a comparison: the meaning of several editions gives this trade-off."""
 _DESCRIPTIVE = ("story",)
 """Blocks that describe the Wikipedia data: "demand" there would call views demand. The

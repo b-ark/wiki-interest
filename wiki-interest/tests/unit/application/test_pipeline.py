@@ -287,7 +287,7 @@ class TestMissingArticle:
         # about the topic, so it names cs; the substitute is not compared with it.
         assert "Czech Wikipedia" in summary.verdict.headline
         assert "Polish" not in summary.verdict.headline
-        assert not any(o.kind == "editions" for o in summary.observations)
+        assert not any(o.kind == "sections" for o in summary.observations)
         text = Path(summary.artifacts.summary_md).read_text(encoding="utf-8")
         assert "pl.wikipedia (Nauka)" in text
         assert 'the broader article "Nauka"' in text

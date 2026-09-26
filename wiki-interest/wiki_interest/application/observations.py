@@ -150,11 +150,14 @@ def _checked_step(step: Observation, trust: Trust) -> Observation:
         why = (
             "the article was renamed then"
             if found.renamed
-            else "the edition's control articles moved the same way that month"
+            else "the control articles of this Wikipedia moved the same way that month"
         )
         tail = f" Probably a technical change, not interest: {why}."
     elif found.verdict is BreakpointVerdict.REAL:
-        tail = " The edition's control articles did not move that month: the change is the topic's."
+        tail = (
+            " The control articles of this Wikipedia did not move that month: the change is "
+            "the topic's."
+        )
     else:
         return step
     return replace(step, statement=step.statement + tail)
@@ -195,7 +198,7 @@ _RAW_VIEWS = Observation(
     None,
     Weight.CAUTION,
     "The user asked for raw views: the report's charts and table show the article's own views, "
-    "not adjusted for the size of each edition, so a bigger edition shows more views without "
+    "not adjusted for the size of each Wikipedia, so a bigger Wikipedia shows more views without "
     "more interest. The observations still read the attention share, which is adjusted.",
 )
 
@@ -226,7 +229,7 @@ def outcome_cautions(
             text = (
                 f"{ed} has no article on {topic} itself; its numbers come from the broader "
                 f"article {article}, which also counts readers of other things: name "
-                f"{article} whenever this edition is mentioned."
+                f"{article} whenever this Wikipedia is mentioned."
             )
         elif a.outcome == "low_trust":
             text = f"The data for {topic} in {ed} are too weak for a conclusion."

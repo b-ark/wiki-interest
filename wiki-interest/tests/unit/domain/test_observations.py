@@ -109,7 +109,7 @@ class TestTrends:
         assert "declines" in trend.statement
         assert "(−25 % a year)" in trend.statement
         assert "The article lost more than its Wikipedia" in (
-            found["vs_edition:astronomy/uk"].statement
+            found["vs_wikipedia:astronomy/uk"].statement
         )
         verdict = found["decision:verdict:astronomy/uk"].statement
         assert "is shrinking against its Wikipedia" in verdict
@@ -128,7 +128,7 @@ class TestTrends:
             lambda k, _m: 5_000.0 * 0.8 ** (k / 12), edition=lambda k: EDITION * 0.8 ** (k / 12)
         )
         found = _by_id(_observe([shrinking]))
-        vs = found["vs_edition:astronomy/uk"].statement
+        vs = found["vs_wikipedia:astronomy/uk"].statement
         assert "comes from Wikipedia losing readers, not from the topic" in vs
         assert "is stable" in found["trend:astronomy/uk"].statement
         verdict = found["decision:verdict:astronomy/uk"].statement
@@ -158,14 +158,14 @@ class TestWindow:
         assert "In 2021" not in size
 
     def test_the_comparison_names_both_spans(self) -> None:
-        vs = _by_id(_observe([_history(_school)]))["vs_edition:astronomy/uk"].statement
+        vs = _by_id(_observe([_history(_school)]))["vs_wikipedia:astronomy/uk"].statement
         assert vs.startswith("In September 2025 – August 2026 against September 2024 – August 2025")
         assert "moved about as much as its Wikipedia" in vs
 
     def test_two_editions_are_set_against_each_other_over_the_same_months(self) -> None:
         uk = _history(_flat(4_000.0))
         cs = _history(_flat(2_000.0), project="cs.wikipedia", edition=lambda _: EDITION / 4)
-        editions = _by_id(_observe([uk, cs]))["editions:astronomy"].statement
+        editions = _by_id(_observe([uk, cs]))["sections:astronomy"].statement
         assert editions.startswith("In September 2025 – August 2026 the article")
         assert "Against September 2024 – August 2025 both hold steady" in editions
         assert "The window's verdict on the attention share: it holds steady in both." in editions
@@ -317,13 +317,13 @@ class TestAcrossPairs:
         uk = _history(_flat(4_000.0))
         cs = _history(_flat(2_000.0), project="cs.wikipedia", edition=lambda _: EDITION / 4)
         found = _by_id(_observe([uk, cs]))
-        editions = found["editions:astronomy"].statement
+        editions = found["sections:astronomy"].statement
         assert "the Ukrainian Wikipedia is the larger audience (about twice as much)" in editions
         # Twice the views, half the attention: the Czech Wikipedia is four times smaller.
         assert "it is the other way round: the Czech Wikipedia gives the topic more" in editions
         assert "views per million" in editions
-        assert found["decision:editions:astronomy"].statement == (
-            "Interest in astronomy holds steady in both editions, with no sign of growth: the "
+        assert found["decision:sections:astronomy"].statement == (
+            "Interest in astronomy holds steady in both Wikipedias, with no sign of growth: the "
             "Ukrainian Wikipedia offers the larger existing audience."
         )
 
@@ -331,13 +331,13 @@ class TestAcrossPairs:
         uk = _history(_flat(4_000.0))
         pl = replace(_history(_flat(9_000.0), project="pl.wikipedia"), substitute="Post")
         found = _by_id(_observe([uk, pl]))
-        assert "editions:astronomy" not in found
+        assert "sections:astronomy" not in found
         assert "size:astronomy/pl" in found  # it keeps its own observations
 
     def test_an_order_of_magnitude_and_a_sharper_fall(self) -> None:
         ru = _history(_decline(80_000.0, 0.6), project="ru.wikipedia")
         uk = _history(_decline(60_000.0, 0.4), edition=lambda _: EDITION / 6)
-        editions = _by_id(_observe([ru, uk]))["editions:astronomy"].statement
+        editions = _by_id(_observe([ru, uk]))["sections:astronomy"].statement
         assert "the Russian Wikipedia is the much larger audience" in editions
         assert "the gap narrows" in editions
         assert "both are read less: the Russian Wikipedia −40 %, the Ukrainian Wikipedia −60 %" in (
@@ -352,12 +352,12 @@ class TestAcrossPairs:
         )
         uk = _history(lambda k, _m: 900.0 * 1.3 ** (k / 12), edition=lambda _: EDITION / 8)
         found = _by_id(_observe([en, uk]))
-        editions = found["editions:astronomy"].statement
+        editions = found["sections:astronomy"].statement
         assert "went down in the English Wikipedia (−20 %) and went up in the Ukrainian" in (
             editions
         )
         assert "it declines in the English Wikipedia and grows in the Ukrainian" in editions
-        hint = found["decision:editions:astronomy"].statement
+        hint = found["decision:sections:astronomy"].statement
         assert "grows in the Ukrainian Wikipedia" in hint
         assert "an early signal" in hint
         assert "small base" in hint
@@ -365,7 +365,7 @@ class TestAcrossPairs:
     def test_the_larger_audience_with_the_stronger_verdict_is_the_signal(self) -> None:
         ru = _history(_flat(8_000.0), project="ru.wikipedia")
         cs = _history(_decline(9_000.0, 0.6), project="cs.wikipedia", edition=lambda _: EDITION / 8)
-        hint = _by_id(_observe([ru, cs]))["decision:editions:astronomy"].statement
+        hint = _by_id(_observe([ru, cs]))["decision:sections:astronomy"].statement
         assert hint == (
             "The Russian Wikipedia is the larger audience for astronomy and its interest holds "
             "steady, while in the Czech Wikipedia it declines: the Russian Wikipedia is the "
@@ -376,8 +376,8 @@ class TestAcrossPairs:
         pl = _history(_flat(3_300.0), project="pl.wikipedia")
         uk = _history(_flat(3_000.0))
         found = _by_id(_observe([pl, uk]))
-        assert "opened about as often in" in found["editions:astronomy"].statement
-        assert "holds steady in both editions" in found["decision:editions:astronomy"].statement
+        assert "opened about as often in" in found["sections:astronomy"].statement
+        assert "holds steady in both Wikipedias" in found["decision:sections:astronomy"].statement
 
     def test_two_topics_in_one_edition_are_set_against_each_other(self) -> None:
         rising = _history(lambda k, _m: 1_000.0 * 1.5 ** (k / 12), topic="rust")
@@ -464,7 +464,7 @@ class TestStatements:
     def test_the_size_gives_the_attention_share_per_million(self) -> None:
         size = _by_id(_observe([_history(_flat(5_000.0))]))["size:astronomy/uk"]
         assert size.weight is Weight.HIGH
-        assert "views per million views of the edition" in size.statement
+        assert "views per million views of this Wikipedia" in size.statement
         assert any(49.5 < q.value < 50.5 for q in size.numbers)
 
     def test_editions_are_named_by_their_language(self) -> None:

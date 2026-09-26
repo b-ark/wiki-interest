@@ -246,7 +246,7 @@ January–August 2025, so a partial year's missing season does not read as a fal
 |---|---|
 | `size` | always: how often the article is opened in the last calendar year, and in the first full year of the window; a partial year whose months usually run 10 % or more from the topic's yearly level says so |
 | `long_term` | at least 3 full calendar years: a steady decline or rise (the last full year below 0.7 or above 1/0.7 of the first, falling or rising in all but one year), a wave (a middle year peaks above the first and the last is below 3/4 of the peak), or a flat range |
-| `vs_edition` | 24 months, and every month of "now" and of the same months a year earlier: the change of the article's views, of the edition's, and of the share; a share change beyond ±10 % gained or lost attention, within it moved with the edition; says whether the fall is Wikipedia losing readers or the topic |
+| `vs_wikipedia` | 24 months, and every month of "now" and of the same months a year earlier: the change of the article's views, of the edition's, and of the share; a share change beyond ±10 % gained or lost attention, within it moved with the edition; says whether the fall is Wikipedia losing readers or the topic |
 | `season` | 3 years: the median over years of each calendar month against the median of the 13 months centred on it (a trend makes no season); a school-year rhythm (a September–November peak above +60 % and a summer below −15 %), another rhythm (spread above 30 points), or none; a timing or an audience only when the peak month was among the two strongest of every year for at least 4 years, otherwise "limited evidence" |
 | `spike` | a month more than 3 times what that calendar month usually brings, the next month back |
 | `wave`, `unusual` | 3 or more months in a row above 3 times the median of up to 12 months before them (at least 6 known), and the first month after back under that bar: a run to the end of the data is a new level, not a wave, and a steady rise never makes one; flat (at least 9 months, highest below twice the lowest) and abrupt reads as automated traffic (a caution) |
@@ -287,7 +287,7 @@ accepts the text only when:
 
 - with several editions of a topic (or several topics), the story cites a comparison
   observation (`editions:*`, `topics:*`) and the meaning its trade-off
-  (`decision:editions:*`): the text compares the editions instead of telling each apart.
+  (`decision:sections:*`): the text compares the editions instead of telling each apart.
 
 A rejected text comes back with the reasons; after the second rejection the report keeps
 the code's own text, in English: the comparison first, then each edition's cautions and one

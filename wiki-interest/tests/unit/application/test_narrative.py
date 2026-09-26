@@ -32,10 +32,10 @@ from wiki_interest.contracts.summary import ObservationOut
 from wiki_interest.i18n import CATALOGS, Translator
 
 TOPIC = {"query": "astronomy", "query_language": "en", "id": "astronomy"}
-VS_UK = "vs_edition:astronomy/uk"
-EDITIONS = "editions:astronomy"
+VS_UK = "vs_wikipedia:astronomy/uk"
+EDITIONS = "sections:astronomy"
 VERDICT_UK = "decision:verdict:astronomy/uk"
-START_WITH = "decision:editions:astronomy"
+START_WITH = "decision:sections:astronomy"
 RECOMMENDATION = "recommendation:astronomy"
 
 
@@ -195,7 +195,7 @@ class TestChatBrief:
         follow_ups = {f.id: f for f in _facts(run_dir).follow_ups}
         assert follow_ups["seasons"].cached
         assert follow_ups["raw_views"].cached
-        assert not follow_ups["add_editions"].cached
+        assert not follow_ups["add_sections"].cached
         assert not follow_ups["longer_period"].cached
         assert "appendix" in follow_ups["method_page"].change
 
@@ -426,11 +426,26 @@ class TestComparison:
         _, run_dir = _run(tmp_path, "en")
         facts = _facts(run_dir)
         rules = " ".join(facts.rules)
-        assert "Never one paragraph per edition" in rules
+        assert "Never one paragraph per Wikipedia" in rules
         assert "never a reason to invest" in rules
         example = str(facts.example)
-        assert "editions:beekeeping" in example
+        assert "sections:beekeeping" in example
         assert "supports investing" not in example
+
+
+def test_the_agent_never_reads_the_word_edition(tmp_path: Path) -> None:
+    """Haiku translated "edition" as "видання" and was rejected for it: the word is gone."""
+    facts = _facts(_run(tmp_path, "uk")[1])
+    seen = json.dumps(
+        {
+            "observations": [o.model_dump() for o in facts.observations],
+            "rules": facts.rules,
+            "example": facts.example,
+            "follow_ups": [f.model_dump() for f in facts.follow_ups],
+        },
+        ensure_ascii=False,
+    ).lower()
+    assert "edition" not in seen
 
 
 def _add_to_story(narrative: Narrative, text: str, uses: list[str]) -> Narrative:

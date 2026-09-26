@@ -114,7 +114,7 @@ LABELS: Mapping[str, str] = {
     "chat.follow_ups": "Що ще я можу зробити:",
     "chat.follow_up.seasons": "Я можу показати, які місяці року найсильніші",
     "chat.follow_up.longer_period": "Я можу подивитися довший період, аж до 2015-07",
-    "chat.follow_up.add_editions": "Я можу додати для порівняння інші мовні розділи",
+    "chat.follow_up.add_sections": "Я можу додати для порівняння інші мовні розділи",
     "chat.follow_up.raw_views": "Я можу порівняти прості перегляди статті замість частки уваги",
     "chat.follow_up.method_page": "Я можу додати сторінку з методом і перевірками даних",
     "chat.instant": "миттєво: дані вже завантажені",
