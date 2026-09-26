@@ -66,6 +66,9 @@ class CaseResult(BaseModel):
     case_dir: str
     final_answer: str
     finished_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    judge_error: str | None = None
+    """Why the judge gave no verdicts: the agent's run and the deterministic grades are kept,
+    and ``skill-evals regrade --judge`` adds the rubric later."""
 
     @property
     def pass_rate(self) -> float | None:

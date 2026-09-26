@@ -109,6 +109,7 @@ def run_command(
     ] = True,
     judge: Annotated[bool, typer.Option("--judge/--no-judge", help="Run the LLM judge")] = True,
     judge_model: Annotated[str, typer.Option()] = "sonnet",
+    judge_timeout_s: Annotated[int, typer.Option(min=10, help="Per judge call")] = 180,
     resume: Annotated[bool, typer.Option("--resume/--no-resume")] = True,
     keep_sandboxes: Annotated[bool, typer.Option("--keep-sandboxes/--delete-sandboxes")] = True,
     max_turns: Annotated[int, typer.Option(min=1)] = 30,
@@ -119,7 +120,9 @@ def run_command(
 ) -> None:
     """Run every scenario through the agent, grade, and write runs/<name>/results.jsonl."""
     model_provider = _make_provider(provider, model, max_turns, timeout_s, allowed_tools)
-    judge_obj: Judge | None = ClaudeCliJudge(model=judge_model) if judge else None
+    judge_obj: Judge | None = (
+        ClaudeCliJudge(model=judge_model, timeout_s=judge_timeout_s) if judge else None
+    )
     config = RunConfig(
         scenarios_path=scenarios,
         skill_path=skill,
@@ -152,9 +155,12 @@ def regrade_command(
     scenarios: Annotated[Path, typer.Option("--scenarios", "-s", help="Path to evals.json")],
     judge: Annotated[bool, typer.Option("--judge/--no-judge", help="Run the LLM judge")] = True,
     judge_model: Annotated[str, typer.Option()] = "sonnet",
+    judge_timeout_s: Annotated[int, typer.Option(min=10, help="Per judge call")] = 180,
 ) -> None:
     """Re-grade a finished run with the current graders, without re-running the agent."""
-    judge_obj: Judge | None = ClaudeCliJudge(model=judge_model) if judge else None
+    judge_obj: Judge | None = (
+        ClaudeCliJudge(model=judge_model, timeout_s=judge_timeout_s) if judge else None
+    )
     results = regrade(run_dir, scenarios, judge_obj)
     _console.print(f"[green]re-graded[/] {len(results)} case(s) in {run_dir}")
 

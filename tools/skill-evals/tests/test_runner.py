@@ -16,6 +16,7 @@ from skill_evals.providers.base import (
     RateLimitedError,
     ToolCall,
     Trajectory,
+    TransportError,
 )
 from skill_evals.records import CaseResult, ErrorRecord, read_jsonl
 from skill_evals.runner import RateLimitGate, RunConfig, case_status, latest_reference, regrade, run
@@ -256,6 +257,27 @@ def test_latest_reference_adds_the_data_of_the_same_runs_facts(tmp_path: Path) -
     assert "-0,5 %" in reference
     assert "write short" not in reference
     assert "own words" not in reference
+
+
+class TimingOutJudge(StubJudge):
+    def judge(self, criterion: str, context: JudgeContext) -> JudgeVerdict:  # noqa: ARG002
+        msg = "judge call exceeded 180s"
+        raise TransportError(msg)
+
+
+def test_a_failed_judge_keeps_the_agents_run_for_a_regrade(tmp_path: Path, skill_dir: Path) -> None:
+    """A judge timeout sent the paid run to errors.jsonl, and --resume ran the agent again."""
+    provider = FakeProvider({"first prompt": _good_first})
+    config = _config(tmp_path, skill_dir, provider, judge=TimingOutJudge())
+    result = run(config)
+    assert result.errors == []
+    first = result.results[0]
+    assert first.judge_error is not None
+    assert "exceeded 180s" in first.judge_error
+    assert [g.kind for g in first.grades] == ["deterministic"] * 3
+    updated = regrade(config.run_dir, config.scenarios_path, StubJudge())
+    assert updated[0].judge_error is None
+    assert any(g.kind == "judge" for g in updated[0].grades)
 
 
 def test_regrade_rewrites_grades_and_keeps_a_backup(tmp_path: Path, skill_dir: Path) -> None:

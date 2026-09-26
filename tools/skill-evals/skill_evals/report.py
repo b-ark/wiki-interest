@@ -56,6 +56,8 @@ class VariantStats(_Model):
     n_results: int
     n_errors: int
     n_errors_resolved_by_resume: int
+    n_without_judge: int
+    """Measured cases whose judge failed; their rubric waits for ``regrade --judge``."""
     errors_by_class: dict[str, int]
     status_counts: dict[str, int]
     pass_rate_mean: float | None
@@ -205,6 +207,7 @@ def _variant_stats(run: _Run) -> VariantStats:
         n_results=len(results),
         n_errors=len(unresolved),
         n_errors_resolved_by_resume=len(run.errors) - len(unresolved),
+        n_without_judge=sum(1 for r in results if r.judge_error),
         errors_by_class=dict(sorted(Counter(e.failure_class for e in unresolved).items())),
         status_counts=dict(sorted(Counter(r.status for r in results).items())),
         pass_rate_mean=_mean(per_scenario.values()),
@@ -332,6 +335,11 @@ def _breakdown_tables(variants: Sequence[VariantStats]) -> list[str]:
         lines.append(
             f"- statuses: {v.status_counts}; unmeasured cases by class: {v.errors_by_class}; "
             f"errors later resolved by resume: {v.n_errors_resolved_by_resume}"
+            + (
+                f"; **{v.n_without_judge} case(s) without the judge**: run `regrade --judge`"
+                if v.n_without_judge
+                else ""
+            )
         )
         lines.append("")
         if v.per_assertion:

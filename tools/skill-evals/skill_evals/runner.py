@@ -328,7 +328,18 @@ def _attempt(
     )
     collect_artifacts(sandbox, case_dir / "artifacts", config.artifact_globs)
     started = time.monotonic()
-    grades = _grade(case.scenario, trajectory, case_dir, config)
+    judge_error: str | None = None
+    try:
+        grades = _grade(case.scenario, trajectory, case_dir, config)
+    except ProviderError as exc:
+        # The agent's run is paid for: a judge timeout once sent the case to errors.jsonl,
+        # and --resume deleted it and ran the agent again. Keep the deterministic grades.
+        judge_error = f"{exc.failure_class}: {exc}"
+        config.log.log(
+            f"[yellow]{case.slug}: judge failed ({judge_error}); kept the deterministic "
+            "grades, add the rubric with `skill-evals regrade --judge`[/]"
+        )
+        grades = grade_case(case.scenario, trajectory, case_dir, None, config.reference_glob)
     grading_s = time.monotonic() - started
     if not config.keep_sandboxes:
         sandbox.remove()
@@ -340,7 +351,7 @@ def _attempt(
         grades=grades,
         case_dir=case_dir,
         grading_s=grading_s,
-    )
+    ).model_copy(update={"judge_error": judge_error})
     (case_dir / "grades.json").write_text(
         json.dumps([g.model_dump() for g in grades], indent=2, ensure_ascii=False),
         encoding="utf-8",
@@ -522,7 +533,8 @@ def regrade(
             json.dumps([g.model_dump() for g in grades], indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
-        updated.append(result.model_copy(update={"grades": grades}))
+        cleared = {"judge_error": None} if judge is not None else {}
+        updated.append(result.model_copy(update={"grades": grades, **cleared}))
     backup = run_dir / "results.before-regrade.jsonl"
     shutil.copyfile(results_path, backup)
     results_path.write_text("", encoding="utf-8")
