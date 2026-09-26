@@ -257,3 +257,19 @@ def test_agent_environment_drops_the_harness_python_environment() -> None:
         {"PATH": "/bin", "VIRTUAL_ENV": "/h/.venv", "PYTHONPATH": "x", "HOME": "/home/u"}
     )
     assert env == {"PATH": "/bin", "HOME": "/home/u"}
+
+
+def test_a_resumed_turn_costs_what_it_added(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The resumed call reports the session's cost so far; summed, it counted the first twice."""
+    provider = _provider(tmp_path)
+    totals = iter([0.08, 0.175])
+
+    def fake_communicate(cmd: list[str], prompt: str, workdir: Path) -> tuple[str, str]:
+        return _result_event(total_cost_usd=next(totals)), ""
+
+    monkeypatch.setattr(provider, "_communicate", fake_communicate)
+    trajectory = provider.run(["first", "second"], tmp_path, tmp_path / "events.jsonl")
+    assert [t.cost_usd for t in trajectory.turns] == pytest.approx([0.08, 0.095])
+    assert trajectory.cost_usd == pytest.approx(0.175)

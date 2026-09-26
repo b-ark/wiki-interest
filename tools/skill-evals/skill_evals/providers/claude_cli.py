@@ -417,12 +417,24 @@ class ClaudeCliProvider:
         return cmd
 
     def run(self, turns: Sequence[str], workdir: Path, events_path: Path) -> Trajectory:
-        """Send each turn as a separate ``claude -p`` call, resuming the same session."""
+        """Send each turn as a separate ``claude -p`` call, resuming the same session.
+
+        A resumed call reports the session's cost so far (``total_cost_usd`` of the second
+        call includes the first: 0.080, then 0.176), while its tokens and turns are its own.
+        Each turn keeps its own cost, so the trajectory's sum is the session's; summed as
+        reported, two-turn scenarios came out 14 % dearer.
+        """
         session_id = str(uuid.uuid4())
         records: list[TurnRecord] = []
+        spent: float | None = None
         for index, prompt in enumerate(turns):
             cmd = self.build_command(session_id=session_id, resume=index > 0)
             parsed = self._invoke(cmd, prompt, workdir, events_path, index)
+            session_cost = parsed.cost_usd
+            if session_cost is not None and spent is not None:
+                parsed.cost_usd = max(session_cost - spent, 0.0)
+            if session_cost is not None:
+                spent = session_cost
             records.append(self._to_turn(parsed, prompt, session_id))
         return Trajectory(
             provider=self.name,
