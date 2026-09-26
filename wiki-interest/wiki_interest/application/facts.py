@@ -72,9 +72,12 @@ RULES: tuple[str, ...] = (
     "Write in the report language, for a founder who decides where to look for an audience "
     "and whether the topic is worth checking further, and who does not know how the data "
     "were computed; use audience_note when given. Explain, do not list statistics.",
-    f"headline: the answer to the user's question in one sentence, without numbers (at most "
-    f"{LIMITS['headline']} characters). A headline observation, when there is one, says it "
-    "plainly; write it in your own words, never stronger than the data.",
+    "The code writes the headline and one verdict line per edition from the trend "
+    "observations (trend:...): they are the report's verdicts over the analysis window. Write "
+    "no headline; tell each edition's direction as its trend observation does, never another.",
+    "History before the analysis window (long_term, a step or a burst before it) is context "
+    "only: name it as such ('in the wider context since 2021') and never as the window's "
+    "direction.",
     f"story: {STORY_PARAGRAPHS[0]} to {STORY_PARAGRAPHS[1]} short paragraphs (at most "
     f"{LIMITS['story']} characters each, {LIMITS['story_total']} in all). Pick the "
     "observations that answer this question, starting from caution and high ones, and "
@@ -129,31 +132,42 @@ RULES: tuple[str, ...] = (
 EXAMPLE: Mapping[str, object] = {
     "observations": [
         {
+            "id": "trend:beekeeping/nl",
+            "weight": "high",
+            "statement": "Verdict for the analysis window (September 2024 – August 2026): the "
+            "attention share of beekeeping in the Dutch Wikipedia grows. Its trend line runs from "
+            "4.3 to 5.4 views per million (+12 % a year). This is the report's verdict: tell the "
+            "same direction.",
+        },
+        {
+            "id": "trend:beekeeping/pl",
+            "weight": "high",
+            "statement": "Verdict for the analysis window (September 2024 – August 2026): the "
+            "attention share of beekeeping in the Polish Wikipedia keeps declining since the step "
+            "of March 2025 (the level then became 30 % lower than it was before). Its trend line "
+            "runs from 2.8 to 2.3 views per million (−15 % a year). This is the report's "
+            "verdict: tell the same direction.",
+        },
+        {
             "id": "editions:beekeeping",
             "weight": "high",
-            "statement": "In January–August 2026 the article on beekeeping is opened about "
-            "2,400 times a month in the Dutch Wikipedia against about 400 in the Polish "
+            "statement": "In September 2025 – August 2026 the article on beekeeping is opened "
+            "about 2,400 times a month in the Dutch Wikipedia against about 400 in the Polish "
             "Wikipedia: the Dutch Wikipedia is the much larger audience (about 6 times as "
             "much). Relative to the size of each Wikipedia the gap narrows: the Dutch Wikipedia "
             "gives the topic about twice as much attention (5.1 against 2.4 views per million "
-            "views of each Wikipedia: the attention share). Against the same months of 2025 "
-            "the views went up in the Dutch Wikipedia (+14 %) and went down in the Polish "
-            "Wikipedia (−18 %). Against its own Wikipedia it gained attention share in the "
-            "Dutch Wikipedia and lost it in the Polish Wikipedia.",
+            "views of each Wikipedia: the attention share). Against September 2024 – August "
+            "2025 the views went up in the Dutch Wikipedia (+14 %) and went down in the Polish "
+            "Wikipedia (−18 %). The window's verdict on the attention share: it grows in the "
+            "Dutch Wikipedia and declines in the Polish Wikipedia.",
         },
         {
             "id": "long_term:beekeeping/nl",
-            "weight": "high",
-            "statement": "Its attention share in the Dutch Wikipedia has risen almost every "
-            "year (4 of 4 year-on-year steps, 2021–2025); in 2025 it was about one and a half "
-            "times what it was in 2021. A long, steady rise.",
-        },
-        {
-            "id": "spike:beekeeping/pl",
-            "weight": "medium",
-            "statement": "In May 2021 beekeeping was read several times as much as that month "
-            "usually brings in the Polish Wikipedia, and the next month it was back: a "
-            "one-off burst, possibly news. A burst like this is not lasting interest.",
+            "weight": "context",
+            "statement": "In the wider context since 2021 (history, not the analysis window): "
+            "its attention share in the Dutch Wikipedia rose almost every year (4 of 4 "
+            "year-on-year steps, 2021–2025); in 2025 it was about one and a half times what it "
+            "was in 2021.",
         },
         {
             "id": "season:beekeeping/nl",
@@ -170,47 +184,33 @@ EXAMPLE: Mapping[str, object] = {
         {
             "id": "decision:editions:beekeeping",
             "weight": "decision",
-            "statement": "The Dutch Wikipedia is the larger audience for beekeeping and it "
-            "grows: the stronger signal to check further.",
-        },
-        {
-            "id": "decision:verdict:beekeeping/pl",
-            "weight": "decision",
-            "statement": "Interest in beekeeping in the Polish Wikipedia is shrinking, faster "
-            "than its Wikipedia: Wikipedia gives no growth signal to check.",
-        },
-        {
-            "id": "headline:beekeeping",
-            "weight": "context",
-            "statement": "Interest in beekeeping is growing in the Dutch Wikipedia; falling in "
-            "the Polish Wikipedia.",
+            "statement": "The Dutch Wikipedia is the larger audience for beekeeping and its "
+            "interest grows, while in the Polish Wikipedia it declines: the Dutch Wikipedia is "
+            "the stronger signal of the two.",
         },
     ],
     "narrative": {
         "language": "en",
         "topic": "Beekeeping, the keeping of honey bees",
-        "headline": "Beekeeping draws a larger and growing audience in the Dutch Wikipedia, "
-        "while interest in the Polish one is fading.",
         "story": [
             {
-                "text": "The Dutch Wikipedia is by far the larger audience: in January–August "
-                "2026 the article is opened about 2,400 times a month there against about 400 "
-                "in the Polish one. Part of the gap is only the size of the two Wikipedias, "
-                "but not all of it: relative to everything read there, the Dutch Wikipedia "
-                "still gives beekeeping about twice the attention (5.1 against 2.4 views per "
-                "million).",
+                "text": "The Dutch Wikipedia is by far the larger audience: from September 2025 "
+                "to August 2026 the article is opened about 2,400 times a month there against "
+                "about 400 in the Polish one. Part of the gap is only the size of the two "
+                "Wikipedias, but not all of it: relative to everything read there, the Dutch "
+                "Wikipedia still gives beekeeping about twice the attention (5.1 against 2.4 "
+                "views per million).",
                 "uses": ["editions:beekeeping"],
             },
             {
-                "text": "The two also move apart. Against the same months of 2025 the article "
-                "was opened 14 % more in Dutch and 18 % less in Polish: the Dutch article "
-                "gained attention share, the Polish one lost it. The Dutch rise is no "
-                "one-off, its attention share has grown almost every year since 2021; the "
-                "Polish figures include a one-off burst in May 2021 that did not last.",
+                "text": "Over the analysis period the two move apart. The Dutch share grows, "
+                "about 12 % a year; the Polish one fell by a step in March 2025 and keeps "
+                "declining since. The Dutch rise is not new either: in the wider context since "
+                "2021 its share rose almost every year.",
                 "uses": [
-                    "editions:beekeeping",
+                    "trend:beekeeping/nl",
+                    "trend:beekeeping/pl",
                     "long_term:beekeeping/nl",
-                    "spike:beekeeping/pl",
                 ],
             },
         ],
@@ -310,11 +310,10 @@ def template_narrative(
     meaning = _fitting(decisions[:_TEMPLATE_DECISIONS], LIMITS["meaning"])
     decision = summary.decision
     fallback_meaning = (decision.summary or "") if decision else ""
-    headline = next((o.statement for o in observations if o.kind == "headline"), None)
     return Narrative(
         language=summary.request.report.language,
         topic=" ".join(_topic_lines(summary, translator)),
-        headline=headline or summary.verdict.headline,
+        headline=summary.verdict.headline,
         story=story or [Paragraph(text=line) for line in summary.happening],
         meaning=meaning if meaning.text else Paragraph(text=fallback_meaning),
         check=_next_check(summary, translator) or (decision.next_step if decision else ""),
@@ -427,6 +426,8 @@ def compose_chat(
         *([summary.topic_line] if summary.topic_line else _topic_lines(summary, t)),
         "",
         f"**{summary.verdict.headline}**",
+        "",
+        *(v.line for v in summary.verdicts if v.line),
         "",
         *_period_lines(summary, t),
         *_change_lines(summary, previous, t),
@@ -616,7 +617,6 @@ def _typeset(narrative: Narrative) -> Narrative:
 
     return narrative.model_copy(
         update={
-            "headline": fix(narrative.headline),
             "story": [p.model_copy(update={"text": fix(p.text)}) for p in narrative.story],
             "meaning": narrative.meaning.model_copy(update={"text": fix(narrative.meaning.text)}),
             "check": fix(narrative.check),
@@ -652,7 +652,6 @@ def apply_narrative(
         )
     return summary.model_copy(
         update={
-            "verdict": summary.verdict.model_copy(update={"headline": narrative.headline}),
             "happening": [p.text for p in narrative.story],
             "cited": list(
                 dict.fromkeys(oid for p in (*narrative.story, narrative.meaning) for oid in p.uses)

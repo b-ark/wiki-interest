@@ -9,6 +9,8 @@ choose its own presentation without code changes.
 
 from __future__ import annotations
 
+from wiki_interest.i18n import editions
+
 __all__ = ["MESSAGES"]
 
 MESSAGES: dict[str, str] = {
@@ -623,18 +625,19 @@ MESSAGES: dict[str, str] = {
     "chart.absolute.title": "Views by year",
     "chart.absolute.subtitle": "How many times a month the article was opened.",
     "chart.absolute.axis": "views a month",
-    "chart.share.legend_year": "average over the calendar year",
+    "chart.share.legend_year": "average over a calendar year (context)",
     "chart.share.legend_month": "each month",
-    "chart.share.legend_recent": "the last {months} months",
+    "chart.share.legend_trend": "trend line over the analysis period",
+    "chart.share.legend_window": "analysis period",
     "chart.share.partial_year": "{year} ({first} – {last})",
     "chart.share.month": "{month} {year}",
-    "chart.audience.title": "Average monthly article views, by year",
+    "chart.audience.title": "Average monthly article views",
     "chart.audience.subtitle": (
-        "Bars show average monthly views and the year-over-year change.\n"
-        "Below: whether the article gained (▲), held (≈) or lost (▼) its attention share within "
-        "that Wikipedia."
+        "Bars: mean views a month over the 12 months before the last 12 and over the last 12,\n"
+        "with the change between them. Below: the analysis period's verdict on the attention "
+        "share (▲ grows, ≈ stable, ▼ declines)."
     ),
-    "chart.audience.partial": "{year}: {first}–{last} vs the same months of {previous}.",
+    "chart.audience.span": "{first} – {last}",
     "chart.axis_growth": "change, %",
     "chart.scatter_title": "{metric}: size and change",
     "chart.scatter_subtitle": "Right: a larger share; above the line: growing, below: shrinking.",
@@ -643,12 +646,31 @@ MESSAGES: dict[str, str] = {
     "chart.season_period": "Computed on {start} – {end}.",
     "report.happening": "What is going on",
     "report.footer_share": (
-        "Attention share = article views per 1M views of that Wikipedia. Change: each calendar "
-        "year against the same months a year earlier; a partial year against the same months "
-        "only."
+        "Attention share = article views per 1M views of that Wikipedia. Verdict: the trend "
+        "of the attention share over the analysis period (after a step inside it, from the "
+        "step on); stable = within ±10 % a year. The history before the period is context."
     ),
     "report.footer_caveats": (
         "Views show interest, not willingness to pay; a language edition is not a country."
     ),
     "report.footer_method": "How every number was computed: method.md",
+    # -- v0.2: the analysis window, its verdicts and the headline
+    "report.analysis_window": "Analysis period: {start} – {end}",
+    "report.context": "Context on the charts: from {year}",
+    "verdict.growing": "interest grows",
+    "verdict.stable": "interest is stable",
+    "verdict.declining": "interest declines",
+    "verdict.insufficient_data": "too little data for a verdict",
+    "verdict.stable_after_drop": "interest has stabilised after a drop",
+    "verdict.stable_after_rise": "interest holds after a rise",
+    "verdict.declining_still": "interest keeps declining",
+    "verdict.growing_still": "interest keeps growing",
+    "verdict.since": "from {month}",
+    "verdict.line": (
+        "{label}: {verdict}. Attention share {since}: {start} → {end} per 1M views, {slope} a year."
+    ),
+    "verdict.line_none": "{label}: {verdict}.",
+    "headline.part": "{verdict} {edition}",
+    "headline.topic": "{topic}: {parts}.",
+    **editions.EN,
 }

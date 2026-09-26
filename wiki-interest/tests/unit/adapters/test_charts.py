@@ -197,9 +197,10 @@ def test_the_main_chart_names_each_audience_and_writes_each_year(
     _, svg = renderer.render(_share(lines), tmp_path)
     text = svg.read_text(encoding="utf-8")
     assert all(code in text for code in ("uk", "cs", "pl")[:lines])
-    assert "24.0" in text  # the first audience's years after its step
+    assert "24.0" in text  # the first audience's trend line after its step
     assert "(Jan – Aug)" in text  # the partial year says which months it has
-    assert "average over the calendar year" in text
+    assert "average over a calendar year (context)" in text
+    assert "analysis period" in text
     assert "Attention share over time" in text
 
 
@@ -219,11 +220,11 @@ def test_a_long_name_at_a_line_end_stays_inside_the_chart(
     assert edge == {rgb.getpixel((0, 0))}  # the background alone: no letter cut at the edge
 
 
-def test_the_main_chart_marks_only_what_the_text_cites(
+def test_the_main_chart_marks_steps_always_and_bursts_the_text_cites(
     renderer: MatplotlibChartRenderer, tmp_path: Path
 ) -> None:
     # A mark says its month only: the text that cites it says what happened.
-    _, svg = renderer.render(_share(cited=frozenset({"step:x/uk"})), tmp_path)
+    _, svg = renderer.render(_share(cited=frozenset()), tmp_path)
     text = svg.read_text(encoding="utf-8")
     assert "Aug 2023" in text
     # An uncited burst over the top edge keeps its value, not a label.
@@ -232,7 +233,6 @@ def test_the_main_chart_marks_only_what_the_text_cites(
     _, svg = renderer.render(_share(cited=frozenset({"spike:x/uk"})), tmp_path)
     text = svg.read_text(encoding="utf-8")
     assert "Aug 2022 (80.0)" in text
-    assert "Aug 2023" not in text
 
 
 def test_close_steps_put_their_labels_on_two_rows() -> None:
@@ -267,15 +267,14 @@ def test_the_views_by_year_write_each_change_and_whether_the_share_moved(
     _, svg = renderer.render(spec, tmp_path)
     text = svg.read_text(encoding="utf-8")
     assert all(code in text for code in ("uk", "cs", "pl")[:lines])
-    assert "84,000" in text  # views rounded, as the text rounds them
+    assert "84,000" in text  # views as shown, three significant digits
     assert "\u221220%" in text  # the change against a year earlier, over the bar
     # Symbols, not words: they fit under a year in any language.
     assert "▲" in text
     assert "≈" in text
     assert "▼" in text
     assert "gained share" not in text
-    assert "2026: January–August vs the same months of 2025." in text
-    assert "2026 (Jan – Aug)" in text
+    assert "Sep 2025 – Aug 2026" in text
 
 
 def test_the_views_by_year_write_numbers_in_the_report_style(tmp_path: Path) -> None:

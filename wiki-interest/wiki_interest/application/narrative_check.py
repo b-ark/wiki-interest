@@ -103,7 +103,7 @@ _COMPARISONS = ("editions", "topics")
 them, or it tells each apart instead of comparing (the user's report spec, 2026-09-25)."""
 _TRADE_OFFS = ("decision:editions:", "decision:topics:")
 """The decision of a comparison: the meaning of several editions gives this trade-off."""
-_DESCRIPTIVE = ("headline", "story")
+_DESCRIPTIVE = ("story",)
 """Blocks that describe the Wikipedia data: "demand" there would call views demand. The
 meaning and the check may speak of demand: "check the demand with a small ad test"."""
 _SENTENCE_BREAK = re.compile(r"[.!?…]\s+")
@@ -183,11 +183,6 @@ class _Checker:
                     "language, its description as facts.topics gives it.",
                     n.topic,
                 )
-        self.length("headline", n.headline, required=True)
-        if extract_numbers(n.headline):
-            self.add("headline", "The headline has no numbers; they go in the story.", n.headline)
-        if len(list(_sentences(n.headline))) > 1:
-            self.add("headline", "The headline is one sentence.", n.headline)
         most = STORY_PARAGRAPHS[1]
         if not [p for p in n.story if p.text.strip()]:
             self.add("story", "Write the story: paragraphs that explain what is happening.")
@@ -362,7 +357,6 @@ class _Checker:
 
     def texts(self) -> Iterator[tuple[str, str]]:
         n = self.narrative
-        yield "headline", n.headline
         for paragraph in n.story:
             yield "story", paragraph.text
         yield "meaning", n.meaning.text

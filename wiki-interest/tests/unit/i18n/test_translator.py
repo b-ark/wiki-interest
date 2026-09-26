@@ -82,7 +82,7 @@ SECTION_KEYS = [
     "chart.share.legend_year",
     "chart.audience.title",
     "chart.audience.subtitle",
-    "chart.share.legend_recent",
+    "chart.share.legend_window",
     "report.footer_share",
     "report.footer_caveats",
     "chart.season_title",
@@ -207,6 +207,7 @@ FINDING_PARAMS = {
     "items": "uk -12 % (-5 %)",
     "what": 'the broader article "Post"',
     "title": "Post",
+    "verdict": "interest grows",
 }
 
 

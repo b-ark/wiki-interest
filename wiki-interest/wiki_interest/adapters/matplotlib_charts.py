@@ -28,7 +28,13 @@ from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
 from matplotlib.typing import RcKeyType
 
 from wiki_interest.adapters.report_theme import ReportTheme
-from wiki_interest.contracts.charts import AudienceYears, ChartSeries, ChartSpec, ShareYears
+from wiki_interest.contracts.charts import (
+    AudienceYears,
+    ChartSeries,
+    ChartSpec,
+    ShareLine,
+    ShareYears,
+)
 from wiki_interest.errors import RenderError
 
 if TYPE_CHECKING:
@@ -112,6 +118,13 @@ STEP_LABEL_ROOM_MONTHS = 12
 STEP_LABEL_BAND = 0.14
 """More room at the top, as a share of the highest value, when a step's label runs there."""
 MONTH_LINE_WIDTH = 0.7
+CONTEXT_WIDTH = 0.7
+CONTEXT_ALPHA = 0.45
+"""The history's yearly averages are context: thinner and paler than the window's trend."""
+TREND_WIDTH = 1.5
+SHARE_LEGEND_COLUMNS = 2
+"""The main chart's legend in two columns under the plot: four rows would take its height."""
+"""The window's trend line is the chart's answer: the boldest line on it."""
 SEGMENT_END = 0.9
 """A year's segment ends this far into its last month, so the next year's starts clear of it."""
 PARTIAL_DASHES = (0, (3, 2))
@@ -559,12 +572,13 @@ class MatplotlibChartRenderer:
     # -- the attention share by calendar year ----------------------------------------------
 
     def _draw_share_years(self, spec: ChartSpec) -> Figure:
-        """Months as a pale line, each calendar year as a segment at its average, per audience.
+        """The history as context, the analysis window shaded, and its trend line, per audience.
 
-        The value of each year stands over its segment (the lower of two close ones under
-        it), the audience's name at the end of its line, the last months shaded; the steps
-        and bursts the text cites are marked. A burst above the other months is drawn at the
-        top edge with its value, so it does not flatten everything else.
+        Months are a pale line; the history's calendar years quiet segments without values;
+        in the window the trend line is bold, its levels at both ends written (the lower of
+        two close ones under it), the audience's name at its end. Steps are marked; bursts
+        when the text cites them. A burst above the other months is drawn at the top edge
+        with its value, so it does not flatten everything else.
         """
         share = spec.share
         assert share is not None
@@ -572,7 +586,8 @@ class MatplotlibChartRenderer:
         chart = theme.chart
         small = chart.small_size_pt
         # The legend in a column on the left, under the plot.
-        bottom_mm = len(spec.legend) * small * PT_TO_MM * NOTE_LINE_HEIGHT + HEADER_GAP_MM
+        legend_rows = math.ceil(len(spec.legend) / SHARE_LEGEND_COLUMNS)
+        bottom_mm = legend_rows * small * PT_TO_MM * NOTE_LINE_HEIGHT + HEADER_GAP_MM
         height = spec.height_mm or chart.height_mm * SHARE_HEIGHT_SCALE
         figure = Figure(figsize=(chart.width_mm / MM_PER_INCH, height / MM_PER_INCH), dpi=chart.dpi)
         axes = figure.add_subplot()
@@ -583,30 +598,7 @@ class MatplotlibChartRenderer:
         for side in ("top", "right"):
             axes.spines[side].set_visible(False)
 
-        spikes = {(m.line, m.x) for m in share.marks if m.kind == "spike"}
-        top = 0.0
-        for index, line in enumerate(share.lines):
-            color = theme.palette[index % len(theme.palette)]
-            x = [_month_number(m) for m in line.x]
-            axes.plot(
-                x, _as_array(line.y), color=color, linewidth=MONTH_LINE_WIDTH, alpha=POINT_ALPHA
-            )
-            for segment in line.years:
-                axes.hlines(
-                    segment.value,
-                    _month_number(segment.start),
-                    _month_number(segment.end) + SEGMENT_END,
-                    color=color,
-                    linewidth=chart.line_width,
-                    linestyles=PARTIAL_DASHES if segment.partial else "solid",
-                )
-                top = max(top, segment.value)
-            usual = [
-                v
-                for m, v in zip(line.x, line.y, strict=True)
-                if v is not None and (index, m) not in spikes
-            ]
-            top = max(top, *usual) if usual else top
+        top = self._share_lines(axes, share)
         rows = _step_rows(spec)
         # A step's label runs along the top edge: a band over the values keeps it clear, one
         # line of it for each row the labels of close steps take.
@@ -617,28 +609,46 @@ class MatplotlibChartRenderer:
         self._share_values(axes, share, ceiling)
         self._share_marks(axes, spec, ceiling)
         last = max(_month_number(line.x[-1]) for line in share.lines)
-        if share.recent_months:
+        if share.window_start is not None:
             axes.axvspan(
-                last - share.recent_months + 1 - HALF_BAR,
+                _month_number(share.window_start) - HALF_BAR,
                 last + HALF_BAR,
                 color=theme.highlight_color,
                 alpha=theme.highlight_alpha,
                 linewidth=0,
+                zorder=0,
             )
         self._share_years_axis(axes, spec, last)
         axes.yaxis.set_major_formatter(FuncFormatter(lambda v, _: self._tick_label(v)))
         axes.tick_params(axis="y", labelsize=small)
 
-        handles = [
-            Line2D([], [], color=theme.muted_color, linewidth=chart.line_width),
-            Line2D([], [], color=theme.muted_color, linewidth=MONTH_LINE_WIDTH, alpha=0.6),
-            Patch(color=theme.highlight_color, alpha=theme.highlight_alpha, linewidth=0),
-        ]
+        handles: list[Any] = []
+        if any(line.years for line in share.lines):
+            handles.append(
+                Line2D(
+                    [],
+                    [],
+                    color=theme.muted_color,
+                    linewidth=chart.line_width * CONTEXT_WIDTH,
+                    alpha=CONTEXT_ALPHA,
+                )
+            )
+        handles.append(
+            Line2D([], [], color=theme.muted_color, linewidth=MONTH_LINE_WIDTH, alpha=0.6)
+        )
+        if any(line.trend for line in share.lines):
+            handles.append(
+                Line2D([], [], color=theme.muted_color, linewidth=chart.line_width * TREND_WIDTH)
+            )
+        if share.window_start is not None:
+            handles.append(
+                Patch(color=theme.highlight_color, alpha=theme.highlight_alpha, linewidth=0)
+            )
         figure.legend(
             handles[: len(spec.legend)],
             spec.legend,
             loc="lower left",
-            ncol=1,
+            ncol=SHARE_LEGEND_COLUMNS,
             frameon=False,
             fontsize=small,
             labelcolor=theme.muted_color,
@@ -655,41 +665,88 @@ class MatplotlibChartRenderer:
         self._ends_inside(figure, ends, chart.width_mm)
         return figure
 
+    def _share_lines(self, axes: Axes, share: ShareYears) -> float:
+        """Each audience's months, its context years and its trend; the highest usual value.
+
+        A burst's month does not count towards the highest value: it is drawn at the edge.
+        """
+        theme = self._theme
+        chart = theme.chart
+        spikes = {(m.line, m.x) for m in share.marks if m.kind == "spike"}
+        top = 0.0
+        for index, line in enumerate(share.lines):
+            color = theme.palette[index % len(theme.palette)]
+            x = [_month_number(m) for m in line.x]
+            axes.plot(
+                x, _as_array(line.y), color=color, linewidth=MONTH_LINE_WIDTH, alpha=POINT_ALPHA
+            )
+            # The history's calendar years are context: quiet, without values.
+            for segment in line.years:
+                axes.hlines(
+                    segment.value,
+                    _month_number(segment.start),
+                    _month_number(segment.end) + SEGMENT_END,
+                    color=color,
+                    linewidth=chart.line_width * CONTEXT_WIDTH,
+                    alpha=CONTEXT_ALPHA,
+                    linestyles=PARTIAL_DASHES if segment.partial else "solid",
+                )
+                top = max(top, segment.value)
+            if line.trend is not None:
+                axes.plot(
+                    [_month_number(line.trend.start), _month_number(line.trend.end)],
+                    [line.trend.value_start, line.trend.value_end],
+                    color=color,
+                    linewidth=chart.line_width * TREND_WIDTH,
+                    solid_capstyle="round",
+                    zorder=3,
+                )
+                top = max(top, line.trend.value_start, line.trend.value_end)
+            usual = [
+                v
+                for m, v in zip(line.x, line.y, strict=True)
+                if v is not None and (index, m) not in spikes
+            ]
+            top = max(top, *usual) if usual else top
+        return top
+
     def _share_values(self, axes: Axes, share: ShareYears, ceiling: float) -> None:
-        """Each year's value over its segment; of two close values, the lower goes under."""
+        """The trend line's level at its start and its end; of two close ones, the lower under.
+
+        These are the numbers the verdict lines quote. The history's years carry none: they
+        are context.
+        """
         small = self._theme.chart.small_size_pt
         close = ceiling * CLOSE_SHARE
         for index, line in enumerate(share.lines):
+            trend = line.trend
+            if trend is None:
+                continue
             color = self._theme.palette[index % len(self._theme.palette)]
-            for segment in line.years:
+            for month, value, end in (
+                (trend.start, trend.value_start, False),
+                (trend.end, trend.value_end, True),
+            ):
                 others = [
-                    s.value
-                    for j, other in enumerate(share.lines)
-                    if j != index
-                    for s in other.years
-                    if s.year == segment.year
+                    (o.trend.value_end if end else o.trend.value_start)
+                    for j, o in enumerate(share.lines)
+                    if j != index and o.trend is not None
                 ]
-                above = [o for o in others if 0 < o - segment.value < close]
-                below = [o for o in others if 0 <= segment.value - o < close]
-                if above and segment.value > ceiling * CLOSE_SHARE:
-                    offset = -VALUE_UNDER_PT
-                elif below and min(below) <= ceiling * CLOSE_SHARE:
-                    offset = VALUE_HIGHER_PT  # the lower one stays over its segment: go higher
-                else:
-                    offset = VALUE_LABEL_OFFSET_PT
-                middle = (_month_number(segment.start) + _month_number(segment.end)) / 2
+                below = [o for o in others if 0 < o - value < close]
+                offset = -VALUE_UNDER_PT if below else VALUE_LABEL_OFFSET_PT
                 axes.annotate(
-                    self._share_value(segment.value, absolute=share.absolute),
-                    (middle + HALF_BAR, segment.value),
+                    self._share_value(value, absolute=share.absolute),
+                    (_month_number(month), value),
                     xytext=(0, offset),
                     textcoords="offset points",
-                    ha="center",
+                    ha="right" if end else "left",
                     va="bottom",
                     color=color,
                     fontsize=small,
+                    fontweight="bold",
                     # A white ground keeps a line crossing the number from cutting it.
                     bbox={"boxstyle": "square,pad=0.1", "facecolor": "white", "linewidth": 0},
-                    zorder=3,
+                    zorder=4,
                 )
 
     def _share_marks(self, axes: Axes, spec: ChartSpec, ceiling: float) -> None:
@@ -775,7 +832,7 @@ class MatplotlibChartRenderer:
         line_mm = self._theme.chart.font_size_pt * PT_TO_MM * END_LABEL_LINE
         gap = ceiling * max(END_LABEL_GAP, line_mm / plot_mm)
         ends = sorted(
-            (line.years[-1].value, index, line.label) for index, line in enumerate(share.lines)
+            (_end_value(line), index, line.label) for index, line in enumerate(share.lines)
         )
         placed: list[float] = []
         names: list[Annotation] = []
@@ -784,7 +841,7 @@ class MatplotlibChartRenderer:
             if placed and y - placed[-1] < gap:
                 y = placed[-1] + gap
             placed.append(y)
-            end = _month_number(share.lines[index].years[-1].end) + SEGMENT_END
+            end = _month_number(share.lines[index].x[-1]) + SEGMENT_END
             name = axes.annotate(
                 label,
                 (end, y),
@@ -814,17 +871,17 @@ class MatplotlibChartRenderer:
             figure.subplots_adjust(right=figure.subplotpars.right - overflow / width_mm)
 
     def _share_years_axis(self, axes: Axes, spec: ChartSpec, last: float) -> None:
-        """One label per calendar year, under its middle."""
+        """One label per calendar year of the chart's months, under its middle."""
         share = spec.share
         assert share is not None
         spans: dict[int, tuple[float, float]] = {}
         for line in share.lines:
-            for segment in line.years:
-                start, end = _month_number(segment.start), _month_number(segment.end)
-                known = spans.get(segment.year, (start, end))
-                spans[segment.year] = (min(known[0], start), max(known[1], end))
+            for month in line.x:
+                number = _month_number(month)
+                known = spans.get(int(month[:4]), (number, number))
+                spans[int(month[:4])] = (min(known[0], number), max(known[1], number))
         years = sorted(spans)
-        axes.set_xticks([(spans[y][0] + spans[y][1]) / 2 + HALF_BAR for y in years])
+        axes.set_xticks([(spans[y][0] + spans[y][1]) / 2 for y in years])
         axes.set_xticklabels(
             spec.year_labels[: len(years)], fontsize=self._theme.chart.small_size_pt
         )
@@ -1057,6 +1114,14 @@ class MatplotlibChartRenderer:
         figure.savefig(png, format="png", dpi=self._theme.chart.dpi, metadata=PNG_METADATA)
         figure.savefig(svg, format="svg", metadata=SVG_METADATA)
         return [png, svg]
+
+
+def _end_value(line: ShareLine) -> float:
+    """Where a line's name stands at its end: its trend's last level, else its last value."""
+    if line.trend is not None:
+        return line.trend.value_end
+    known = [v for v in line.y if v is not None]
+    return known[-1] if known else 0.0
 
 
 def _step_rows(spec: ChartSpec) -> dict[int, int]:

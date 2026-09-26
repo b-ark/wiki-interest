@@ -44,11 +44,13 @@ from wiki_interest.application.summary_builder import (
     RunContext,
     SummaryBuilder,
 )
+from wiki_interest.application.window import context_range, headline, read_trends, verdict_line
 from wiki_interest.contracts.charts import ChartSpec
 from wiki_interest.contracts.narrative import Facts, Narrative, NarrativeProblem
 from wiki_interest.contracts.request import AnalysisRequest, Period
-from wiki_interest.contracts.summary import AnalysisSummary, Artifacts
+from wiki_interest.contracts.summary import AnalysisSummary, Artifacts, TrendOut
 from wiki_interest.domain.assessment import AssessmentSettings
+from wiki_interest.domain.trust import TrustSettings
 from wiki_interest.errors import (
     ClarificationNeededError,
     RequestValidationError,
@@ -109,6 +111,8 @@ class RunServices:
     provenance: ProvenanceInput
     assessment: AssessmentSettings | None = None
     """Cut-offs of the conclusions; the domain defaults when ``None``."""
+    trust: TrustSettings | None = None
+    """Thresholds of the window's verdict and of the trust in it; defaults when ``None``."""
     stop_after_resolve: bool = False
     """End the run after the topic stage (see ``Settings.stop_after``)."""
 
@@ -330,9 +334,8 @@ class Pipeline:
             summary = builder.build_topic_only(request=request, period=period, resolved=resolved)
             self._write_clarification(summary, context.run_dir, services.renderers)
             return PipelineOutcome(summary, EXIT_OK)
-        loaded = services.loader.load(
-            resolved, period, observe_from=observation_start(request, period)
-        )
+        observe_from = observation_start(request, period)
+        loaded = services.loader.load(resolved, period, observe_from=observe_from)
         analysis = analyse(
             resolved,
             loaded,
@@ -340,13 +343,16 @@ class Pipeline:
             settings=services.analysis_settings,
         )
         histories = pair_histories(loaded, resolved)
+        trends = read_trends(histories, period.start, settings=services.trust)
         summary = builder.build(
             request=request,
             period=period,
             resolved=resolved,
             analysis=analysis,
-            observations=run_observations(histories, request, period),
+            observations=run_observations(histories, request, period, trends),
             histories=histories,
+            trends=trends,
+            history_range=context_range(period, observe_from),
         )
         # The report shows the code's own text until the agent's is accepted: the same
         # blocks, so the PDF has one layout whoever wrote it.
@@ -460,7 +466,7 @@ class Pipeline:
         )
         png_files: list[Path] = []
         with translator.recording() as used:
-            summary = _with_main_charts(summary, translator)
+            summary = _with_verdict_text(_with_main_charts(summary, translator), translator)
             for spec in summary.charts:
                 written = renderers.charts.render(spec, charts_dir)
                 png_files.extend(p for p in written if p.suffix == ".png")
@@ -509,6 +515,32 @@ def _with_main_charts(summary: AnalysisSummary, translator: Translator) -> Analy
     if summary.audience_chart is not None:
         first.append(audience_years_spec(summary.audience_chart, translator))
     return summary.model_copy(update={"charts": [*first, *others]})
+
+
+def _with_verdict_text(summary: AnalysisSummary, translator: Translator) -> AnalysisSummary:
+    """The headline and the verdict lines, composed now in the report's language.
+
+    Composed at render time, as the charts' labels are, so a language without written labels
+    gets the agent's translations of them (``facts.ui`` asks for them).
+    """
+    if not summary.verdicts:
+        return summary
+    verdicts = [
+        v.model_copy(update={"line": verdict_line(v, translator)}) for v in summary.verdicts
+    ]
+    labels = {r.topic_id: r.label or r.query for r in summary.resolution}
+    by_topic: dict[str, list[TrendOut]] = {}
+    for item in verdicts:
+        by_topic.setdefault(item.topic_id, []).append(item)
+    lines = [
+        text
+        for topic_id, items in by_topic.items()
+        if (text := headline(labels.get(topic_id, topic_id), items, translator))
+    ]
+    verdict = summary.verdict
+    if lines:
+        verdict = verdict.model_copy(update={"headline": " ".join(lines)})
+    return summary.model_copy(update={"verdicts": verdicts, "verdict": verdict})
 
 
 def load_run_summary(run_dir: Path) -> AnalysisSummary:

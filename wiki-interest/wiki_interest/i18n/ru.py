@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from wiki_interest.i18n import editions
+
 LABELS: Mapping[str, str] = {
     "value.na": "н/д",
     "value.per_million": "{value} на миллион",
@@ -36,9 +38,9 @@ LABELS: Mapping[str, str] = {
     "report.version": "Версия навыка",
     "report.data_through": "Последний месяц данных",
     "report.footer_share": (
-        "Доля внимания = просмотры статьи на 1 млн просмотров этой Википедии. Изменение: каждый "
-        "календарный год против тех же месяцев годом раньше; неполный год — только против тех же "
-        "месяцев."
+        "Доля внимания = просмотры статьи на 1 млн просмотров этой Википедии. Вердикт: тренд "
+        "доли внимания в периоде анализа (после ступеньки внутри него — от ступеньки); "
+        "стабильно — в пределах ±10 % в год. История до периода — только контекст."
     ),
     "report.footer_caveats": (
         "Просмотры показывают интерес, а не готовность платить; языковой раздел Википедии — это "
@@ -59,21 +61,22 @@ LABELS: Mapping[str, str] = {
     "chart.share.title": "Доля внимания во времени",
     "chart.share.subtitle": "Просмотры статьи на 1 млн просмотров этой Википедии.",
     "chart.share.axis": "на 1 млн просмотров",
-    "chart.share.legend_year": "среднее за календарный год",
+    "chart.share.legend_year": "среднее за календарный год (контекст)",
     "chart.share.legend_month": "каждый месяц",
-    "chart.share.legend_recent": "последние {months} мес.",
+    "chart.share.legend_trend": "линия тренда в периоде анализа",
+    "chart.share.legend_window": "период анализа",
     "chart.share.partial_year": "{year} ({first} – {last})",
     "chart.share.month": "{month} {year}",
     "chart.absolute.title": "Просмотры по годам",
     "chart.absolute.subtitle": "Сколько раз в месяц открывали статью.",
     "chart.absolute.axis": "просмотров в месяц",
-    "chart.audience.title": "Среднее число просмотров статьи в месяц, по годам",
+    "chart.audience.title": "Среднее число просмотров статьи в месяц",
     "chart.audience.subtitle": (
-        "Столбцы — среднее число просмотров в месяц и изменение к прошлому году.\n"
-        "Ниже: статья набрала (▲), сохранила (≈) или потеряла (▼) долю внимания в своей "
-        "Википедии."
+        "Столбцы — средние просмотры в месяц: 12 месяцев перед последними 12 и последние 12,\n"
+        "над ними — изменение. Ниже — вердикт периода анализа для доли внимания (▲ растёт, "
+        "≈ стабильна, ▼ снижается)."
     ),
-    "chart.audience.partial": "{year}: {first}–{last} против тех же месяцев {previous} года.",
+    "chart.audience.span": "{first} – {last}",
     "chart.season_title": "Месяцы относительно обычного уровня",
     "chart.axis_season": "% к обычному уровню",
     "chart.season_period": "Посчитано за {start} – {end}.",
@@ -148,4 +151,24 @@ LABELS: Mapping[str, str] = {
     "substitute.broader": "более широкую статью «{title}»",
     "substitute.mention": "статью «{title}», которая упоминает тему",
     "note.substitute": "статьи нет; измерено через {what}",
+    # -- v0.2: the analysis window, its verdicts and the headline
+    "report.analysis_window": "Период анализа: {start} – {end}",
+    "report.context": "Контекст на графиках: с {year}",
+    "verdict.growing": "интерес растёт",
+    "verdict.stable": "интерес стабилен",
+    "verdict.declining": "интерес снижается",
+    "verdict.insufficient_data": "мало данных для вывода",
+    "verdict.stable_after_drop": "интерес стабилизировался после спада",
+    "verdict.stable_after_rise": "интерес держится после роста",
+    "verdict.declining_still": "интерес продолжает падать",
+    "verdict.growing_still": "интерес продолжает расти",
+    "verdict.since": "с {month}",
+    "verdict.line": (
+        "{label}: {verdict}. Доля внимания {since}: {start} → {end} на 1 млн просмотров, "
+        "{slope} в год."
+    ),
+    "verdict.line_none": "{label}: {verdict}.",
+    "headline.part": "{edition} {verdict}",
+    "headline.topic": "{topic}: {parts}.",
+    **editions.RU,
 }

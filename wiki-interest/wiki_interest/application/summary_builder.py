@@ -32,6 +32,7 @@ from wiki_interest.application.chart_plan import (
     SHARE_CHART_ID,
     ChartPlanner,
     audience_years_data,
+    line_label,
     share_years_data,
 )
 from wiki_interest.application.coverage import CoverageGap, CoverageOption
@@ -43,9 +44,10 @@ from wiki_interest.application.insights import (
     season_visibility,
     select_insights,
 )
-from wiki_interest.application.observations import outcome_cautions, to_out, trend_start
+from wiki_interest.application.observations import outcome_cautions, to_out
 from wiki_interest.application.question import option_text
 from wiki_interest.application.resolution import ResolvedTopic
+from wiki_interest.application.window import headline, trend_outs
 from wiki_interest.contracts.charts import ChartSpec
 from wiki_interest.contracts.request import (
     AnalysisRequest,
@@ -78,6 +80,7 @@ from wiki_interest.contracts.summary import (
     SeasonOut,
     SeriesOut,
     TopicResolutionOut,
+    TrendOut,
     Verdict,
 )
 from wiki_interest.domain.assessment import (
@@ -98,6 +101,7 @@ from wiki_interest.domain.models import (
     WikiProject,
 )
 from wiki_interest.domain.observations import Observation, PairHistory, season_profile
+from wiki_interest.domain.trust import WindowTrend
 from wiki_interest.errors import ClarificationNeededError, TopicNotFoundError
 from wiki_interest.i18n import Translator
 
@@ -185,38 +189,54 @@ class SummaryBuilder:
         analysis: AnalysisResult,
         observations: Sequence[Observation] = (),
         histories: Sequence[PairHistory] = (),
+        trends: Mapping[str, WindowTrend] | None = None,
+        history_range: Period | None = None,
     ) -> AnalysisSummary:
         """Compose the full summary of a successful run.
 
         Args:
             request: The request.
-            period: The analysed period.
+            period: The analysis window.
             resolved: The resolved topics.
             analysis: The measured pairs.
             observations: What the detectors found (:func:`run_observations`); editions
                 without an article or with a substitute add their cautions here.
             histories: The pairs' long series (:func:`pair_histories`), for the main chart.
+            trends: The window's verdict of each pair (``read_trends``): the headline and
+                the verdict lines read it.
+            history_range: The months the charts show (``context_range``); the window
+                when ``None``.
         """
         context = self._context
         labels = _TopicLabels(resolved)
         normalised = request.normalization == "per_million"
         season_requested = request.report.seasonality == "show"
         charts = self._charts(request, analysis, labels, histories)
-        start = trend_start(request, period)
+        verdicts_in = trends or {}
+        shown = history_range or period
         topic_labels = {t.topic_id: labels.topic(t.topic_id) for t in resolved}
         share_chart = share_years_data(
             histories,
             observations,
-            trend_start=start,
+            window=period,
+            context=shown,
+            trends=verdicts_in,
             absolute=not normalised,
             topic_labels=topic_labels,
         )
         # With raw views asked for, the main chart shows the views already.
         audience_chart = (
-            audience_years_data(histories, trend_start=start, topic_labels=topic_labels)
+            audience_years_data(histories, trends=verdicts_in, topic_labels=topic_labels)
             if normalised
             else None
         )
+        topics_seen = {h.topic_id for h in histories}
+        languages = {h.language for h in histories}
+        pair_labels = {
+            h.pair: line_label(h, topics_seen, languages, topic_labels) for h in histories
+        }
+        substitutes = {h.pair for h in histories if h.substitute}
+        verdicts = trend_outs(verdicts_in, pair_labels, self._t, substitutes)
         insights = select_insights(
             analysis, self._insight_settings, season_requested=season_requested
         )
@@ -240,6 +260,9 @@ class SummaryBuilder:
             session=context.session,
             request=request,
             period=period,
+            analysis_window=period,
+            context_range=shown,
+            verdicts=verdicts,
             resolution=[self._resolution_out(topic) for topic in resolved],
             series=self._series_out(analysis),
             metrics=self._metrics_out(analysis),
@@ -249,12 +272,16 @@ class SummaryBuilder:
             charts=charts,
             share_chart=share_chart,
             audience_chart=audience_chart,
-            verdict=self._verdict(
-                request,
-                analysis,
-                labels,
-                findings=findings,
-                assessments=assessments,
+            verdict=self._window_verdict(
+                verdicts,
+                topic_labels,
+                self._verdict(
+                    request,
+                    analysis,
+                    labels,
+                    findings=findings,
+                    assessments=assessments,
+                ),
             ),
             happening=self._happening(assessments, labels, normalised=normalised),
             assessments=assessment_outs,
@@ -275,6 +302,28 @@ class SummaryBuilder:
             ),
             provenance=self._provenance(period),
         )
+
+    def _window_verdict(
+        self,
+        verdicts: Sequence[TrendOut],
+        topic_labels: Mapping[str, str],
+        fallback: Verdict,
+    ) -> Verdict:
+        """The headline from the window's verdicts: one topic's, or each topic's in turn.
+
+        The older conclusion stays as the fallback when no pair has a verdict.
+        """
+        by_topic: dict[str, list[TrendOut]] = {}
+        for item in verdicts:
+            by_topic.setdefault(item.topic_id, []).append(item)
+        lines = [
+            text
+            for topic_id, items in by_topic.items()
+            if (text := headline(topic_labels.get(topic_id, topic_id), items, self._t))
+        ]
+        if not lines:
+            return fallback
+        return fallback.model_copy(update={"headline": " ".join(lines)})
 
     def build_clarification(
         self,

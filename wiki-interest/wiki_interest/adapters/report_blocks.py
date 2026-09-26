@@ -29,6 +29,7 @@ __all__ = [
     "report_title",
     "robustness_lines",
     "robustness_value",
+    "window_line",
 ]
 
 PERCENT_DECIMALS = 0
@@ -158,6 +159,19 @@ def question_line(summary: AnalysisSummary, t: Translator) -> str:
 def period_text(summary: AnalysisSummary) -> str:
     """The period as ``start – end`` (en dash), e.g. ``2024-09`` to ``2026-08``."""
     return f"{summary.period.start:%Y-%m}{RANGE_DASH}{summary.period.end:%Y-%m}"
+
+
+def window_line(summary: AnalysisSummary, t: Translator) -> str:
+    """``Analysis period: 2024-09 – 2026-08 · Context on the charts: from 2021``.
+
+    The context part only when the charts show history before the window.
+    """
+    window = summary.analysis_window or summary.period
+    line = t.t("report.analysis_window", start=f"{window.start:%Y-%m}", end=f"{window.end:%Y-%m}")
+    context = summary.context_range
+    if context is not None and context.start < window.start:
+        line += " · " + t.t("report.context", year=context.start.year)
+    return line
 
 
 def markdown_table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> list[str]:

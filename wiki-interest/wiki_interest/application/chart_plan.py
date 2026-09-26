@@ -27,9 +27,11 @@ chart.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+import math
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
+from statistics import mean
 from typing import Literal
 
 from wiki_interest.application.analysis import PairAnalysis
@@ -44,8 +46,10 @@ from wiki_interest.contracts.charts import (
     ShareLine,
     ShareMark,
     ShareSegment,
+    ShareTrend,
     ShareYears,
 )
+from wiki_interest.contracts.request import Period
 from wiki_interest.domain.models import WikiProject
 from wiki_interest.domain.observations import (
     Observation,
@@ -54,9 +58,9 @@ from wiki_interest.domain.observations import (
     YearLevel,
     round_count,
     round_share,
-    share_move,
     year_levels,
 )
+from wiki_interest.domain.trust import TrendVerdict, WindowTrend
 from wiki_interest.i18n import Translator
 
 __all__ = [
@@ -65,6 +69,8 @@ __all__ = [
     "ChartPlanner",
     "audience_years_data",
     "audience_years_spec",
+    "line_label",
+    "round_significant",
     "share_years_data",
     "share_years_spec",
 ]
@@ -85,36 +91,48 @@ _MARKED = ("step", "spike")
 
 @dataclass(frozen=True, slots=True)
 class _Drawn:
-    """An audience the charts draw: its series, its calendar years and its name on them."""
+    """An audience the charts draw: its series, its context years, its verdict, its name."""
 
     history: PairHistory
     years: list[YearLevel]
+    trend: WindowTrend | None
     label: str
 
 
 def _drawn(
     histories: Sequence[PairHistory],
     *,
-    trend_start: date | None,
+    trends: Mapping[str, WindowTrend],
     absolute: bool,
     topic_labels: Mapping[str, str],
 ) -> list[_Drawn]:
     """The audiences both charts draw, in the order of the request.
 
-    With more than the lines one scale holds, the largest by their last year; the two charts
-    always show the same audiences under the same names.
+    With more than the lines one scale holds, the largest by their window (views or the
+    trend line's last level); the two charts always show the same audiences under the same
+    names.
     """
     topics = {h.topic_id for h in histories}
     languages = {h.language for h in histories}
     drawn = [
-        _Drawn(history, years, _line_label(history, topics, languages, topic_labels))
+        _Drawn(
+            history,
+            year_levels(history),
+            trends.get(history.pair),
+            line_label(history, topics, languages, topic_labels),
+        )
         for history in histories
-        if (years := year_levels(history, trend_start=trend_start))
+        if any(v is not None for v in history.views)
     ]
     if len(drawn) > _MAX_SHARE_LINES:
 
         def size(d: _Drawn) -> float:
-            return d.years[-1].views if absolute else d.years[-1].share
+            t = d.trend
+            if t is None:
+                return 0.0
+            if absolute:
+                return t.views_avg or 0.0
+            return t.level_end or 0.0
 
         largest = sorted(drawn, key=size, reverse=True)[:_MAX_SHARE_LINES]
         kept = {d.history.pair for d in largest}
@@ -122,44 +140,65 @@ def _drawn(
     return drawn
 
 
-def share_years_data(
+def share_years_data(  # noqa: PLR0913 -- the series, what was found, and the two ranges
     histories: Sequence[PairHistory],
     observations: Sequence[Observation],
     *,
-    trend_start: date | None,
+    window: Period,
+    context: Period,
+    trends: Mapping[str, WindowTrend],
     absolute: bool,
     topic_labels: Mapping[str, str],
 ) -> ShareYears | None:
-    """What the main chart draws, from the series and windows the observations read.
+    """What the main chart draws: the history as context, the analysis window and its trend.
 
     Args:
         histories: The pairs' long series.
         observations: What the detectors found: the steps and bursts to mark.
-        trend_start: First month the trend reads (a period the user named), or ``None``.
-        absolute: Views a month instead of the attention share.
+        window: The analysis window, shaded.
+        context: The months the chart shows.
+        trends: The window's verdict of each pair: its trend line is drawn in the window.
+        absolute: Views a month instead of the attention share (no trend line then: the
+            verdict reads the share).
         topic_labels: Topic id -> label, to name lines when there are several topics.
     """
     drawn: list[tuple[PairHistory, ShareLine]] = []
-    for d in _drawn(
-        histories, trend_start=trend_start, absolute=absolute, topic_labels=topic_labels
-    ):
+    for d in _drawn(histories, trends=trends, absolute=absolute, topic_labels=topic_labels):
         history = d.history
-        kept = [k for k, m in enumerate(history.months) if m >= d.years[0].first]
+        kept = [k for k, m in enumerate(history.months) if context.start <= m <= context.end]
+        if not kept:
+            continue
         segments = [
             ShareSegment(
                 year=y.year,
                 start=_month_label(y.first),
                 end=_month_label(y.last),
                 value=round_count(y.views) if absolute else round_share(y.share),
-                partial=y.partial,
             )
             for y in d.years
+            if not y.partial and y.first >= context.start and y.last < window.start
         ]
+        trend = d.trend
+        drawn_trend = None
+        if (
+            not absolute
+            and trend is not None
+            and trend.level_start is not None
+            and trend.level_end is not None
+        ):
+            drawn_trend = ShareTrend(
+                start=_month_label(trend.segment_start),
+                end=_month_label(trend.window_end),
+                value_start=round_share(trend.level_start),
+                value_end=round_share(trend.level_end),
+                verdict=trend.verdict.value,
+            )
         line = ShareLine(
             label=d.label,
             x=[_month_label(history.months[k]) for k in kept],
             y=[_value(history, k, absolute=absolute) for k in kept],
             years=segments,
+            trend=drawn_trend,
         )
         drawn.append((history, line))
     if not drawn:
@@ -168,65 +207,82 @@ def share_years_data(
         absolute=absolute,
         lines=[line for _, line in drawn],
         marks=_marks(drawn, observations),
-        recent_months=_RECENT,
+        recent_months=0,
+        window_start=_month_label(window.start) if window.start > context.start else None,
+        window_end=_month_label(window.end),
     )
 
 
 def audience_years_data(
     histories: Sequence[PairHistory],
     *,
-    trend_start: date | None,
+    trends: Mapping[str, WindowTrend],
     topic_labels: Mapping[str, str],
 ) -> AudienceYears | None:
-    """What the chart of views by year draws: the main chart's audiences and calendar years.
+    """What the chart of views draws: the twelve months before the last twelve, and the last.
 
-    Each year's change is the one ``vs_edition`` states for "now": the views against the
-    same months a year earlier, a partial year against the same months only; whether the
-    share gained, held or lost uses the observations' threshold (:func:`share_move`).
+    The views are shown to three significant digits and the change is computed from the
+    shown values, so "10,500 → 6,720" never stands next to a percentage the reader cannot
+    get from them. Under the last span, the window's verdict on the share.
     """
-    lines = [
-        AudienceLine(
-            label=d.label,
-            years=[
+    lines: list[AudienceLine] = []
+    for d in _drawn(histories, trends=trends, absolute=False, topic_labels=topic_labels):
+        history = d.history
+        n = len(history.months)
+        spans = [(n - 2 * _MONTHS, n - _MONTHS), (n - _MONTHS, n)]
+        years: list[AudienceYear] = []
+        previous: float | None = None
+        for index, (first, stop) in enumerate(spans):
+            values = [v for v in history.views[max(first, 0) : stop] if v is not None]
+            if first < 0 or len(values) < _MONTHS:
+                continue
+            shown = round_significant(mean(values))
+            change = None
+            if previous:
+                change = round((shown / previous - 1) * _PERCENT)
+            last = index == len(spans) - 1
+            years.append(
                 AudienceYear(
-                    year=y.year,
-                    start=_month_label(y.first),
-                    end=_month_label(y.last),
-                    views=round_count(y.views),
-                    change=None if y.change is None else round(y.change.article),
-                    move=None if y.change is None else share_move(y.change.share),
-                    partial=y.partial,
+                    year=index,
+                    start=_month_label(history.months[first]),
+                    end=_month_label(history.months[stop - 1]),
+                    views=shown,
+                    change=change,
+                    move=_MOVES.get(d.trend.verdict) if last and d.trend else None,
                 )
-                for y in d.years
-            ],
-        )
-        for d in _drawn(
-            histories, trend_start=trend_start, absolute=False, topic_labels=topic_labels
-        )
-    ]
+            )
+            previous = shown
+        if years:
+            lines.append(AudienceLine(label=d.label, years=years))
     return AudienceYears(lines=lines) if lines else None
 
 
-def audience_years_spec(data: AudienceYears, t: Translator) -> ChartSpec:
-    """The chart of views by year in the report's language.
+_MOVES: Mapping[TrendVerdict, Literal["gained", "held", "lost"]] = {
+    TrendVerdict.GROWING: "gained",
+    TrendVerdict.STABLE: "held",
+    TrendVerdict.DECLINING: "lost",
+}
+"""The window's verdict as the symbol row under the views reads it (▲ ≈ ▼)."""
 
-    A partial year gets a quiet line saying what it is compared with, so its change is not
-    read against the whole year before.
-    """
-    years = [(y.year, y.start, y.end, y.partial) for line in data.lines for y in line.years]
-    partial = next(
-        (y for line in data.lines for y in line.years if y.partial and y.change is not None),
-        None,
-    )
-    note = None
-    if partial is not None:
-        note = t.t(
-            "chart.audience.partial",
-            year=partial.year,
-            first=_full_month(partial.start, t),
-            last=_full_month(partial.end, t),
-            previous=partial.year - 1,
-        )
+
+def round_significant(value: float, digits: int = 3) -> float:
+    """``value`` to ``digits`` significant digits: 10,473 → 10,500; 6,718 → 6,720; 552 → 552."""
+    if value <= 0:
+        return 0.0
+    places = digits - 1 - math.floor(math.log10(value))
+    return float(round(value, places))
+
+
+def audience_years_spec(data: AudienceYears, t: Translator) -> ChartSpec:
+    """The chart of views in the report's language: one label per span."""
+    spans: dict[int, tuple[str, str]] = {}
+    for line in data.lines:
+        for y in line.years:
+            spans.setdefault(y.year, (y.start, y.end))
+    labels = [
+        t.t("chart.audience.span", first=_month_name(start, t), last=_month_name(end, t))
+        for _, (start, end) in sorted(spans.items())
+    ]
     return ChartSpec(
         id=AUDIENCE_CHART_ID,
         kind="audience_years",
@@ -235,61 +291,56 @@ def audience_years_spec(data: AudienceYears, t: Translator) -> ChartSpec:
         subtitle=t.t("chart.audience.subtitle"),
         y_label=t.t("chart.absolute.axis"),
         audience=data,
-        year_labels=_year_labels(years, t),
-        note=note,
+        year_labels=labels,
     )
 
 
-def _year_labels(years: Iterable[tuple[int, str, str, bool]], t: Translator) -> list[str]:
-    """One label per calendar year, in order: ``2025``, ``2026 (Jan – Aug)``.
-
-    Args:
-        years: ``(year, first month, last month, partial)`` of every drawn year.
-        t: The report-language translator.
-    """
-    by_year: dict[int, tuple[str, str, bool]] = {}
-    for year, start, end, partial in years:
-        by_year.setdefault(year, (start, end, partial))
-    return [
-        t.t(
-            "chart.share.partial_year",
-            year=year,
-            first=_short_month(start, t),
-            last=_short_month(end, t),
-        )
-        if partial
-        else str(year)
-        for year, (start, end, partial) in sorted(by_year.items())
-    ]
+def _calendar_labels(data: ShareYears, t: Translator) -> list[str]:
+    """One label per calendar year the chart's months cover: ``2025``, ``2026 (Jan – Aug)``."""
+    by_year: dict[int, list[str]] = {}
+    for line in data.lines:
+        for month in line.x:
+            by_year.setdefault(int(month[:4]), []).append(month)
+    labels = []
+    for year, months in sorted(by_year.items()):
+        first, last = min(months), max(months)
+        if len(set(months)) < _MONTHS:
+            labels.append(
+                t.t(
+                    "chart.share.partial_year",
+                    year=year,
+                    first=_short_month(first, t),
+                    last=_short_month(last, t),
+                )
+            )
+        else:
+            labels.append(str(year))
+    return labels
 
 
 def share_years_spec(data: ShareYears, t: Translator, cited: Collection[str]) -> ChartSpec:
-    """The main chart in the report's language, marking only what the text cites.
+    """The main chart in the report's language.
+
+    Steps are marked always (their verdict decides how: a probable technical change is grey
+    and dashed); a one-off burst only when the report text cites it.
 
     Args:
         data: What the chart draws (:func:`share_years_data`).
         t: The report-language translator, the agent's labels included.
         cited: Ids of the observations the report text cites.
     """
-    year_labels = _year_labels(
-        ((s.year, s.start, s.end, s.partial) for line in data.lines for s in line.years), t
-    )
-    # A mark says its month only: the text that cites it says what happened, and a longer
-    # label in a longer language would run into the next one.
     labels = [_month_name(mark.x, t) for mark in data.marks]
     mark_labels = [
-        label if mark.observation in cited else None
+        label if mark.kind == "step" or mark.observation in cited else None
         for mark, label in zip(data.marks, labels, strict=True)
     ]
-    # The last months are shaded only when the text speaks of them: a band it never explains
-    # is one more layer to read.
-    recent = any(oid.startswith(_RECENT_OBSERVATION) for oid in cited)
-    legend = [t.t("chart.share.legend_year"), t.t("chart.share.legend_month")]
-    # Composed whether shown or not: the labels the agent translates are the ones composed,
-    # and its text may cite the last months after the translations were asked for.
-    recent_label = t.t("chart.share.legend_recent", months=data.recent_months)
-    if recent:
-        legend.append(recent_label)
+    legend = [t.t("chart.share.legend_month")]
+    if any(line.years for line in data.lines):
+        legend.insert(0, t.t("chart.share.legend_year"))
+    if any(line.trend for line in data.lines):
+        legend.append(t.t("chart.share.legend_trend"))
+    if data.window_start is not None:
+        legend.append(t.t("chart.share.legend_window"))
     kind = "absolute" if data.absolute else "share"
     return ChartSpec(
         id=SHARE_CHART_ID,
@@ -298,8 +349,8 @@ def share_years_spec(data: ShareYears, t: Translator, cited: Collection[str]) ->
         title=t.t(f"chart.{kind}.title"),
         subtitle=t.t(f"chart.{kind}.subtitle"),
         y_label=t.t(f"chart.{kind}.axis"),
-        share=data if recent else data.model_copy(update={"recent_months": 0}),
-        year_labels=year_labels,
+        share=data,
+        year_labels=_calendar_labels(data, t),
         mark_labels=mark_labels,
         legend=legend,
     )
@@ -312,7 +363,7 @@ def _value(history: PairHistory, k: int, *, absolute: bool) -> float | None:
     return None if views is None or not edition else round(views / edition * 1e6, 3)
 
 
-def _line_label(
+def line_label(
     history: PairHistory,
     topics: Collection[str],
     languages: Collection[str],

@@ -26,6 +26,7 @@ __all__ = [
     "ShareLine",
     "ShareMark",
     "ShareSegment",
+    "ShareTrend",
     "ShareYears",
 ]
 
@@ -88,17 +89,33 @@ class ShareSegment(_Model):
     partial: bool = False
 
 
+class ShareTrend(_Model):
+    """The window's trend line of a :class:`ShareLine`: what the verdict line quotes.
+
+    ``start`` and ``end`` are months; ``value_start`` and ``value_end`` the line's levels
+    there, rounded as the text gives them; ``verdict`` its direction.
+    """
+
+    start: str
+    end: str
+    value_start: float
+    value_end: float
+    verdict: Literal["growing", "stable", "declining", "insufficient_data"]
+
+
 class ShareLine(_Model):
-    """One audience of a ``share_years`` chart: its months and its calendar years.
+    """One audience of a ``share_years`` chart: its months, its context years, its trend.
 
     ``label`` names the line at its end (``uk``); ``x`` holds months (``2021-01``) and ``y``
-    their values, gaps as ``None``.
+    their values, gaps as ``None``. ``years`` are the calendar years of the history before
+    the analysis window (context, drawn quietly); ``trend`` is the window's trend line.
     """
 
     label: str
     x: list[str]
     y: list[float | None]
-    years: list[ShareSegment] = Field(min_length=1)
+    years: list[ShareSegment] = Field(default_factory=list)
+    trend: ShareTrend | None = None
 
 
 class ShareMark(_Model):
@@ -113,6 +130,8 @@ class ShareMark(_Model):
     x: str
     y: float | None = None
     observation: str
+    verdict: Literal["real", "artifact", "unknown"] | None = None
+    """A step's verdict: ``artifact`` is drawn grey and dashed as a probable technical change."""
 
 
 class ShareYears(_Model):
@@ -123,27 +142,35 @@ class ShareYears(_Model):
         lines: One per audience, in the order of the request.
         marks: Steps and bursts the observations found.
         recent_months: How many last months the chart shades; 0 shades none.
+        window_start: First month of the analysis window, shaded on the chart; ``None``
+            when the whole chart is the window.
+        window_end: Its last month.
     """
 
     absolute: bool = False
     lines: list[ShareLine] = Field(min_length=1)
     marks: list[ShareMark] = Field(default_factory=list)
     recent_months: int = Field(default=3, ge=0)
+    window_start: str | None = None
+    window_end: str | None = None
 
 
 class AudienceYear(_Model):
-    """One calendar year of an audience: its mean monthly views and the change a year on.
+    """One span of an audience: its mean monthly views and the change against the span before.
+
+    The spans are the twelve months before the window's last twelve and those last twelve.
 
     Attributes:
-        year: The calendar year.
-        start: Its first month (``2026-01``).
-        end: Its last month (``2026-08`` for a partial year).
-        views: Mean monthly views, rounded as the text rounds them.
-        change: The views against the same months a year earlier, in whole %; ``None``
-            without a year of data before.
-        move: Whether the article's share of its Wikipedia's views gained, held or lost
-            over the same comparison.
-        partial: Fewer than 12 months (the last year of the data).
+        year: The span's place on the chart (0, 1...).
+        start: Its first month (``2025-09``).
+        end: Its last month (``2026-08``).
+        views: Mean monthly views, rounded as the chart shows them (three significant
+            digits).
+        change: The shown views against the span before, in whole %, computed from the shown
+            values; ``None`` for the first span.
+        move: The window's verdict on the article's share of its Wikipedia's views, on the
+            last span: ``gained`` (growing), ``held`` (stable) or ``lost`` (declining).
+        partial: Fewer than 12 months.
     """
 
     year: int

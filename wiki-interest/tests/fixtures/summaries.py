@@ -21,6 +21,7 @@ from wiki_interest.contracts.charts import (
     ShareLine,
     ShareMark,
     ShareSegment,
+    ShareTrend,
     ShareYears,
 )
 from wiki_interest.contracts.request import AnalysisRequest, Period, QuestionType
@@ -698,9 +699,10 @@ def _charts(projects: list[str], translator: Translator) -> list[ChartSpec]:
 
 
 def share_years_data(lines: int = 2) -> ShareYears:
-    """The main chart's data: calendar years 2021–2025 and a partial 2026 per audience.
+    """The main chart's data: context years 2021–2023, the window 2024-09 – 2026-08.
 
-    The first line takes a step in 2023-08 and a burst in 2022-08 far above its other months.
+    The first line takes a step in 2023-08 and a burst in 2022-08 far above its other months;
+    in the window each line's trend runs flat at its level after the step.
     """
     months = [f"{y}-{m:02d}" for y in range(2021, 2027) for m in range(1, 13)][:68]
     out = []
@@ -717,26 +719,37 @@ def share_years_data(lines: int = 2) -> ShareYears:
             ShareSegment(
                 year=year,
                 start=f"{year}-01",
-                end="2026-08" if year == 2026 else f"{year}-12",
+                end=f"{year}-12",
                 value=round(base + (4.0 if year >= 2024 else 0.0), 1),
-                partial=year == 2026,
             )
-            for year in range(2021, 2027)
+            for year in range(2021, 2024)
         ]
-        out.append(ShareLine(label=("uk", "cs", "pl")[n], x=months, y=values, years=years))
+        trend = ShareTrend(
+            start="2024-09",
+            end="2026-08",
+            value_start=base + 4.0,
+            value_end=base + 4.0,
+            verdict="stable",
+        )
+        out.append(
+            ShareLine(label=("uk", "cs", "pl")[n], x=months, y=values, years=years, trend=trend)
+        )
     return ShareYears(
         lines=out,
         marks=[
             ShareMark(kind="step", line=0, x="2023-08", y=24.0, observation="step:x/uk"),
             ShareMark(kind="spike", line=0, x="2022-08", y=80.0, observation="spike:x/uk"),
         ],
+        recent_months=0,
+        window_start="2024-09",
+        window_end="2026-08",
     )
 
 
 def audience_years_data(lines: int = 2) -> AudienceYears:
-    """The views by year: 2021–2025 and a partial 2026, the second audience far smaller.
+    """The views of the twelve months before the last twelve, and of the last twelve.
 
-    The first year has no year before it; the others gained, held or lost their share.
+    The second audience is far smaller; the last span of each carries the window's verdict.
     """
     moves = ("gained", "held", "lost")
     return AudienceYears(
@@ -745,15 +758,19 @@ def audience_years_data(lines: int = 2) -> AudienceYears:
                 label=("uk", "cs", "pl")[n],
                 years=[
                     AudienceYear(
-                        year=year,
-                        start=f"{year}-01",
-                        end="2026-08" if year == 2026 else f"{year}-12",
-                        views=(84_000.0, 6_400.0, 490.0)[n] * 0.8 ** (year - 2021),
-                        change=None if year == 2021 else -20.0 - n,
-                        move=None if year == 2021 else moves[(year + n) % 3],  # type: ignore[arg-type]
-                        partial=year == 2026,
-                    )
-                    for year in range(2021, 2027)
+                        year=0,
+                        start="2024-09",
+                        end="2025-08",
+                        views=(105_000.0, 8_000.0, 612.0)[n],
+                    ),
+                    AudienceYear(
+                        year=1,
+                        start="2025-09",
+                        end="2026-08",
+                        views=(84_000.0, 6_400.0, 490.0)[n],
+                        change=-20.0,
+                        move=moves[n % 3],  # type: ignore[arg-type]
+                    ),
                 ],
             )
             for n in range(lines)

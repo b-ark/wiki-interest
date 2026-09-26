@@ -1,16 +1,17 @@
 """Use-case: the observations of a run, from the fetched series to what ``facts.json`` lists.
 
 The detectors (:mod:`wiki_interest.domain.observations`) read the article's and the edition's
-monthly views over up to six years, whatever period the report shows: a trend, a wave, a
-season or a step needs years to be told apart from noise. A period the user named is read on
-its own, the season still on the whole window. Editions measured through a substitute
-article, or without an article, get a caution the text must carry.
+monthly views over up to six years: the season, the steps and the long view need years to be
+told apart from noise, and they are the report's context. What the report answers (the
+comparisons, the verdict of each language) reads the analysis window alone: the period the
+user named, or the last 24 complete months. Editions measured through a substitute article,
+or without an article, get a caution the text must carry.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date
 
 from wiki_interest.application.loading import LoadedSeries
@@ -27,6 +28,7 @@ from wiki_interest.domain.observations import (
     edition_name,
     observe,
 )
+from wiki_interest.domain.trust import WindowTrend
 
 __all__ = [
     "observation_start",
@@ -34,7 +36,6 @@ __all__ = [
     "pair_histories",
     "run_observations",
     "to_out",
-    "trend_start",
 ]
 
 _YEAR = 12
@@ -96,22 +97,21 @@ def pair_histories(
     return histories
 
 
-def trend_start(request: AnalysisRequest, period: Period) -> date | None:
-    """First month the trend detectors read: a period the user named is read on its own."""
-    return period.start if request.period is not None else None
-
-
 def run_observations(
-    histories: Sequence[PairHistory], request: AnalysisRequest, period: Period
+    histories: Sequence[PairHistory],
+    request: AnalysisRequest,
+    period: Period,
+    trends: Mapping[str, WindowTrend] | None = None,
 ) -> list[Observation]:
     """The detectors' observations for every pair with an article.
 
     Args:
         histories: The pairs' long series (:func:`pair_histories`).
-        request: The request: a named period is read on its own.
-        period: The analysed period.
+        request: The request.
+        period: The analysis window.
+        trends: The window's verdict of each pair (``read_trends``).
     """
-    found = observe(histories, trend_start=trend_start(request, period))
+    found = observe(histories, window_start=period.start, trends=trends)
     if request.normalization == "absolute":
         found.insert(0, _RAW_VIEWS)
     found[:0] = _period_cautions(request.period, period)

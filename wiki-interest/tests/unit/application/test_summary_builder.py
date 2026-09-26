@@ -19,6 +19,7 @@ from wiki_interest.application.summary_builder import (
     RunContext,
     SummaryBuilder,
 )
+from wiki_interest.application.window import read_trends
 from wiki_interest.contracts.request import AnalysisRequest
 from wiki_interest.contracts.summary import AnalysisSummary
 from wiki_interest.domain.models import Access, Agent, EntityCandidate, Granularity, WikiProject
@@ -57,13 +58,15 @@ def _build(
         settings=container.analysis_settings(request),
     )
     context = RunContext("run-1", None, tmp_path / "run-1", datetime(2026, 9, 22, tzinfo=UTC))
+    trends = read_trends(histories, request.period.start)
     return SummaryBuilder(Translator(language), context, PROVENANCE).build(
         request=request,
         period=request.period,
         resolved=resolved,
         analysis=analysis,
-        observations=run_observations(histories, request, request.period),
+        observations=run_observations(histories, request, request.period, trends),
         histories=histories,
+        trends=trends,
     )
 
 
@@ -72,10 +75,13 @@ class TestCompare:
         summary = _build(tmp_path)
         assert summary.status == "ok"
         headline = summary.verdict.headline
+        # The headline reads the window's verdicts, not the older conclusions.
         assert headline == (
-            "The attention share of «astronomy»: growing in uk.wikipedia; no clear trend in "
-            "cs.wikipedia."
+            "Astronomy: interest grows in the Ukrainian Wikipedia; interest is stable in the "
+            "Czech Wikipedia."
         )
+        assert [v.verdict for v in summary.verdicts] == ["growing", "stable"]
+        assert summary.analysis_window == summary.period
         happening = summary.happening
         assert happening[0].startswith("Attention share (article views per 1 million edition")
         assert "cs.wikipedia 40.0" in happening[0]
@@ -158,8 +164,10 @@ class TestCompare:
             ],
         )
         headline = summary.verdict.headline
-        assert headline.startswith("The attention share of «astronomy», «telescope» is falling")
-        assert "everywhere, fastest in" in headline
+        assert headline == (
+            "Astronomy: interest declines in the Ukrainian Wikipedia. "
+            "Telescope: interest declines in the Ukrainian Wikipedia."
+        )
         assert summary.decision is not None
         assert summary.decision.summary is not None
         assert "not growing in any edition" in summary.decision.summary
@@ -204,8 +212,10 @@ class TestCompare:
         assert share is not None
         assert [line.label for line in share.lines] == ["uk", "cs"]  # pl has no article
         uk = share.lines[0]
-        assert uk.x[0] == "2025-01"  # the named period's first calendar year
-        assert [(y.year, y.partial) for y in uk.years] == [(2025, False), (2026, True)]
+        # Without a longer history the chart shows the window alone: no context years.
+        assert uk.x[0] == "2024-09"
+        assert uk.years == []
+        assert uk.trend is not None
         audience = summary.audience_chart
         assert audience is not None
         assert [line.label for line in audience.lines] == ["uk", "cs"]
@@ -235,7 +245,8 @@ class TestCompare:
 
     def test_absolute_mode_changes_wording_and_limitations(self, tmp_path: Path) -> None:
         summary = _build(tmp_path, normalization="absolute")
-        assert summary.verdict.headline.startswith("The number of article views on «astronomy»")
+        # Raw views change the charts, not the verdict: it reads the attention share.
+        assert summary.verdict.headline.startswith("Astronomy: interest grows")
         assert summary.happening[0].startswith("Article views per month, average over the period")
         assert any("without normalising" in lim for lim in summary.limitations)
         assert any("per-million" in step for step in summary.next_steps)
@@ -247,7 +258,7 @@ class TestAssessAndRank:
     def test_assess_headline_states_direction_growth_and_trust(self, tmp_path: Path) -> None:
         summary = _build(tmp_path, question_type="assess", projects=["uk"])
         headline = summary.verdict.headline
-        assert headline.startswith("The attention share of «astronomy» in uk.wikipedia is growing")
+        assert headline == "Astronomy: interest grows in the Ukrainian Wikipedia."
         assert summary.happening[1] == (
             "Attention share, last 12 months vs the 12 before: uk.wikipedia +21%."
         )
@@ -276,7 +287,10 @@ def test_rank_headline_admits_that_every_edition_declines(tmp_path: Path) -> Non
             project, title, {m: base * (0.97**i) for i, m in enumerate(world.months)}
         )
     summary = _build(tmp_path, question_type="rank", projects=["uk", "cs"], world=world)
-    assert summary.verdict.headline.startswith("The attention share is falling in every edition")
+    assert summary.verdict.headline == (
+        "Astronomy: interest declines in the Ukrainian Wikipedia; interest declines in the "
+        "Czech Wikipedia."
+    )
 
 
 def test_clarification_summary_carries_candidates_and_question(tmp_path: Path) -> None:

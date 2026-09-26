@@ -54,6 +54,7 @@ __all__ = [
     "SeasonOut",
     "SeriesOut",
     "TopicResolutionOut",
+    "TrendOut",
     "Verdict",
 ]
 
@@ -216,6 +217,48 @@ class RankedRow(_Model):
     profile: AudienceProfile
     reliability: ReliabilityLevel
     rationale: str
+
+
+class TrendOut(_Model):
+    """The analysis window's verdict for one (topic, edition): what the headline reads.
+
+    Numbers are kept as the report shows them (levels to one decimal, the slope in whole %),
+    so every number of the text can be held to a field.
+
+    Attributes:
+        topic_id: The request's topic id.
+        project: The edition (``ru.wikipedia``).
+        label: How the charts name the pair (``ru``).
+        verdict: Where the attention share went over the window.
+        window_start: First month of the analysis window (``2024-09``).
+        window_end: Its last month.
+        segment_start: First month the trend reads: the window's, or a step's inside it.
+        after_step: The step inside the window the trend is read after, if any.
+        step_change: That step's change of level, in whole %.
+        slope_pct_per_year: The trend in whole % a year.
+        level_start: The trend line's attention share at ``segment_start``.
+        level_end: The trend line's attention share at ``window_end``.
+        views_avg: Mean monthly views over the window, rounded as the text rounds counts.
+        line: The verdict line in the report's language.
+        substitute: Measured through another article: its line is shown, but the headline
+            leaves it out (it is another subject).
+    """
+
+    topic_id: str
+    project: str
+    label: str
+    verdict: Literal["growing", "stable", "declining", "insufficient_data"]
+    window_start: str = Field(pattern=r"^\d{4}-\d{2}$")
+    window_end: str = Field(pattern=r"^\d{4}-\d{2}$")
+    segment_start: str = Field(pattern=r"^\d{4}-\d{2}$")
+    after_step: str | None = None
+    step_change: float | None = None
+    slope_pct_per_year: float | None = None
+    level_start: float | None = None
+    level_end: float | None = None
+    views_avg: float | None = None
+    line: str = ""
+    substitute: bool = False
 
 
 class Verdict(_Model):
@@ -568,6 +611,12 @@ class AnalysisSummary(_Model):
     session: str | None
     request: AnalysisRequest
     period: Period
+    analysis_window: Period | None = None
+    """The months the verdicts, the headline and the recommendation read (the period)."""
+    context_range: Period | None = None
+    """The months the charts show: the history before the window is context."""
+    verdicts: list[TrendOut] = Field(default_factory=list)
+    """The window's verdict of each (topic, edition) with data, in request order."""
     resolution: list[TopicResolutionOut] = Field(default_factory=list)
     series: list[SeriesOut] = Field(default_factory=list)
     metrics: list[MetricsOut] = Field(default_factory=list)

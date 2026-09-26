@@ -40,6 +40,7 @@ from wiki_interest.adapters.report_blocks import (
     decision_lines,
     ordered_assessments,
     report_title,
+    window_line,
 )
 from wiki_interest.adapters.report_theme import PdfTheme, ReportTheme
 from wiki_interest.contracts.charts import ChartSpec
@@ -359,12 +360,18 @@ class _Page:
             for r in summary.resolution
         )
         editions = ", ".join(a.label for a in ordered_assessments(summary))
-        period = f"{summary.period.start:%Y-%m} – {summary.period.end:%Y-%m}"
-        parts = [p for p in (topics, editions, f"{t.t('report.period')}: {period}") if p]
+        parts = [p for p in (topics, editions) if p]
         self._paragraph(" · ".join(parts), self._style.subtitle_pt, color=self._theme.muted_color)
+        self._paragraph(
+            window_line(summary, t), self._style.subtitle_pt, color=self._theme.muted_color
+        )
         note = summary.request.report.audience_note
         if note:
             self._paragraph(note, self._style.subtitle_pt, color=self._theme.muted_color)
+        # The verdict of each language, read on the window alone: what the headline says.
+        for verdict in summary.verdicts:
+            if verdict.line:
+                self._paragraph(verdict.line, self._style.body_pt)
 
     def _charts_block(self) -> None:
         """The main chart across the page, the second under it, the season if it fits."""

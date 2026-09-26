@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from wiki_interest.i18n import editions
+
 LABELS: Mapping[str, str] = {
     "value.na": "н/д",
     "value.per_million": "{value} на мільйон",
@@ -36,9 +38,9 @@ LABELS: Mapping[str, str] = {
     "report.version": "Версія навички",
     "report.data_through": "Останній місяць даних",
     "report.footer_share": (
-        "Частка уваги = перегляди статті на 1 млн переглядів цієї Вікіпедії. Зміна: кожен "
-        "календарний рік проти тих самих місяців роком раніше; неповний рік — лише проти тих "
-        "самих місяців."
+        "Частка уваги = перегляди статті на 1 млн переглядів цієї Вікіпедії. Вердикт: тренд "
+        "частки уваги в періоді аналізу (після ступеньки всередині нього — від ступеньки); "
+        "стабільно — у межах ±10 % за рік. Історія до періоду — лише контекст."
     ),
     "report.footer_caveats": (
         "Перегляди показують інтерес, а не готовність платити; мовний розділ Вікіпедії — це не "
@@ -58,21 +60,22 @@ LABELS: Mapping[str, str] = {
     "chart.share.title": "Частка уваги з часом",
     "chart.share.subtitle": "Перегляди статті на 1 млн переглядів цієї Вікіпедії.",
     "chart.share.axis": "на 1 млн переглядів",
-    "chart.share.legend_year": "середнє за календарний рік",
+    "chart.share.legend_year": "середнє за календарний рік (контекст)",
     "chart.share.legend_month": "кожен місяць",
-    "chart.share.legend_recent": "останні {months} міс.",
+    "chart.share.legend_trend": "лінія тренду в періоді аналізу",
+    "chart.share.legend_window": "період аналізу",
     "chart.share.partial_year": "{year} ({first} – {last})",
     "chart.share.month": "{month} {year}",
     "chart.absolute.title": "Перегляди за роками",
     "chart.absolute.subtitle": "Скільки разів на місяць відкривали статтю.",
     "chart.absolute.axis": "переглядів за місяць",
-    "chart.audience.title": "Середня кількість переглядів статті за місяць, за роками",
+    "chart.audience.title": "Середня кількість переглядів статті за місяць",
     "chart.audience.subtitle": (
-        "Стовпці — середня кількість переглядів за місяць і зміна проти попереднього року.\n"
-        "Нижче: чи стаття здобула (▲), зберегла (≈) або втратила (▼) частку уваги у своїй "
-        "Вікіпедії."
+        "Стовпці — середні перегляди за місяць: 12 місяців перед останніми 12 і останні 12,\n"
+        "над ними — зміна. Нижче — вердикт періоду аналізу для частки уваги (▲ зростає, "
+        "≈ стабільна, ▼ спадає)."
     ),
-    "chart.audience.partial": "{year}: {first}–{last} проти тих самих місяців {previous} року.",
+    "chart.audience.span": "{first} – {last}",
     "chart.season_title": "Місяці порівняно зі звичайним рівнем",
     "chart.axis_season": "% до звичайного рівня",
     "chart.season_period": "Обчислено за {start} – {end}.",
@@ -151,4 +154,24 @@ LABELS: Mapping[str, str] = {
     "substitute.broader": "ширшу статтю «{title}»",
     "substitute.mention": "статтю «{title}», яка згадує тему",
     "note.substitute": "статті немає; виміряно через {what}",
+    # -- v0.2: the analysis window, its verdicts and the headline
+    "report.analysis_window": "Період аналізу: {start} – {end}",
+    "report.context": "Контекст на графіках: з {year}",
+    "verdict.growing": "інтерес зростає",
+    "verdict.stable": "інтерес стабільний",
+    "verdict.declining": "інтерес спадає",
+    "verdict.insufficient_data": "замало даних для висновку",
+    "verdict.stable_after_drop": "інтерес стабілізувався після спаду",
+    "verdict.stable_after_rise": "інтерес утримується після зростання",
+    "verdict.declining_still": "інтерес продовжує падати",
+    "verdict.growing_still": "інтерес продовжує зростати",
+    "verdict.since": "з {month}",
+    "verdict.line": (
+        "{label}: {verdict}. Частка уваги {since}: {start} → {end} на 1 млн переглядів, "
+        "{slope} за рік."
+    ),
+    "verdict.line_none": "{label}: {verdict}.",
+    "headline.part": "{edition} {verdict}",
+    "headline.topic": "{topic}: {parts}.",
+    **editions.UK,
 }

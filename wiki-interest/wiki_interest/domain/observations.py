@@ -43,13 +43,15 @@ Detectors (each fires only when its data show it):
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
 from enum import StrEnum
 from itertools import pairwise
 from statistics import mean, median
 from typing import Literal
+
+from wiki_interest.domain.trust import TrendVerdict, WindowTrend
 
 __all__ = [
     "MONTH_NAMES",
@@ -59,12 +61,15 @@ __all__ = [
     "Quoted",
     "SeasonProfile",
     "ShareMove",
+    "Step",
     "ViewsDirection",
     "Weight",
     "YearChange",
     "YearLevel",
     "edition_name",
+    "first_data",
     "observe",
+    "pair_steps",
     "round_count",
     "round_share",
     "season_profile",
@@ -99,6 +104,8 @@ _HALF_WINDOW = 6
 _MIN_WINDOW = 9
 _PLATEAU_BASE_MONTHS = 6
 """Known months before a run needed to know the usual level it rises above."""
+_WAVE_CALLED = 1.3
+"""A peak this far over the first year makes the long view a wave that has passed."""
 _SUMMER = (6, 7, 8)
 _SCHOOL_PEAKS = (9, 10, 11)
 _THOUSANDS = 1_000
@@ -473,13 +480,13 @@ class _Pair:
         return sum(v for v in series[max(first, 0) : stop] if v is not None)
 
     def calendar_years(self) -> list[_Window]:
-        """The calendar years of the trend window from its first January; the last may be partial.
+        """The calendar years of the whole history from its first January; the last may be partial.
 
-        A year the window cuts at its start is left out: its missing months would read as a
-        change of level.
+        History is context: the long view reads it. A year the data cut at its start is left
+        out: its missing months would read as a change of level.
         """
         months = self.history.months
-        k = next((i for i in range(max(self.start, 0), self.n) if months[i].month == 1), None)
+        k = next((i for i in range(self.n) if months[i].month == 1), None)
         out: list[_Window] = []
         while k is not None and k < self.n:
             stop = min(k + _YEAR, self.n)
@@ -490,24 +497,26 @@ class _Pair:
     def full_years(self) -> list[_Window]:
         return [y for y in self.calendar_years() if not y.partial]
 
-    def now(self, settings: ObservationSettings) -> _Window | None:
-        """The window "now" stands for: the last calendar year, partial or not, with enough months.
+    def now(self) -> _Window | None:
+        """The last twelve months ("now") of the analysis window (all of it when shorter).
 
-        With too few months in the last year, the last full year; without any calendar
-        year (an article younger than a year from its first January), the months there are.
+        Twelve months hold every season once, so "now" against the twelve months before is
+        like against like, and for the default two-year window both halves are the window's.
         """
-        years = self.calendar_years()
-        if years:
-            last = years[-1]
-            if not last.partial or last.stop - last.first >= settings.partial_months:
-                return last
-        full = [y for y in years if not y.partial]
-        if full:
-            return full[-1]
-        first = max(self.start, 0)
+        first = max(self.n - _YEAR, self.start, 0)
         if first >= self.n:
             return None
-        return _Window(first, self.n, _period(self.history.months, first, self.n))
+        months = self.history.months
+        return _Window(
+            first, self.n, _period(months, first, self.n), partial=self.n - first < _YEAR
+        )
+
+    def before(self, window: _Window) -> str:
+        """How a statement names the twelve months before ``window``.
+
+        "September 2024 – August 2025" for the window "September 2025 – August 2026".
+        """
+        return _period(self.history.months, window.first - _YEAR, window.stop - _YEAR)
 
     def against_year_before(self, window: _Window) -> YearChange | None:
         """``window`` against the same months a year earlier.
@@ -706,22 +715,23 @@ def _profile(
 class _Detector:
     """Runs the detectors of one pair; each appends what its data show."""
 
-    def __init__(self, pair: _Pair, settings: ObservationSettings) -> None:
+    def __init__(
+        self, pair: _Pair, settings: ObservationSettings, trend: WindowTrend | None = None
+    ) -> None:
         self.p = pair
         self.s = settings
         self.h = pair.history
         self.ed = edition_name(self.h.project)
         self.topic = self.h.topic
+        self.trend = trend
+        """The window's verdict (:mod:`wiki_interest.domain.trust`), when it was read."""
         self.out: list[Observation] = []
-        self.long_dir = "unknown"
-        self.last_change: float | None = None
-        """The share's change of "now" against a year earlier (%), as ``vs_edition`` read it."""
         self.now_label = ""
-        """How the statements name "now": "2025", "January–August 2026"."""
+        """How the statements name "now": "September 2025 – August 2026"."""
         self.year_change: YearChange | None = None
-        """"Now" against the same months a year earlier, as ``vs_edition`` read it."""
+        """"Now" against the twelve months before, as ``vs_edition`` read it."""
         self.against = ""
-        """What "now" is compared with: "2024", "the same months of 2025"."""
+        """What "now" is compared with: "September 2024 – August 2025"."""
 
     def add(  # noqa: PLR0913 -- an observation's every field
         self,
@@ -748,6 +758,7 @@ class _Detector:
 
     def run(self) -> list[Observation]:
         self.unusual()
+        self.window_trend()
         self.size()
         self.long_term()
         self.vs_edition()
@@ -790,10 +801,61 @@ class _Detector:
                 "news-driven) that did not last.",
             )
 
-    def size(self) -> None:
-        p, s = self.p, self.s
+    def window_trend(self) -> None:
+        """The code's verdict over the analysis window, as the report's verdict line gives it.
+
+        The text builds on it: the headline, the verdict line and the recommendation read the
+        same verdict, so the story must not tell another direction.
+        """
+        t = self.trend
+        if t is None:
+            return
         w = _Words()
-        window = p.now(s)
+        ed, topic = self.ed, self.topic
+        window = f"{_month(t.window_start)} – {_month(t.window_end)}"
+        if t.verdict is TrendVerdict.INSUFFICIENT_DATA:
+            self.add(
+                "trend",
+                Weight.CAUTION,
+                w,
+                f"In the analysis window ({window}) {topic} in {ed} has too few views or months "
+                "for a verdict on its direction: say so, and draw no trend from it.",
+            )
+            return
+        assert t.level_start is not None
+        assert t.level_end is not None
+        assert t.slope_pct_per_year is not None
+        since = ""
+        if t.step is not None:
+            since = (
+                f" since the step of {_month(t.step.month)} (the level then became "
+                f"{w.ratio(t.step.ratio)} before)"
+            )
+        verdict = {
+            TrendVerdict.GROWING: "grows",
+            TrendVerdict.STABLE: "is stable",
+            TrendVerdict.DECLINING: "declines",
+        }[t.verdict]
+        if t.verdict is TrendVerdict.STABLE and t.step is not None:
+            verdict = "has stabilised" if t.step.ratio < 1 else "holds at its new level"
+        elif t.verdict is TrendVerdict.DECLINING and t.step is not None and t.step.ratio < 1:
+            verdict = "keeps declining"
+        elif t.verdict is TrendVerdict.GROWING and t.step is not None and t.step.ratio > 1:
+            verdict = "keeps growing"
+        self.add(
+            "trend",
+            Weight.HIGH,
+            w,
+            f"Verdict for the analysis window ({window}): the attention share of {topic} in {ed} "
+            f"{verdict}{since}. Its trend line runs from {w.per_million(t.level_start)} to "
+            f"{w.per_million(t.level_end)} views per million ({w.pct(t.slope_pct_per_year)} a "
+            "year). This is the report's verdict: tell the same direction.",
+        )
+
+    def size(self) -> None:
+        p = self.p
+        w = _Words()
+        window = p.now()
         now = None if window is None else p.views_mean(window.first, window.stop)
         if window is None or now is None:
             return
@@ -807,26 +869,10 @@ class _Detector:
                 f": {w.per_million(share)} views per million views of the edition (its "
                 "attention share, the size of interest comparable across editions)"
             )
-        full = p.full_years()
-        if full and full[0].first < window.first:
-            then = p.views_mean(full[0].first, full[0].stop)
-            if then:
-                text += (
-                    f". In {full[0].label} it was opened {w.count(then)} times a month: "
-                    f"{w.ratio(now / then)}"
-                )
-        text += "."
-        if window.partial and p.n >= s.min_long_years * _YEAR:
-            bias = p.partial_bias(window)
-            if abs(bias) >= s.partial_bias:
-                text += (
-                    f" {window.label} is not a full year, and for this topic these months "
-                    f"usually run {w.pct(bias)} against its yearly level: set it against full "
-                    "years with care."
-                )
-        self.add("size", Weight.HIGH, w, text)
+        self.add("size", Weight.HIGH, w, text + ".")
 
     def long_term(self) -> None:
+        """The long view over the history's full calendar years: context, said as such."""
         p, s = self.p, self.s
         full = p.full_years()
         if len(full) < s.min_long_years:
@@ -845,133 +891,86 @@ class _Detector:
         w = _Words()
         ed = self.ed
         years = f"{first_year}–{last_year}"
+        context = f"In the wider context since {first_year} (history, not the analysis window): "
         if wave and ys[-1] < ys[peak] * s.wave_fall:
-            self.long_dir = "wave"
             text = (
-                f"Its attention share in {ed} was highest in {full[peak].label} and has fallen "
+                f"its attention share in {ed} was highest in {full[peak].label} and has fallen "
                 f"since: in {last_year} it was {w.ratio(ys[-1] / ys[peak])} at that peak."
             )
-            if ys[peak] > ys[0] * 1.3:
+            if ys[peak] > ys[0] * _WAVE_CALLED:
                 text += " A wave that has passed, not a lasting rise."
-            self.add("long_term", Weight.HIGH, w, text)
         elif change < s.long_change and falls >= steps - 1:
-            self.long_dir = "decline"
-            self.add(
-                "long_term",
-                Weight.HIGH,
-                w,
-                f"Its attention share in {ed} has fallen almost every year ({falls} of "
-                f"{steps} year-on-year steps, {years}); in {last_year} it was "
-                f"{w.ratio(change)} in {first_year}. A long, steady decline, not a recent dip.",
+            text = (
+                f"its attention share in {ed} fell almost every year ({falls} of {steps} "
+                f"year-on-year steps, {years}); in {last_year} it was {w.ratio(change)} in "
+                f"{first_year}."
             )
         elif change > 1 / s.long_change and rises >= steps - 1:
-            self.long_dir = "rise"
-            self.add(
-                "long_term",
-                Weight.HIGH,
-                w,
-                f"Its attention share in {ed} has risen almost every year ({rises} of "
-                f"{steps} year-on-year steps, {years}); in {last_year} it was "
-                f"{w.ratio(change)} in {first_year}. A long, steady rise.",
+            text = (
+                f"its attention share in {ed} rose almost every year ({rises} of {steps} "
+                f"year-on-year steps, {years}); in {last_year} it was {w.ratio(change)} in "
+                f"{first_year}."
             )
         elif change < s.long_change or change > 1 / s.long_change:
-            self.long_dir = "decline" if change < 1 else "rise"
             kind = "fall" if change < 1 else "rise"
-            self.add(
-                "long_term",
-                Weight.HIGH,
-                w,
-                f"Its attention share in {ed} in {last_year} was {w.ratio(change)} in "
-                f"{first_year}: a large {kind} overall ({years}), though not every year.",
+            text = (
+                f"its attention share in {ed} in {last_year} was {w.ratio(change)} in "
+                f"{first_year}: a large {kind} overall ({years}), though not every year."
             )
         else:
-            self.long_dir = "flat"
-            self.add(
-                "long_term",
-                Weight.MEDIUM,
-                w,
-                f"Its attention share in {ed} stayed in the same range over {years}: in "
-                f"{last_year} it was {w.ratio(change)} in {first_year}.",
+            text = (
+                f"its attention share in {ed} stayed in the same range over {years}: in "
+                f"{last_year} it was {w.ratio(change)} in {first_year}."
             )
+        self.add("long_term", Weight.CONTEXT, w, context + text)
 
     def vs_edition(self) -> None:
+        """The article's views against its whole edition's, "now" against the year before.
+
+        Views, not the share: the window's verdict gives the share's direction, read on its
+        trend, and a second share figure over other months would read as another verdict.
+        """
         p, s = self.p, self.s
-        if p.n - p.start < s.min_trend_months:
+        window = p.now()
+        if window is None or window.partial:
             return
-        window = p.now(s)
-        change = None if window is None else p.against_year_before(window)
-        if window is None or change is None:
+        change = p.against_year_before(window)
+        if change is None:
             return
-        a, e, sh = change.article, change.edition, change.share
-        self.last_change = sh
+        a, e = change.article, change.edition
         self.year_change = change
         self.now_label = window.label
+        self.against = p.before(window)
         w = _Words()
         ed, topic = self.ed, self.topic
-        earlier = self.h.months[window.first].year - 1
-        against = f"the same months of {earlier}" if window.partial else str(earlier)
-        self.against = against
-        when = f"In {window.label} (against {against})"
-        if e < -s.edition_moves and sh < -s.moves:
-            text = (
-                f"{when} {ed} as a whole was read less ({w.pct(e)} views), and the article on "
-                f"{topic} fell more than that ({w.pct(a)} views), so its attention share fell "
-                f"({w.pct(sh)}). Only part of the fall is Wikipedia losing readers; the topic "
-                "itself is read less. (This compares the article with the edition over the "
-                "year; only the recent months tell whether the fall is quickening.)"
+        when = f"In {window.label} against {self.against}"
+        relative = change.share
+        views = f"the article on {topic} {w.pct(a)} views, {ed} as a whole {w.pct(e)}"
+        if relative < -s.moves:
+            reason = (
+                "only part of the fall is Wikipedia losing readers."
+                if e < -s.edition_moves
+                else "the change is the topic's, not Wikipedia's."
             )
-        elif e < -s.edition_moves and abs(sh) <= s.moves and a < 0:
-            text = (
-                f"{when} {topic} is read less ({w.pct(a)} views), but {ed} as a whole fell about "
-                f"as much ({w.pct(e)}); its attention share barely changed ({w.pct(sh)}). The "
-                "fall in views comes from Wikipedia losing readers, not from the topic."
-            )
-        elif e < -s.edition_moves and abs(sh) <= s.moves:
-            # The share rose a little more than the edition fell: the views did not fall.
-            text = (
-                f"{when} {topic} held its views ({w.pct(a)}) while {ed} as a whole was read "
-                f"less ({w.pct(e)}); its attention share changed little ({w.pct(sh)})."
-            )
+            text = f"{when}: {views}. The article lost more than its Wikipedia: {reason}"
+            weight = Weight.HIGH
+        elif relative > s.moves:
+            text = f"{when}: {views}. The article did better than its Wikipedia as a whole."
+            weight = Weight.HIGH
         elif e < -s.edition_moves:
-            held = (
-                "rose"
-                if a > s.edition_moves
-                else "held up"
-                if a > -s.edition_moves
-                else "fell less"
-            )
             text = (
-                f"{when} {ed} as a whole was read less ({w.pct(e)}), yet {topic} {held} "
-                f"({w.pct(a)} views): its attention share rose {w.pct(sh)}. The topic gains "
-                "attention against a shrinking Wikipedia."
+                f"{when}: {views}. The article moved about as much as its Wikipedia: the change "
+                "in views comes from Wikipedia losing readers, not from the topic."
             )
-        elif sh < -s.moves and a < 0:
-            text = (
-                f"{when} {topic} is read less ({w.pct(a)} views) while {ed} as a whole changed "
-                f"{w.pct(e)}: the topic itself loses attention (attention share {w.pct(sh)})."
-            )
-        elif sh < -s.moves:
-            # A growing edition: the views rose, but less than the edition's.
-            text = (
-                f"{when} {topic} is read more ({w.pct(a)} views), but less than the growth of "
-                f"{ed} as a whole ({w.pct(e)}): the topic loses attention (attention share "
-                f"{w.pct(sh)})."
-            )
-        elif sh > s.moves:
-            text = (
-                f"{when} {topic} gained attention against {ed}: views {w.pct(a)}, the edition "
-                f"{w.pct(e)}, attention share {w.pct(sh)}."
-            )
+            weight = Weight.HIGH
         else:
-            self.add(
-                "vs_edition",
-                Weight.LOW,
-                w,
-                f"{when} {topic} moved with {ed}: views {w.pct(a)}, the edition {w.pct(e)}, "
-                f"attention share {w.pct(sh)}.",
-            )
-            return
-        self.add("vs_edition", Weight.HIGH, w, text)
+            text = f"{when}: {views}. The article moved about as much as its Wikipedia."
+            weight = Weight.LOW
+        text += (
+            " (Twelve months against twelve: whether this is a steady move or one past step, "
+            "the trend observation says.)"
+        )
+        self.add("vs_edition", weight, w, text)
 
     def season(self) -> None:
         p, s = self.p, self.s
@@ -1098,165 +1097,196 @@ class _Detector:
         )
 
     def step(self) -> None:
-        p, s, h = self.p, self.s, self.h
-        adjusted = [
-            x / (1 + p.profile[h.months[k].month] / 100) if x is not None and p.usual(k) else None
-            for k, x in enumerate(p.shares)
-        ]
-        best: tuple[int, float] | None = None
-        for i in range(max(p.start, 0) + _STEP_HALF, p.n - _STEP_HALF + 1):
-            ratio = _level_ratio(adjusted, i)
-            if ratio is not None and (best is None or abs(math.log(ratio)) > abs(best[1])):
-                best = (i, math.log(ratio))
-        if best is None or abs(best[1]) < math.log(s.step):
-            return
-        i, d = best
-        later = [x for x in adjusted[i:] if x]
-        earlier = [x for x in adjusted[:i] if x]
-        stays = (median(later) < median(earlier)) == (d < 0)
-        edition = _level_ratio(list(h.edition), i)
-        w = _Words()
-        text = (
-            f"The biggest step in {self.topic}'s level in {self.ed} came in "
-            f"{_month(h.months[i])}: over the six months from then its attention share was "
-            f"{w.ratio(math.exp(d))} in the six months before (seasonal rhythm removed)"
-            + (", and the level stayed there." if stays else ".")
-        )
-        if edition is not None and abs(math.log(edition)) > math.log(s.edition_step):
-            text += (
-                f" {self.ed} as a whole changed at the same time, so the step may come from how "
-                "the edition is counted or reached, not from the topic."
-            )
-        weight = Weight.HIGH if abs(d) > math.log(s.strong_step) else Weight.MEDIUM
-        self.add("step", weight, w, text, month=h.months[i])
+        """Every lasting change of level over the whole history, the ones in the window first.
 
-    def recent(self) -> None:  # noqa: PLR0912 -- one wording per case
+        A step inside the analysis window is a main signal; one before it is context, and its
+        statement says so, so the text does not tell history as the window's news.
+        """
+        p, s, h = self.p, self.s, self.h
+        window_first = h.months[max(p.start, 0)] if p.start < p.n else h.months[-1]
+        for step in _steps(p, s):
+            d = math.log(step.ratio)
+            w = _Words()
+            inside = step.month >= window_first
+            where = "" if inside else f"In the wider context (before {_month(window_first)}): "
+            text = (
+                f"{where}a step in {self.topic}'s level in {self.ed} came in "
+                f"{_month(step.month)}: over the six months from then its attention share was "
+                f"{w.ratio(step.ratio)} in the six months before (seasonal rhythm removed)"
+                + (", and the level stayed there." if step.stays else ".")
+            )
+            if step.edition_ratio is not None and abs(math.log(step.edition_ratio)) > math.log(
+                s.edition_step
+            ):
+                text += (
+                    f" {self.ed} as a whole changed at the same time, so the step may come from "
+                    "how the edition is counted or reached, not from the topic."
+                )
+            if not inside:
+                weight = Weight.CONTEXT
+            else:
+                weight = Weight.HIGH if abs(d) > math.log(s.strong_step) else Weight.MEDIUM
+            self.add("step", weight, w, text, key=f"{step.month:%Y-%m}", month=step.month)
+
+    def recent(self) -> None:
+        """The last three months against the same months a year earlier: a note, not a verdict.
+
+        Three months are too few for a direction; the note says when they run against the
+        window's trend, so the text does not call a turn on them.
+        """
         p, s = self.p, self.s
-        if p.n - p.start < _YEAR + _RECENT or self.last_change is None:
+        if p.n < _YEAR + _RECENT:
             return
         now = p.share(p.n - _RECENT, p.n)
         then = p.share(p.n - _YEAR - _RECENT, p.n - _YEAR)
         if not now or not then:
             return
         r = (now / then - 1) * 100
-        sh = self.last_change
         months = p.history.months
         span = (
             f"{MONTH_NAMES[months[p.n - _RECENT].month - 1]}–"
             f"{MONTH_NAMES[months[p.n - 1].month - 1]} {months[p.n - 1].year}"
         )
         w = _Words()
-        figures = (
-            f"({w.pct(r)} share against the same months a year earlier; {self.now_label}: "
-            f"{w.pct(sh)})"
+        text = (
+            f"In the last three months ({span}) the attention share of {self.topic} in "
+            f"{self.ed} is {w.pct(r)} against the same months a year earlier."
         )
-        weight = Weight.MEDIUM
-        if sh < -s.moves:
-            if r > s.edition_moves:
-                text = (
-                    f"In the last three months ({span}) the fall stopped: the share is higher "
-                    f"than a year earlier {figures}. Three months are too few to call a turn."
-                )
-                weight = Weight.HIGH
-            elif r > -s.moves:
-                text = f"In the last three months ({span}) the fall levelled off {figures}."
-            elif r > sh + s.moves:
-                text = (
-                    f"In the last three months ({span}) the fall continues, but more slowly "
-                    f"than in {self.now_label} {figures}."
-                )
-            elif r < sh - s.moves:
-                text = f"In the last three months ({span}) the fall speeds up {figures}."
-                weight = Weight.HIGH
-            else:
-                text = (
-                    f"In the last three months ({span}) the fall continues at about the same "
-                    f"pace {figures}."
-                )
-                weight = Weight.LOW
-        elif sh > s.moves:
-            # The mirror of the fall: a rise of 2 % after 30 % had "continues, but more
-            # slowly", though under 10 % the code itself calls a share held.
-            if r < -s.edition_moves:
-                text = (
-                    f"In the last three months ({span}) the rise stopped: the share is lower "
-                    f"than a year earlier {figures}. Three months are too few to call a turn."
-                )
-                weight = Weight.HIGH
-            elif r < s.moves:
-                text = f"In the last three months ({span}) the rise levelled off {figures}."
-            elif r < sh - s.moves:
-                text = (
-                    f"In the last three months ({span}) the rise continues, but more slowly "
-                    f"than in {self.now_label} {figures}."
-                )
-            elif r > sh + s.moves:
-                text = f"In the last three months ({span}) the rise speeds up {figures}."
-                weight = Weight.HIGH
-            else:
-                text = (
-                    f"In the last three months ({span}) the rise continues at about the same "
-                    f"pace {figures}."
-                )
-                weight = Weight.LOW
-        elif abs(r) > s.moves * 1.5:
-            direction = "up" if r > 0 else "down"
-            text = (
-                f"In the last three months ({span}) the share moved {direction} after a flat "
-                f"year {figures}; three months are too few to call a turn."
+        t = self.trend
+        against = t is not None and (
+            (t.verdict is TrendVerdict.DECLINING and r > s.moves)
+            or (t.verdict is TrendVerdict.GROWING and r < -s.moves)
+        )
+        weight = Weight.LOW
+        if against:
+            text += (
+                " That runs against the window's trend; three months are too few to call a turn."
             )
-        else:
-            text = f"The last three months ({span}) show no change {figures}."
-            weight = Weight.LOW
+            weight = Weight.MEDIUM
         self.add("recent", weight, w, text)
 
     def verdict(self) -> None:
-        """What Wikipedia signals for the next check: the audience's direction and the share's.
+        """What the window's verdict signals for the next check.
 
-        The views say whether the audience grows; the attention share whether it grows of its
-        own or with its Wikipedia. Wikipedia is a signal to check further, never a decision
-        to invest.
+        The attention share says whether the topic gains attention of its own or moves with
+        its Wikipedia; Wikipedia is a signal to check further, never a decision to invest.
         """
-        change, s = self.year_change, self.s
-        if change is None:
+        t = self.trend
+        if t is None or t.verdict is TrendVerdict.INSUFFICIENT_DATA:
             return
         topic, ed = self.topic, self.ed
-        views = views_direction(change.article, s)
-        move = share_move(change.share, s)
-        if views == "up":
-            text = {
-                "gained": f"Interest in {topic} in {ed} grows, faster than its Wikipedia: a "
-                "signal worth checking further.",
-                "held": f"The audience of {topic} in {ed} grows with its Wikipedia: a growing "
-                "audience worth checking further, though not a rise of its own.",
-                "lost": f"The audience of {topic} in {ed} grows, but more slowly than its "
-                "Wikipedia: a weak signal.",
-            }[move]
-        elif views == "down" and move == "lost":
+        change = self.year_change
+        falls_with = (
+            change is not None
+            and views_direction(change.article, self.s) == "down"
+            and change.edition < -self.s.edition_moves
+        )
+        if t.verdict is TrendVerdict.GROWING:
             text = (
-                f"Interest in {topic} in {ed} is shrinking, faster than its Wikipedia: "
-                "Wikipedia gives no growth signal to check."
+                f"Interest in {topic} in {ed} grows against its Wikipedia: a signal worth "
+                "checking further."
             )
-        elif views == "down":
+        elif t.verdict is TrendVerdict.STABLE:
             text = (
-                f"The article on {topic} in {ed} is read less, but no more than its Wikipedia "
-                "as a whole: the interest is there, with no sign of growth."
+                f"Interest in {topic} in {ed} holds steady against its Wikipedia: the interest "
+                "is there, with no sign of growth."
             )
-        elif self.long_dir in ("decline", "wave"):
-            text = (
-                f"Interest in {topic} in {ed} holds steady now after a longer decline: "
-                "Wikipedia gives no growth signal to check."
-            )
+            if falls_with:
+                text += " Its views fall with Wikipedia as a whole, not on their own."
         else:
-            text = {
-                "gained": f"Interest in {topic} in {ed} holds steady while its Wikipedia is read "
-                "less: it keeps its readers, with no sign of growth.",
-                "held": f"Interest in {topic} in {ed} holds steady: Wikipedia shows neither "
-                "growth nor a decline.",
-                "lost": f"Interest in {topic} in {ed} holds steady while its Wikipedia grows: no "
-                "growth of its own.",
-            }[move]
+            text = (
+                f"Interest in {topic} in {ed} is shrinking against its Wikipedia: Wikipedia "
+                "gives no growth signal to check."
+            )
         self.add("decision", Weight.DECISION, _Words(), text, key="verdict")
+
+
+@dataclass(frozen=True, slots=True)
+class Step:
+    """A lasting change of a pair's level: the six months from ``month`` against the six before.
+
+    Attributes:
+        index: Position of ``month`` in the pair's series.
+        month: The first month at the new level.
+        ratio: Mean attention share of the six months from ``month`` over the six before,
+            seasonal rhythm and unusual months removed.
+        stays: Whether the level after stays on the new side of the level before.
+        edition_ratio: The same ratio of the whole edition's views, when known.
+    """
+
+    index: int
+    month: date
+    ratio: float
+    stays: bool
+    edition_ratio: float | None = None
+
+
+def _adjusted(p: _Pair) -> list[float | None]:
+    """The share with the seasonal rhythm divided out; bursts and plateaus left out."""
+    months = p.history.months
+    return [
+        x / (1 + p.profile[months[k].month] / 100) if x is not None and p.usual(k) else None
+        for k, x in enumerate(p.shares)
+    ]
+
+
+def _steps(p: _Pair, s: ObservationSettings, threshold: float | None = None) -> list[Step]:
+    """Every step of at least ``threshold`` (``s.step``), largest first, six months apart.
+
+    The whole history is read: a step before the analysis window is context the reader may
+    need (it explains a level), one inside it may explain the window's change.
+    """
+    adjusted = _adjusted(p)
+    candidates: list[tuple[int, float]] = []
+    for i in range(_STEP_HALF, p.n - _STEP_HALF + 1):
+        ratio = _level_ratio(adjusted, i)
+        if ratio is not None and abs(math.log(ratio)) >= math.log(threshold or s.step):
+            candidates.append((i, math.log(ratio)))
+    chosen: list[tuple[int, float]] = []
+    for i, d in sorted(candidates, key=lambda c: (-abs(c[1]), c[0])):
+        if all(abs(i - j) >= _STEP_HALF for j, _ in chosen):
+            chosen.append((i, d))
+    out: list[Step] = []
+    for i, d in sorted(chosen):
+        later = [x for x in adjusted[i:] if x]
+        earlier = [x for x in adjusted[:i] if x]
+        stays = bool(later and earlier) and (median(later) < median(earlier)) == (d < 0)
+        out.append(
+            Step(
+                index=i,
+                month=p.history.months[i],
+                ratio=math.exp(d),
+                stays=stays,
+                edition_ratio=_level_ratio(list(p.history.edition), i),
+            )
+        )
+    return out
+
+
+def pair_steps(
+    history: PairHistory,
+    settings: ObservationSettings = _DEFAULT,
+    *,
+    threshold: float | None = None,
+) -> tuple[list[Step], tuple[float | None, ...], frozenset[int]]:
+    """The steps of a pair, its seasonally adjusted share, and its unusual months.
+
+    What the ``step`` observations and the window's trend read, from the first month with
+    data (indices count from it; see :func:`first_data`). ``threshold`` replaces the
+    observations' ``step`` ratio (the window's trend splits at smaller steps).
+
+    Returns:
+        The steps (oldest first), the adjusted share per month (``None`` for missing and
+        unusual months) and the indices of the unusual months (bursts, plateaus).
+    """
+    pair = _prepare(history, 0, settings)
+    unusual = frozenset(k for k in range(pair.n) if not pair.usual(k))
+    return _steps(pair, settings, threshold), tuple(_adjusted(pair)), unusual
+
+
+def first_data(history: PairHistory) -> PairHistory | None:
+    """``history`` from its first month with data; ``None`` without any."""
+    return _from_first_data(history)
 
 
 def _level_ratio(values: Sequence[float | None], i: int) -> float | None:
@@ -1277,23 +1307,28 @@ def _level_ratio(values: Sequence[float | None], i: int) -> float | None:
 
 @dataclass(frozen=True, slots=True)
 class _Standing:
-    """A pair's level "now" (its last calendar year) and how it moved a year on."""
+    """A pair "now" (the last twelve months of the window) and its verdict over the window."""
 
     pair: _Pair
     share: float
     views: float
-    change: float | None
-    """The share's change against a year earlier (%)."""
+    trend: WindowTrend | None
+    """The window's verdict (``None`` when it was not read)."""
     period: str
     """The months "now" covers, as the statement names them."""
     year: YearChange | None = None
-    """"Now" against the same months a year earlier: views, edition, share."""
+    """"Now" against the twelve months before: views, edition, share."""
     against: str = ""
-    """What "now" is compared with: "2024", "the same months of 2025"."""
+    """What "now" is compared with: "September 2024 – August 2025"."""
+
+    @property
+    def verdict(self) -> TrendVerdict:
+        """The window's verdict, ``insufficient_data`` when it was not read."""
+        return self.trend.verdict if self.trend else TrendVerdict.INSUFFICIENT_DATA
 
 
-def _standing(pair: _Pair, detector: _Detector, settings: ObservationSettings) -> _Standing | None:
-    window = pair.now(settings)
+def _standing(pair: _Pair, detector: _Detector) -> _Standing | None:
+    window = pair.now()
     if window is None:
         return None
     share = pair.share(window.first, window.stop)
@@ -1304,7 +1339,7 @@ def _standing(pair: _Pair, detector: _Detector, settings: ObservationSettings) -
         pair,
         share,
         views,
-        detector.last_change,
+        detector.trend,
         window.label,
         year=detector.year_change,
         against=detector.against,
@@ -1312,14 +1347,28 @@ def _standing(pair: _Pair, detector: _Detector, settings: ObservationSettings) -
 
 
 _VIEWS_WORDS = {"up": "went up", "flat": "held", "down": "went down"}
+_VERDICT_WORDS = {
+    TrendVerdict.GROWING: "grows",
+    TrendVerdict.STABLE: "holds steady",
+    TrendVerdict.DECLINING: "declines",
+    TrendVerdict.INSUFFICIENT_DATA: "has too little data for a verdict",
+}
+"""How a sentence says a window's verdict on the attention share."""
+_RANK = {
+    TrendVerdict.GROWING: 2,
+    TrendVerdict.STABLE: 1,
+    TrendVerdict.DECLINING: 0,
+    TrendVerdict.INSUFFICIENT_DATA: -1,
+}
+"""Which verdict is the stronger signal for the next check."""
 
 
 def _editions(a: _Standing, b: _Standing, settings: ObservationSettings) -> list[Observation]:
     """One topic in two editions over the same months, compared rather than told twice.
 
-    The audience (views a month), the attention share (the same against the size of each
-    Wikipedia), where the views went and whether each article gained, held or lost its share,
-    against the same months a year earlier; then what that means for the next check.
+    The audience (views a month) and the attention share (the same against the size of each
+    Wikipedia) "now", where the views went against the twelve months before, and the window's
+    verdict on each share; then what that means for the next check.
     """
     w = _Words()
     topic = a.pair.history.topic
@@ -1335,10 +1384,9 @@ def _editions(a: _Standing, b: _Standing, settings: ObservationSettings) -> list
         + " "
         + _shares(w, topic, (big, small), name, settings, similar=similar)
     )
-    if big.year is not None and small.year is not None:
-        text += " " + _directions(w, (big, small), name, settings)
+    text += " " + _directions(w, (big, small), name, settings)
     topic_id = a.pair.history.topic_id
-    hint = _where_to_look(topic, (big, small), name, settings, similar=similar)
+    hint = _where_to_look(topic, (big, small), name)
     return [
         Observation(
             id=f"editions:{topic_id}",
@@ -1439,93 +1487,72 @@ def _directions(
     name: Callable[[_Standing], str],
     settings: ObservationSettings,
 ) -> str:
-    """Where the views went and whether each article kept its share, a year on."""
+    """Where the views went against the twelve months before, and each window's verdict."""
     big, small = two
-    assert big.year is not None
-    assert small.year is not None
-    against = big.against if big.against == small.against else "a year earlier"
-    x, y = big.year.article, small.year.article
-    dx, dy = views_direction(x, settings), views_direction(y, settings)
-    if dx == dy != "flat":
-        faster = big if abs(x) > abs(y) else small
-        pace = (
-            f", more sharply in {name(faster)}"
-            if abs(x - y) > settings.moves
-            else ", at about the same pace"
+    text = ""
+    if big.year is not None and small.year is not None:
+        against = big.against if big.against == small.against else "the twelve months before"
+        x, y = big.year.article, small.year.article
+        dx, dy = views_direction(x, settings), views_direction(y, settings)
+        if dx == dy != "flat":
+            faster = big if abs(x) > abs(y) else small
+            pace = (
+                f", more sharply in {name(faster)}"
+                if abs(x - y) > settings.moves
+                else ", at about the same pace"
+            )
+            verb = "read less" if dx == "down" else "read more"
+            text = (
+                f"Against {against} both are {verb}: {name(big)} {w.pct(x)}, {name(small)} "
+                f"{w.pct(y)} views{pace}. "
+            )
+        elif dx == dy:
+            text = f"Against {against} both hold steady ({w.pct(x)} and {w.pct(y)} views). "
+        else:
+            text = (
+                f"Against {against} the views {_VIEWS_WORDS[dx]} in {name(big)} ({w.pct(x)}) and "
+                f"{_VIEWS_WORDS[dy]} in {name(small)} ({w.pct(y)}). "
+            )
+    if big.verdict == small.verdict:
+        return (
+            text + f"The window's verdict on the attention share: it {_VERDICT_WORDS[big.verdict]} "
+            "in both."
         )
-        verb = "read less" if dx == "down" else "read more"
-        text = (
-            f"Against {against} both are {verb}: {name(big)} {w.pct(x)}, {name(small)} "
-            f"{w.pct(y)} views{pace}."
-        )
-    elif dx == dy:
-        text = f"Against {against} both hold steady ({w.pct(x)} and {w.pct(y)} views)."
-    else:
-        text = (
-            f"Against {against} the views {_VIEWS_WORDS[dx]} in {name(big)} ({w.pct(x)}) and "
-            f"{_VIEWS_WORDS[dy]} in {name(small)} ({w.pct(y)})."
-        )
-    mx, my = share_move(big.year.share, settings), share_move(small.year.share, settings)
-    if mx == my:
-        return f"{text} Against its own Wikipedia the article {mx} attention share in both."
     return (
-        f"{text} Against its own Wikipedia it {mx} attention share in {name(big)} and {my} it "
-        f"in {name(small)}."
+        text + f"The window's verdict on the attention share: it {_VERDICT_WORDS[big.verdict]} in "
+        f"{name(big)} and {_VERDICT_WORDS[small.verdict]} in {name(small)}."
     )
 
 
-def _where_to_look(  # noqa: PLR0911 -- one wording per case
-    topic: str,
-    two: _Two,
-    name: Callable[[_Standing], str],
-    settings: ObservationSettings,
-    *,
-    similar: bool,
-) -> str:
-    """The trade-off for the next check: a larger audience against a growing one.
+def _where_to_look(topic: str, two: _Two, name: Callable[[_Standing], str]) -> str:
+    """The trade-off for the next check: a larger audience against a stronger verdict.
 
     Wikipedia is a signal to check further, never a decision; a small audience that grows is
     an early signal whose low base may inflate it.
     """
     big, small = two
-    if big.year is None or small.year is None:
-        if similar:
-            return f"The two audiences of {topic} are about the same size."
+    vb, vs = big.verdict, small.verdict
+    if vb == vs:
+        return {
+            TrendVerdict.GROWING: f"Interest in {topic} grows in both editions: {name(big)}, "
+            "the larger audience, is the natural place to check further.",
+            TrendVerdict.STABLE: f"Interest in {topic} holds steady in both editions, with no "
+            f"sign of growth: {name(big)} offers the larger existing audience.",
+            TrendVerdict.DECLINING: f"Interest in {topic} shrinks in both editions: Wikipedia "
+            f"gives no growth signal; {name(big)} is still the larger audience.",
+            TrendVerdict.INSUFFICIENT_DATA: f"The data give no verdict on {topic} in either "
+            "edition.",
+        }[vb]
+    if _RANK[vb] > _RANK[vs]:
         return (
-            f"{name(big)} is the larger audience for {topic}: the natural place to start checking."
-        )
-    big_up = views_direction(big.year.article, settings) == "up"
-    small_up = views_direction(small.year.article, settings) == "up"
-    if similar:
-        if big_up and small_up:
-            return (
-                f"The two audiences of {topic} are about the same size and both grow: a signal "
-                "worth checking further in either."
-            )
-        if big_up or small_up:
-            grows = big if big_up else small
-            return (
-                f"The two audiences of {topic} are about the same size, and only {name(grows)} "
-                "grows: the stronger signal to check further."
-            )
-        return (
-            f"The two audiences of {topic} are about the same size, and neither grows: "
-            "Wikipedia gives no growth signal to check."
-        )
-    if big_up:
-        also = f"; {name(small)} grows too, from a smaller base" if small_up else ""
-        return (
-            f"{name(big)} is the larger audience for {topic} and it grows{also}: the stronger "
-            "signal to check further."
-        )
-    if small_up:
-        return (
-            f"{name(big)} offers the larger existing audience, but only {name(small)} grows: an "
-            "early signal there; check whether its small base inflates the growth."
+            f"{name(big)} is the larger audience for {topic} and its interest "
+            f"{_VERDICT_WORDS[vb]}, while in {name(small)} it {_VERDICT_WORDS[vs]}: {name(big)} "
+            "is the stronger signal of the two."
         )
     return (
-        f"{name(big)} offers the larger existing audience, but neither edition shows growing "
-        f"interest in {topic}."
+        f"{name(big)} offers the larger audience, but interest {_VERDICT_WORDS[vs]} in "
+        f"{name(small)} and {_VERDICT_WORDS[vb]} in {name(big)}: an early signal in "
+        f"{name(small)}; check whether its small base inflates it."
     )
 
 
@@ -1549,11 +1576,10 @@ def _topics(standings: Sequence[_Standing], settings: ObservationSettings) -> li
     if parts:
         text += " (relative to the edition): " + "; ".join(parts)
     text += "."
-    moving = [x for x in ranked if x.change is not None]
-    if moving:
-        text += f" The share in {top.period} against a year earlier: " + ", ".join(
-            f"{x.pair.history.topic} {w.pct(x.change)}"  # type: ignore[arg-type]
-            for x in moving
+    judged = [x for x in ranked if x.verdict is not TrendVerdict.INSUFFICIENT_DATA]
+    if judged:
+        text += " The window's verdict on each share: " + ", ".join(
+            f"{x.pair.history.topic} {_VERDICT_WORDS[x.verdict]}" for x in judged
         )
         text += "."
     out = [
@@ -1566,8 +1592,8 @@ def _topics(standings: Sequence[_Standing], settings: ObservationSettings) -> li
             numbers=tuple(w.quoted),
         )
     ]
-    rising = [x for x in moving if x.change is not None and x.change > settings.moves]
-    falling = [x for x in moving if x.change is not None and x.change < -settings.moves]
+    rising = [x for x in judged if x.verdict is TrendVerdict.GROWING]
+    falling = [x for x in judged if x.verdict is TrendVerdict.DECLINING]
     if rising and falling:
         names = ", ".join(x.pair.history.topic for x in rising)
         out.append(
@@ -1686,24 +1712,28 @@ def year_levels(
 def observe(
     histories: Sequence[PairHistory],
     *,
-    trend_start: date | None = None,
+    window_start: date | None = None,
+    trends: Mapping[str, WindowTrend] | None = None,
     settings: ObservationSettings = _DEFAULT,
 ) -> list[Observation]:
     """Every observation the series support, most important first within each pair.
 
     Args:
-        histories: One per (topic, edition) with an article, over the whole window read
-            (the season uses all of it).
-        trend_start: First month the trend detectors read; ``None`` reads the whole window.
-            A period the user named is read on its own.
+        histories: One per (topic, edition) with an article, over the whole history read
+            (the context: the long view, the season and the steps use all of it).
+        window_start: First month of the analysis window; ``None`` reads the whole history
+            as the window.
+        trends: The window's verdict of each pair, keyed by ``<topic>/<language>`` (see
+            :func:`~wiki_interest.domain.trust.window_trend`).
         settings: Detector thresholds.
     """
     trimmed = [t for h in histories if (t := _from_first_data(h)) is not None]
-    prepared = [_prepare(h, _index_of(h.months, trend_start), settings) for h in trimmed]
+    prepared = [_prepare(h, _index_of(h.months, window_start), settings) for h in trimmed]
+    verdicts = trends or {}
     out: list[Observation] = []
     detectors: dict[str, _Detector] = {}
     for pair in prepared:
-        detector = _Detector(pair, settings)
+        detector = _Detector(pair, settings, verdicts.get(pair.history.pair))
         found = detector.run()
         detectors[pair.history.pair] = detector
         out.extend(sorted(found, key=lambda o: _ORDER[o.weight]))
@@ -1711,8 +1741,7 @@ def observe(
     standings = {
         p.history.pair: s
         for p in prepared
-        if not p.history.substitute
-        and (s := _standing(p, detectors[p.history.pair], settings)) is not None
+        if not p.history.substitute and (s := _standing(p, detectors[p.history.pair])) is not None
     }
     by_topic: dict[str, list[_Standing]] = {}
     by_edition: dict[str, list[_Standing]] = {}
@@ -1725,77 +1754,7 @@ def observe(
     for group in by_edition.values():
         if len(group) >= 2:  # noqa: PLR2004
             out.extend(_topics(group, settings))
-    if len(by_topic) == 1:
-        headline = _headline(next(iter(by_topic.values())), settings)
-        if headline is not None:
-            out.append(headline)
     return out
-
-
-_ONE_EDITION = {
-    ("up", "gained"): "is growing, faster than its Wikipedia",
-    ("up", "held"): "is growing with its Wikipedia",
-    ("up", "lost"): "is growing, but more slowly than its Wikipedia",
-    ("down", "lost"): "is falling, faster than its Wikipedia",
-    ("down", "held"): "is falling with its Wikipedia as a whole",
-    ("down", "gained"): "is falling, but less than its Wikipedia as a whole",
-}
-_GROUP_WORDS = {"up": "growing", "down": "falling", "flat": "holding steady"}
-
-
-def _headline(group: Sequence[_Standing], settings: ObservationSettings) -> Observation | None:
-    """The answer in one sentence without numbers, over the window of the charts.
-
-    For one topic: where its views went against the same months a year earlier, in each
-    edition, and for one edition whether that beat its Wikipedia. The template text uses it
-    as its headline; the agent may write its own.
-    """
-    moved = [x for x in group if x.year is not None]
-    if not moved:
-        return None
-    topic = moved[0].pair.history.topic
-    directions = {
-        id(x): views_direction(x.year.article, settings) for x in moved if x.year is not None
-    }
-    if len(moved) == 1:
-        (only,) = moved
-        assert only.year is not None
-        direction = directions[id(only)]
-        move = share_move(only.year.share, settings)
-        what = _ONE_EDITION.get((direction, move), "is holding steady")
-        text = f"Interest in {topic} in {edition_name(only.pair.history.project)} {what}."
-    elif len(set(directions.values())) == 1:
-        direction = next(iter(directions.values()))
-        scope = "both editions" if len(moved) == 2 else "every edition"  # noqa: PLR2004
-        text = f"Interest in {topic} is {_GROUP_WORDS[direction]} in {scope}"
-        if direction != "flat" and len(moved) == 2:  # noqa: PLR2004
-            a, b = moved
-            assert a.year is not None
-            assert b.year is not None
-            if abs(a.year.article - b.year.article) > settings.moves:
-                sharper = a if abs(a.year.article) > abs(b.year.article) else b
-                how = "more sharply" if direction == "down" else "faster"
-                text += f", {how} in {edition_name(sharper.pair.history.project)}"
-            else:
-                text += ", at about the same pace"
-        text += "."
-    else:
-        parts = [
-            f"{_GROUP_WORDS[d]} in "
-            + " and ".join(
-                edition_name(x.pair.history.project) for x in moved if directions[id(x)] == d
-            )
-            for d in ("up", "flat", "down")
-            if d in directions.values()
-        ]
-        text = f"Interest in {topic} is " + "; ".join(parts) + "."
-    return Observation(
-        id=f"headline:{moved[0].pair.history.topic_id}",
-        kind="headline",
-        pair=None,
-        weight=Weight.CONTEXT,
-        statement=text[0].upper() + text[1:],
-    )
 
 
 def _from_first_data(history: PairHistory) -> PairHistory | None:

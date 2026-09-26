@@ -224,7 +224,7 @@ class TestRenderNarrative:
     ) -> None:
         payload = self._run(tmp_path)
         template = self._template(payload)
-        path = _write_request(tmp_path, {**template, "headline": "Up 21 %."}, "narrative.json")
+        path = _write_request(tmp_path, {**template, "check": ""}, "narrative.json")
         code, rendered = _invoke("render", str(payload["run_dir"]), "--narrative", str(path))
         assert code == 2
         assert rendered["status"] == "rejected"

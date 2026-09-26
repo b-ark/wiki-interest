@@ -67,7 +67,7 @@ def test_the_page_reads_as_a_decision_memo_in_order(
     body = [
         "Interest in intermittent fasting is growing faster in Czech",
         "intermittent fasting (Q",  # what was analysed: topic and item
-        "Period: 2024-09 – 2026-08",
+        "Analysis period: 2024-09 – 2026-08",
         "What is going on",
         "What it means for you",
         "Next step: confirm the signal for cs.wikipedia",
@@ -75,7 +75,7 @@ def test_the_page_reads_as_a_decision_memo_in_order(
     # The footer is drawn first (its height decides where the content ends).
     footer = [
         "Attention share = article views per 1M views of that Wikipedia",
-        "each calendar year against the same months a year earlier",
+        "the trend of the attention share over the analysis period",
         "Views show interest, not willingness to pay",
         "a language edition is not a country",
         "method.md",

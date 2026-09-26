@@ -96,8 +96,8 @@ def _russian(facts: Facts) -> Narrative:
             story=[
                 Paragraph(
                     text=(
-                        "В украинской Википедии статью открывают около 4 300 раз в месяц. "
-                        "За последний год её доля в чтении раздела выросла на 20 %, хотя сам "
+                        "В украинской Википедии статью открывают около 4 200 раз в месяц. "
+                        "За последний год её доля в чтении раздела выросла на 21 %, хотя сам "
                         "раздел читают столько же: тема набирает внимание сама."
                     ),
                     uses=["size:astronomy/uk", VS_UK],
@@ -105,7 +105,7 @@ def _russian(facts: Facts) -> Narrative:
                 Paragraph(
                     text=(
                         "С поправкой на размер раздела интерес в обеих Википедиях примерно "
-                        "одинаковый, но украинская аудитория больше: около 4 300 просмотров "
+                        "одинаковый, но украинская аудитория больше: около 4 200 просмотров "
                         "в месяц против 2 000."
                     ),
                     uses=[EDITIONS],
@@ -131,8 +131,8 @@ class TestFacts:
         observations = {o.id: o for o in facts.observations}
         vs = observations[VS_UK]
         assert vs.weight == "high"
-        assert "+20 %" in vs.statement
-        assert any(q.value == 20 and q.percent for q in vs.numbers)
+        assert "+21 %" in vs.statement
+        assert any(q.value == 21 and q.percent for q in vs.numbers)
         assert observations[START_WITH].weight == "decision"
         assert facts.rules
         assert facts.example["narrative"]["story"][0]["uses"]
@@ -184,7 +184,7 @@ class TestFacts:
         _, run_dir = _run(tmp_path, "en")
         summary = load_summary(run_dir)
         assert summary.narrative_source == "template"
-        assert any("+20" in paragraph for paragraph in summary.happening)
+        assert any("+21" in paragraph for paragraph in summary.happening)
         assert all(a.robustness_line is None for a in summary.assessments)
 
 
@@ -355,20 +355,20 @@ class TestComparison:
         english = narrative.story[0].model_copy(
             update={
                 "text": "The Russian Wikipedia is the larger audience: the article is opened "
-                "about 4 300 times a month there, and both editions are read less."
+                "about 4 200 times a month there, and both editions are read less."
             }
         )
         broken = narrative.model_copy(update={"story": [english, *narrative.story[1:]]})
         assert any("not in English" in m for m in _messages(facts, broken))
         assert not any("not in English" in m for m in _messages(facts, narrative))
 
-    def test_the_chart_labels_to_translate_include_those_shown_only_when_cited(
+    def test_the_chart_labels_to_translate_include_the_window_and_its_trend(
         self, tmp_path: Path
     ) -> None:
-        # The last months are shaded only when the text cites them, which it does after the
-        # translations were asked for: their label is asked for anyway.
-        _, run_dir = _run(tmp_path, "de")
-        assert "chart.share.legend_recent" in _facts(run_dir).ui
+        ui = _facts(_run(tmp_path, "de")[1]).ui
+        assert "chart.share.legend_window" in ui
+        assert "chart.share.legend_trend" in ui
+        assert "verdict.line" in ui
 
     def test_the_next_step_names_the_edition_that_grows(self, tmp_path: Path) -> None:
         # uk grows against the same months of 2025, cs holds: check where the growth is.
@@ -377,13 +377,15 @@ class TestComparison:
         assert "check the interest in the Ukrainian Wikipedia" in check
         assert "invest" not in check
 
-    def test_the_template_headline_is_the_headline_observation(self, tmp_path: Path) -> None:
+    def test_the_headline_is_the_codes_from_the_window_verdicts(self, tmp_path: Path) -> None:
         _, run_dir = _run(tmp_path, "en")
-        facts = _facts(run_dir)
-        headline = next(o for o in facts.observations if o.kind == "headline")
-        assert _template(run_dir).headline == headline.statement
-        assert "fastest" not in headline.statement
-        assert not any(ch.isdigit() for ch in headline.statement)
+        headline = load_summary(run_dir).verdict.headline
+        assert _template(run_dir).headline == headline
+        assert headline == (
+            "Astronomy: interest grows in the Ukrainian Wikipedia; interest is stable in the "
+            "Czech Wikipedia."
+        )
+        assert not any(o.kind == "headline" for o in _facts(run_dir).observations)
 
     def test_a_story_without_the_comparison_is_rejected(self, ru: tuple[Facts, Narrative]) -> None:
         facts, narrative = ru
@@ -431,9 +433,9 @@ class TestRejections:
         [
             ("Доля выросла на 57 %.", [VS_UK], "'57 %' is not in the observations"),
             ("Украинская аудитория в 14 раз больше.", [EDITIONS], "'14' is not in"),
-            ("Статью открывают около 4 300 раз.", [VS_UK], "'4 300' is not in"),
+            ("Статью открывают около 4 200 раз.", [VS_UK], "'4 200' is not in"),
             ("Пять лет назад интерес был другим.", [VS_UK], "not counted back from today"),
-            ("Статью читают 4 300 человек в месяц.", ["size:astronomy/uk"], "not people"),
+            ("Статью читают 4 200 человек в месяц.", ["size:astronomy/uk"], "not people"),
             ("В Украине интерес растёт.", [VS_UK], "not a country"),
             ("Спрос на астрономию растёт.", [VS_UK], "not demand"),
             ("Рост статистически значим.", [VS_UK], "No statistical jargon"),
@@ -480,7 +482,7 @@ class TestRejections:
         self, ru: tuple[Facts, Narrative]
     ) -> None:
         facts, narrative = ru
-        text = "Статью открывают около 4 300 раз в месяц."
+        text = "Статью открывают около 4 200 раз в месяц."
         story = narrative.story
         uncited = narrative.model_copy(
             update={"story": [*story, Paragraph(text=text, uses=[VS_UK])]}
@@ -502,7 +504,7 @@ class TestRejections:
 
     def test_words_for_thousands_times_and_years_pass(self, ru: tuple[Facts, Narrative]) -> None:
         facts, narrative = ru
-        text = "Русская аудитория больше: около 4,3 тысячи просмотров против 2 тысяч."
+        text = "Русская аудитория больше: около 4,2 тысячи просмотров против 2 тысяч."
         fine = _add_to_story(narrative, text, [EDITIONS]).model_copy(
             update={
                 "headline": "Интерес растёт с 2025 года.",
@@ -565,12 +567,13 @@ class TestRejections:
         named = _add_to_story(narrative, "Чешский раздел измерен по статье «Vesmír».", [caution.id])
         assert _messages(facts, named) == []
 
-    def test_headline_is_one_sentence_without_numbers(self, ru: tuple[Facts, Narrative]) -> None:
+    def test_the_agents_headline_is_neither_needed_nor_checked(
+        self, ru: tuple[Facts, Narrative]
+    ) -> None:
+        """The code writes the headline from the verdicts (v0.2); the agent's is not used."""
         facts, narrative = ru
-        broken = narrative.model_copy(update={"headline": "Рост 21 %. Всё хорошо."})
-        messages = _messages(facts, broken)
-        assert any("no numbers" in m for m in messages)
-        assert any("one sentence" in m for m in messages)
+        assert _messages(facts, narrative.model_copy(update={"headline": ""})) == []
+        assert _messages(facts, narrative.model_copy(update={"headline": "Рост 99 %."})) == []
 
     def test_blocks_keep_their_shape(self, ru: tuple[Facts, Narrative]) -> None:
         facts, narrative = ru
@@ -611,6 +614,7 @@ class TestRejections:
     ) -> None:
         _, run_dir = _run(tmp_path, "en")
         facts, narrative = _facts(run_dir), _template(run_dir)
+        narrative = narrative.model_copy(update={"story": narrative.story[:3]})
         stray = _add_to_story(narrative, "Das означает, the topic grows.", [VS_UK])
         assert any("'означает' is in another script" in m for m in _messages(facts, stray))
         named = _add_to_story(narrative, "The article «Астрономія» grows.", [VS_UK])
@@ -626,15 +630,18 @@ class TestNarrate:
         assert outcome.exit_code == 0
         assert outcome.summary.narrative_source == "agent"
         report = (run_dir / "summary.md").read_text(encoding="utf-8")
-        assert narrative.headline in report
+        headline = outcome.summary.verdict.headline  # the code's, from the verdicts
+        assert headline in report
+        assert narrative.headline not in report
         assert "21 %" in report  # the typed space before % no longer breaks the line
         pdf = "".join(page.extract_text() for page in PdfReader(run_dir / "report.pdf").pages)
         assert "украинской" in pdf
         # The chat answer is laid out from the accepted blocks, with next steps and the PDF.
         brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8").strip()
         assert brief.startswith(narrative.topic)  # the agent's line, in the user's language
-        assert narrative.headline in brief
-        assert "около 4 300 раз в месяц" in brief
+        assert headline in brief
+        assert "в украинской Википедии интерес растёт" in brief
+        assert "около 4 200 раз в месяц" in brief
         assert narrative.meaning.text in brief
         assert narrative.check in brief
         assert narrative.limits in brief

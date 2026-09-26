@@ -2,7 +2,7 @@
 
 The code measures and observes; the agent explains. ``facts.json`` holds the observations
 (true statements about the data, each with an id, a weight and the numbers it quotes) and the
-rules for writing. ``narrative.json`` is the agent's text: a headline, a story of a few
+rules for writing. ``narrative.json`` is the agent's text: a story of a few
 paragraphs, what it means for the user's decision, how to check it outside Wikipedia, and the
 limits. Every paragraph lists the observations it relies on (``uses``), so the code can check
 the text against exactly what it cites before it goes into the report.
@@ -65,7 +65,8 @@ class Narrative(_Model):
         language: The language it is written in; must be the report language.
         topic: Which item was analysed, in one line of the report language ("Python, the
             programming language"); the chat answer opens with it. Empty: the code's line.
-        headline: The answer to the user's question in one sentence, without numbers.
+        headline: Not used: the code writes the headline from the window's verdicts, so the
+            answer always matches them (v0.2). Kept so an older text still reads.
         story: Two to four paragraphs that explain what is happening, each citing the
             observations it relies on.
         meaning: What it means for the user's decision, built on the ``decision``
@@ -77,7 +78,7 @@ class Narrative(_Model):
 
     language: str
     topic: str = ""
-    headline: str
+    headline: str = ""
     story: list[Paragraph]
     meaning: Paragraph
     check: str
