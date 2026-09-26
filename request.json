@@ -1,0 +1,24 @@
+{
+  "question_type": "compare",
+  "topics": [
+    {
+      "id": "fasting",
+      "query": "post",
+      "query_language": "pl",
+      "query_en": "fasting",
+      "meaning": "the practice of abstaining from food and drink, including intermittent fasting",
+      "qid": "Q44602"
+    }
+  ],
+  "projects": ["pl", "cs"],
+  "period": {
+    "start": "2024-09",
+    "end": "2026-08"
+  },
+  "normalization": "per_million",
+  "report": {
+    "language": "pl",
+    "audience_note": null
+  },
+  "session": "fasting-pl-cs"
+}
