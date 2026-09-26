@@ -197,6 +197,22 @@ class TopicResolver:
         entity = self._entity(topic, projects)
         if entity.qid is None and entity.linked_article is None and not topic.substitutes:
             self._unidentified(topic, projects)
+        linked = entity.linked_article
+        if linked is not None and linked.project not in projects:
+            # Without an item the article says nothing about other editions, and it cannot
+            # be measured where it is not asked for: it was dropped, and the user was asked
+            # for the link they had just given.
+            raise TopicNotFoundError(
+                f"The linked article {linked.title!r} has no Wikidata item and is in "
+                f"{linked.project.domain}, which the request does not include",
+                topic_id=topic.id,
+                query=topic.query,
+                hint=(
+                    "The article is linked to no other language, so it cannot stand for the "
+                    f"topic elsewhere: add {linked.project.language!r} to projects, or ask the "
+                    "user for an article in one of the requested editions."
+                ),
+            )
         qid = entity.qid
         missing: list[tuple[WikiProject, str]] = []
         mains = self._main_articles(topic, qid, projects, missing)
@@ -559,8 +575,12 @@ class TopicResolver:
                 mains[project] = None
             elif isinstance(choice, SubstituteSpec):
                 mains[project] = self._substitute(project, choice, missing)
-            else:
+            elif qid is not None:
                 mains[project] = self._search_fallback(topic, qid, project)
+            else:
+                # Without the item nothing tells whether a hit is the topic: an honest "no
+                # article" goes to the coverage question instead of a guess.
+                mains[project] = None
         return mains
 
     def _substitute(
@@ -587,7 +607,7 @@ class TopicResolver:
         )
 
     def _search_fallback(
-        self, topic: TopicSpec, qid: str | None, project: WikiProject
+        self, topic: TopicSpec, qid: str, project: WikiProject
     ) -> ArticleRef | None:
         """Search the edition by the user's local term, the entity's label, then the raw query.
 
@@ -600,10 +620,9 @@ class TopicResolver:
         local_term = topic.local_terms.get(project.domain)
         if local_term:
             queries.append(local_term)
-        if qid is not None:
-            local = self._wikidata.labels([qid], project.language).get(qid)
-            if local and local not in queries:
-                queries.append(local)
+        local = self._wikidata.labels([qid], project.language).get(qid)
+        if local and local not in queries:
+            queries.append(local)
         if topic.query not in queries:
             queries.append(topic.query)
         for text in queries:
@@ -664,13 +683,13 @@ class TopicResolver:
         return replace(article, redirects=redirects[: self._settings.max_redirects_per_article])
 
 
-def _same_subject(found_qid: str | None, topic_qid: str | None) -> bool:
+def _same_subject(found_qid: str | None, topic_qid: str) -> bool:
     """Whether a search hit may represent the topic.
 
     Pages without a Wikidata item cannot be checked and are accepted (the reliability check
     still flags the search fallback); pages bound to another item are rejected.
     """
-    return found_qid is None or topic_qid is None or found_qid == topic_qid
+    return found_qid is None or found_qid == topic_qid
 
 
 def _nothing_found(topic: TopicSpec, qid: str | None, bundles: Sequence[TopicBundle]) -> bool:

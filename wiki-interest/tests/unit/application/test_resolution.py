@@ -245,6 +245,21 @@ class TestArticleLink:
         assert main is not None
         assert (main.title, main.source) == ("Зоря", ResolutionSource.MANUAL)
 
+    def test_a_link_without_item_outside_the_request_is_not_dropped(self) -> None:
+        """It was ignored, and the user was asked for the link they had just given."""
+        wikidata, mediawiki = _world()
+        topic = _topic(query="zzz", article_url="https://uk.wikipedia.org/wiki/Зоря")
+        with pytest.raises(TopicNotFoundError) as excinfo:
+            TopicResolver(wikidata, mediawiki).resolve(topic, [CS])
+        assert "'uk' to projects" in (excinfo.value.hint or "")
+
+    def test_without_the_item_no_other_edition_is_guessed_by_search(self) -> None:
+        wikidata, mediawiki = _world()
+        mediawiki.add_search(CS, "zzz", ["Věda"])
+        topic = _topic(query="zzz", substitutes={"uk": {"title": "Зоря", "kind": "mention"}})
+        resolved = TopicResolver(wikidata, mediawiki).resolve(topic, [UK, CS])
+        assert resolved.bundle_for(CS).status is BundleStatus.NOT_FOUND
+
     def test_broken_link_is_reported(self) -> None:
         wikidata, mediawiki = _world()
         topic = _topic(article_url="https://uk.wikipedia.org/wiki/Nope")
