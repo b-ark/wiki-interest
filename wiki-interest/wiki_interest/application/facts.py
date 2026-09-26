@@ -116,6 +116,11 @@ RULES: tuple[str, ...] = (
     "add no causes of your own and no outside events.",
     "Name editions by their language ('the Polish Wikipedia'), never by a country.",
     "Cite every caution observation of an edition your text talks about.",
+    "An edition measured through a substitute article (a caution says so) is not the topic: "
+    "say it has no article on the topic, name the article that was measured, and never set "
+    "its numbers against the topic's as the same audience.",
+    "When the user asked for raw views (caution:raw_views), say that the views are not "
+    "adjusted for the size of each Wikipedia before any comparison of them.",
     "ui: every label of facts.ui translated into the report language, same keys, "
     "{placeholders} kept as they are; leave 'ui' empty only when facts.ui is empty.",
 )
