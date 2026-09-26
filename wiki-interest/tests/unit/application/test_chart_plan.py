@@ -172,7 +172,6 @@ class TestMainChart:
         assert (line.trend.value_start, line.trend.value_end) == (50.0, 50.0)
         assert line.trend.verdict == "stable"
         assert (data.window_start, data.window_end) == ("2024-09", "2026-08")
-        assert data.recent_months == 0
 
     def test_raw_views_draw_views_a_month_and_no_trend(self) -> None:
         data = _data(_history(lambda _k: 5_000.0), absolute=True)

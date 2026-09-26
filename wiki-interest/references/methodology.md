@@ -99,7 +99,88 @@ The automated-traffic diagnostic uses the same canonical main title for its user
 series, without redirects, which have no automated counterpart. Missing diagnostic data
 remains unavailable.
 
-## 5. The answer: size, momentum, the edition, confidence
+## 5. The analysis window, its verdicts and the trust in them (v0.2)
+
+**Window and context.** The *analysis window* is the period the user named (default: the last
+24 complete months). The headline, each language's verdict, the comparison between languages
+and the recommendation read it alone. The six years before its end are *context*: the main
+chart shows them from their first January, the long view and the steps before the window are
+observations weighted `context` and worded "in the wider context since 2021", and the PDF's
+header says "Analysis period: 2024-09 – 2026-08 · Context on the charts: from 2021".
+
+**Verdict** (`domain/trust.py`, `window_trend`), per language, on the attention share:
+
+1. The monthly share with the seasonal rhythm divided out (the same profile as the season
+   observation); bursts, plateaus and months where one day took over 20 % of the views are
+   left out.
+2. If a step lies inside the window (six months against six, at least ×1.25) and leaves at
+   least 12 months after it, the trend is read from the step on: a level that fell once and
+   then held has *stabilised*; one that fell and falls on *keeps declining*.
+3. The Theil–Sen slope of the log share over that segment, in % a year. Within ±10 % a year
+   the verdict is `stable`, else `growing` or `declining`. Under 12 months in the window or
+   under 100 views a month: `insufficient_data`.
+4. The reader sees the trend line's level at the segment's start and at the window's end
+   ("8.9 → 8.2 per million"), the same numbers the chart writes on the line.
+
+**Trust** (`assess_trust`), per verdict:
+
+| Metric | How | Signal |
+|---|---|---|
+| `yoy_consistency` | months of the window's last twelve on the verdict's side of the same month a year earlier | ≥ 9 of 12 |
+| `slope_pct_per_year`, `ci90` | Theil–Sen; 90 % interval from a moving-block bootstrap (3-month blocks, 1,000 resamples, fixed seed) | the interval leaves out 0 |
+| `snr` | the segment's fitted change / standard deviation of its month-to-month log changes | ≥ 2 |
+| `control_change` | median trend of the edition's control articles over the same months | ≥ 50 % of the article's, same way: the edition moved, not the topic |
+| `breakpoints[]` | every step of the history (×1.35) and the one the verdict starts at; each with the control's change the same month, renames within a month (move log of the title and its redirects), the trends before and after | `artifact` if the control moved ≥ 50 % as much the same way or the article was renamed; `real` otherwise; `unknown` without control data |
+| `max_day_share` | the largest one-day share of a month's views in the window | > 20 %: the month is a spike, left out of the slope |
+| `segment_slopes` | the trends before and after each step | both within ±10 % a year: "a step, not a trend" |
+| `volume_floor` | mean views a month over the window | < 100: `insufficient_data` |
+
+| Verdict | Rule | Confidence |
+|---|---|---|
+| `growing` / `declining` | three signals: year on year, interval without 0, signal/noise | 3 high, 2 medium, 0–1 low |
+| `growing` / `declining` | the control explains the change | low |
+| `stable` | the whole interval within ±10 % a year | high |
+| `stable` | the interval reaches past ±10 % a year | medium |
+| `stable` | fewer than 12 months fitted | low |
+| `insufficient_data` | — | low |
+
+`reasons[]` lists the codes and numbers behind the level, most telling first; the trust line
+("Trust (cs): medium — down in 12 of 12 months year on year; −30 % a year [−38; −18]; the
+change is within the noise (signal/noise 1.9); control articles +5 % a year; no renames.") is
+built from them.
+
+**Control basket.** Per edition, about a hundred articles drawn with a fixed seed from the
+first 1,000 of the top list of the last complete month when the basket is built (the main
+page and other namespaces left out); articles younger than two years and those in the list
+for a burst (over 3× their median of the year before) are left out. Stored with its build
+date next to the HTTP cache and reused for 180 days. Its median share trend and median change
+of level at a month say what the whole edition did. When the basket or the move log cannot be
+fetched, the trust goes without them and says so.
+
+**Recommendation** (`application/recommend.py`): `choice` = the candidate with the strongest
+verdict (growing > stable > declining), then the higher trust, then the larger audience,
+named even when none grows ("if you pick one"); `why` = each candidate's verdict with its
+trend line; `confidence` = the chosen verdict's trust; `next_check` = what the skill can run
+itself: neighbouring articles through Wikidata (subclass of, different from, part of, has
+part, facet of, said to be the same as) with an article in the chosen edition, else further
+large editions that have the article; a check outside Wikipedia only when neither is left.
+
+**Names.** An item is named by the title of its article in the report language's Wikipedia
+("веганство" for Q181138 in Ukrainian, where Wikidata's label is "веганізм"), lower-cased when
+it is a common noun (Wikidata's English label is).
+
+**Numbers.** Before the PDF is written every number of its text (headline, verdict, trust and
+recommendation lines, the story, the meaning) is checked against the result's fields within
+the rounding it is written with; a number nobody computed stops the render. The views chart
+shows three significant digits and computes its percentages from the shown values.
+
+Every threshold lives in `TrustSettings` and can be set with `WIKI_INTEREST_TRUST_<NAME>`;
+each run's `method.md` lists the values in force and each verdict's metrics.
+
+## 5b. The earlier answer: size, momentum, the edition, confidence
+
+The fields below (`assessments`, `decision`) are kept for `summary.md` and the evaluation
+harness; the headline and the recommendation now come from section 5.
 
 The report leads with an answer built by fixed rules (`AssessmentSettings`), so the same
 numbers always give the same words and no reader has to weigh five percentages.
@@ -184,16 +265,21 @@ Each observation has a weight: `caution` (the text must carry it), `high`, `medi
 
 The observations and every number are the code's. The sentences in the report are the
 agent's: `run.py` writes the observations into `facts.json` with the rules and a worked
-example, and the agent writes `narrative.json` in the user's language: a headline, a story
-of two to four paragraphs, what it means for the decision, a check outside Wikipedia and one
-line of limits. Every paragraph lists the observations it relies on. `render.py --narrative`
+example, and the agent writes `narrative.json` in the user's language: a story of two to
+four paragraphs, the meaning (it explains the code's recommendation) and one line of limits.
+The headline, the verdict and trust lines, the recommendation line and the next check are
+the code's (section 5). Every paragraph lists the observations it relies on. `render.py --narrative`
 accepts the text only when:
 
 - every number in a paragraph is one of the observations it cites (within the rounding it
   was written with), and every cited id exists;
 - the story cites at least one caution or high observation, the meaning a decision one, and
   every caution is cited somewhere;
-- the headline is one sentence without numbers, and every block keeps its length;
+- the meaning cites the recommendation observation and names its choice, and every block
+  keeps its length;
+- one term per measure: "частка уваги" / "доля внимания" / "attention share", "перегляди",
+  "мовний розділ"; a few Ukrainian wordings a cheap model got wrong are rejected with the
+  right one ("порівняно з", "перегляди", "інтерес", "в абсолютних");
 - no block counts back from today ("five years ago") instead of naming the period, counts
   views as people, or names a country for an edition; the headline and the story never call
   views demand; no block uses statistical jargon or "1 in N" (word lists for en, uk, ru,
@@ -274,25 +360,18 @@ environment variable (`WIKI_INTEREST_SEASON_MIN_YEARS=6`, `WIKI_INTEREST_MIN_MOM
 ### Charts
 
 - **Main chart**, every report ("Attention share over time"): the attention share (views
-  without normalisation) of up to three audiences on one scale, over the calendar years the
-  observations read. A pale line gives each month; a segment at each year's average carries
-  its value, the same number the text quotes; a partial last year is dashed. The share
-  already sets the topic against its Wikipedia: an article falling faster than its edition
-  makes the line fall. A step or a one-off burst is marked when the text cites it (a burst
-  above the other months shows its value at the top edge either way); the last 3 months are
-  shaded only when the text cites the `recent` observation.
-- **Views by year**, under it (not when the user asked for raw views: the main chart shows
-  them): the same audiences and calendar years, each year's mean monthly views as a bar, the
-  audiences side by side on one scale, so a large share of a small Wikipedia is not taken
-  for a large audience. Over each bar, the views against the same months a year earlier (a
-  partial year against the same months only, said in a line under the title). Under the
-  years, one row per audience: whether the article's share of its Wikipedia's views gained
-  (▲), held (≈) or lost (▼) over the same comparison. The share's change is
-  `(article_t / article_t−1) / (edition_t / edition_t−1) − 1`; beyond +10 % it gained, below
-  −10 % it lost, within it held: the threshold at which `vs_edition` calls the share moved,
-  so the row and the text never disagree. Views can grow while the share falls, when the
-  whole Wikipedia grows faster; the two charts together show both. Numbers are rounded as
-  the text rounds them (560, 3,800, 69,000).
+  without normalisation) of up to three audiences on one scale, over the context range. A
+  pale line gives each month; the history's calendar years are quiet segments without
+  values; the analysis window is shaded and carries each audience's trend line, bold, its
+  level written at the start and, with the audience's name, at the end ("ru 8,2"): the
+  numbers of the verdict line. Steps are marked always, a probable technical one
+  (`artifact`) grey; a one-off burst when the text cites it. The last months are no longer
+  shaded (no verdict reads them).
+- **Average monthly views**, under it (not when the user asked for raw views): the twelve
+  months before the last twelve and the last twelve, each audience's mean monthly views as
+  bars on one scale, the values to three significant digits and the change computed from
+  them. Under the last span, one row per audience: the window's verdict on its share, ▲
+  growing, ≈ stable, ▼ declining.
 - The labels of both are built when the report is rendered, in the report's language.
 - **Further chart**, four or more audiences: the mean share (log axis) against its headline
   change, one point per audience.

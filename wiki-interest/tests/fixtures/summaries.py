@@ -740,7 +740,6 @@ def share_years_data(lines: int = 2) -> ShareYears:
             ShareMark(kind="step", line=0, x="2023-08", y=24.0, observation="step:x/uk"),
             ShareMark(kind="spike", line=0, x="2022-08", y=80.0, observation="spike:x/uk"),
         ],
-        recent_months=0,
         window_start="2024-09",
         window_end="2026-08",
     )

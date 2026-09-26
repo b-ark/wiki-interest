@@ -4,7 +4,7 @@ description: Analyse interest in a topic using Wikipedia pageview statistics acr
 compatibility: Requires Python 3.12+ with uv (or pip) and network access to wikimedia.org and wikidata.org.
 metadata:
   author: b-ark
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Wiki Interest
@@ -16,14 +16,24 @@ your answer in the chat.
 
 ## Who does what
 
-The code measures and observes: it fetches up to six years of data, computes every number,
-and writes down what the data show as observations (true statements with their numbers: a
-long decline, a school-year rhythm, a step in October 2024, where the audience is bigger).
-It draws the charts. You explain: pick the observations that answer the user's question and
-connect them into a short story in the user's language, then say what it means for their
-decision. The code checks your text against the observations it cites, puts it into the PDF
-and builds your chat answer from it. Everything you say to the user, questions included, is
-in the language they write in.
+The code measures, decides and observes. It reads the **analysis window** (the period the
+user named, by default the last 24 complete months) and gives each language a verdict on its
+attention share: `growing`, `stable`, `declining` or `insufficient_data`. It says how far each
+verdict can be trusted (`high`, `medium`, `low`, with its reasons: year-on-year months, the
+trend's interval, the edition's control articles, renames). It recommends which language to
+pick and what to check next. It writes the headline, one verdict line and one trust line per
+language, and the recommendation line: those go into the PDF and the chat word for word. The
+six years before the window are context: the charts show them and some observations describe
+them, always named as context. The code also writes observations: true statements with their
+numbers (a step in October 2024, where the audience is bigger).
+
+You explain: pick the observations that answer the user's question and connect them into a
+short story in the user's language, then explain the code's recommendation. Tell each
+language's direction as its verdict does, never another; do not rephrase or repeat the code's
+lines (the verdict, trust and recommendation lines are printed as they are). The code checks
+your text against the observations it cites, puts it into the PDF and builds your chat answer
+from it. Everything you say to the user, questions included, is in the language they write
+in.
 
 So: never compute a number yourself, never call the Wikimedia API, never write analysis
 code. Every number you write is copied from an observation your paragraph cites; rounding is
@@ -88,18 +98,20 @@ which may be read-only.
    Fields:
    - `language` = `facts.language`; `topic`: which item was analysed, one line in the
      user's language ("ртуть, хімічний елемент"); the chat answer opens with it;
-   - `headline`: the answer to the user's question in one sentence, without numbers;
    - `story`: 2–4 short paragraphs `{"text": ..., "uses": [observation ids]}` that explain
-     what is happening: start from the caution and high observations that answer the
-     question, connect them (why the numbers move, not only that they move), leave the rest
-     out;
-   - `meaning`: `{"text": ..., "uses": [...]}`, what it means for the user's decision,
-     built from the `decision` observations that fit the question;
-   - `check`: one concrete way to check it outside Wikipedia; `limits`: one line (views show
-     curiosity, not willingness to pay; an edition is a language, not a country);
+     what is happening: start from the `trend:` (the verdict), `trust:`, caution and high
+     observations that answer the question, connect them (why the numbers move, not only
+     that they move), leave the rest out;
+   - `meaning`: `{"text": ..., "uses": [...]}`: explain the code's recommendation
+     (`recommendation:...`) in the user's words, name the edition or topic it chose, cite it
+     and the decision observations you use; never pick another;
+   - `limits`: one line (views show curiosity, not willingness to pay; an edition is a
+     language, not a country);
    - `ui`: the interface labels of `facts.ui`, in English: translate each value, keep
      `{placeholders}` (nothing to do when `facts.ui` is empty).
-   The code builds your chat reply from these blocks; do not write one.
+   Leave out `headline` and `check`: the code writes the headline from the verdicts and the
+   next check from the recommendation. The code builds your chat reply from these blocks; do
+   not write one.
 7. **Render:**
 
    ```
@@ -123,6 +135,7 @@ which may be read-only.
    |---|---|
    | "over five years", "since 2020" | `period` (`{"start": "2021-09", "end": "2026-08"}`) |
    | "add German", "also Slovak" | append to `projects` |
+   | "check the neighbouring articles", "yes, add them" | append the `next_check.items` to `topics` (`{"id", "query", "qid"}`), as `recommendations[].next_check.change` says |
    | "that article is not what I meant" | `topics[].qid` of the right meaning from `topics[]` |
    | "raw numbers", "without normalisation" | `normalization: "absolute"` |
    | "which months are strongest", "when to launch" | `report.seasonality: "show"` |
@@ -145,6 +158,25 @@ which may be read-only.
 
 Errors are JSON on stdout with `error`, `exit_code` and `hint`.
 
+## What the result holds
+
+`summary.json` (the run directory) and the chat answer carry what the code decided:
+
+- `analysis_window` and `context_range`: the months the verdicts read, the months the charts
+  show.
+- `verdicts[]`: per language, `verdict`, `segment_start` (after a step inside the window the
+  trend is read from it: "stabilised after a drop"), `level_start` → `level_end` of the trend
+  line (per million views of the edition), `slope_pct_per_year`, and `trust`:
+  `confidence`, `yoy_down`/`yoy_up` of `yoy_months`, `ci90`, `snr`, `control_change`,
+  `breakpoints[]` (each `real`, `artifact` or `unknown`), `max_day_share`, `spike_months`,
+  `reasons[]`, and its `line`.
+- `recommendations[]`: `choice`, `why`, `confidence`, `next_check` (neighbouring articles
+  or more editions the skill can add itself, with the `request.json` change), `line`,
+  `next_line`.
+
+When the user asks "can I trust this?", answer from `trust` (its line says it); when they
+want the next check, `next_check.change` says what to change in `request.json`.
+
 ## What your text must get right
 
 The render step checks that every number comes from an observation the paragraph cites,
@@ -154,7 +186,13 @@ What it cannot check is meaning, so:
 - Say which meaning of the topic was analysed, in one line ("Python, the programming
   language"), even when it seems obvious.
 - Keep each observation's direction and words: "slower than in 2025" is not "speeds up"; a
-  step in one edition is not in both. Name periods as the observations do ("in 2021",
+  step in one edition is not in both. Each language's direction is its verdict's: a stable
+  share is not "falling" even when its views fall.
+- History before the analysis window is context: say so ("in the wider context since
+  2021"), and never tell it as the window's direction.
+- One term per measure: the attention share ("частка уваги", "доля внимания") for views per
+  million of the edition, views ("перегляди") for the article's own count; a language edition
+  is a "мовний розділ" / "языковой раздел". Name periods as the observations do ("in 2021",
   "January–August 2026 against the same months of 2025"), never "five years ago"; a partial
   year is named as partial, and its caution about the season is kept.
 - Every cause or guess comes from an observation and keeps its "possibly" or "probably";

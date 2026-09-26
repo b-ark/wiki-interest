@@ -723,12 +723,11 @@ class MatplotlibChartRenderer:
             if trend is None:
                 continue
             color = self._theme.palette[index % len(self._theme.palette)]
-            for month, value, end in (
-                (trend.start, trend.value_start, False),
-                (trend.end, trend.value_end, True),
-            ):
+            # The end level stands with the audience's name at the line's end (see
+            # ``_share_ends``): two labels there ran into each other.
+            for month, value, end in ((trend.start, trend.value_start, False),):
                 others = [
-                    (o.trend.value_end if end else o.trend.value_start)
+                    o.trend.value_start
                     for j, o in enumerate(share.lines)
                     if j != index and o.trend is not None
                 ]
@@ -835,7 +834,8 @@ class MatplotlibChartRenderer:
         line_mm = self._theme.chart.font_size_pt * PT_TO_MM * END_LABEL_LINE
         gap = ceiling * max(END_LABEL_GAP, line_mm / plot_mm)
         ends = sorted(
-            (_end_value(line), index, line.label) for index, line in enumerate(share.lines)
+            (_end_value(line), index, self._end_name(line, share))
+            for index, line in enumerate(share.lines)
         )
         placed: list[float] = []
         names: list[Annotation] = []
@@ -858,6 +858,12 @@ class MatplotlibChartRenderer:
             )
             names.append(name)
         return names
+
+    def _end_name(self, line: ShareLine, share: ShareYears) -> str:
+        """``ru 8,2``: the audience's name and its trend line's last level, in one label."""
+        if line.trend is None:
+            return line.label
+        return f"{line.label} {self._share_value(line.trend.value_end, absolute=share.absolute)}"
 
     @staticmethod
     def _ends_inside(figure: Figure, names: Sequence[Annotation], width_mm: float) -> None:

@@ -77,8 +77,6 @@ __all__ = [
 
 SHARE_CHART_ID = "share"
 AUDIENCE_CHART_ID = "audience"
-_RECENT = 3
-_RECENT_OBSERVATION = "recent:"
 _MAX_SHARE_LINES = 3
 """More lines on one scale merge; with more audiences the scatter compares them all."""
 _MAX_LINES = 6
@@ -209,7 +207,6 @@ def share_years_data(  # noqa: PLR0913 -- the series, what was found, and the tw
         absolute=absolute,
         lines=[line for _, line in drawn],
         marks=_marks(drawn, observations, trust or {}),
-        recent_months=0,
         window_start=_month_label(window.start) if window.start > context.start else None,
         window_end=_month_label(window.end),
     )

@@ -479,7 +479,13 @@ def compose_chat(
         "",
         f"**{summary.verdict.headline}**",
         "",
-        *(v.line for v in summary.verdicts if v.line),
+        # Each language's verdict and the trust in it, word for word as the PDF has them.
+        *(
+            line
+            for v in summary.verdicts
+            for line in (v.line, v.trust.line if v.trust else "")
+            if line
+        ),
         "",
         *_period_lines(summary, t),
         *_change_lines(summary, previous, t),

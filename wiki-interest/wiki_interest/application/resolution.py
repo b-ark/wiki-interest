@@ -21,6 +21,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import NoReturn
 
+from wiki_interest.application.related import local_names
 from wiki_interest.contracts.request import AnalysisRequest, SubstituteSpec, TopicSpec
 from wiki_interest.domain.entity_choice import CandidateEvidence, ChoiceSettings, choose_by_meaning
 from wiki_interest.domain.models import (
@@ -168,10 +169,15 @@ class TopicResolver:
         return tuple(self._in_language(topic, request.report.language) for topic in resolved)
 
     def _in_language(self, topic: ResolvedTopic, language: str) -> ResolvedTopic:
-        """``topic`` with its item's label in ``language``, when Wikidata has one."""
+        """``topic`` named as the report language's Wikipedia names it.
+
+        The title of its article there ("Веганство" in the Ukrainian Wikipedia), lower-cased
+        for a common noun; the Wikidata label in that language without an article ("веганізм"
+        is Wikidata's, not the Ukrainian Wikipedia's); the topic's own label without either.
+        """
         if topic.qid is None:
             return topic
-        label = self._wikidata.labels([topic.qid], language, fallback=False).get(topic.qid)
+        label = local_names(self._wikidata, [topic.qid], language).get(topic.qid)
         if not label or label == topic.label:
             return topic
         return replace(topic, label=label)

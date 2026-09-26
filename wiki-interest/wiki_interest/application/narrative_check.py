@@ -96,13 +96,26 @@ _DEMAND: Mapping[str, str] = {
     "de": r"nachfrage",
 }
 _TERMS: Mapping[str, tuple[tuple[str, str], ...]] = {
-    "uk": ((r"обсяг\w* уваги", "частка уваги"),),
-    "ru": ((r"объ[её]м\w* внимания", "доля внимания"),),
+    "uk": (
+        (r"обсяг\w* уваги", "частка уваги"),
+        (r"\bвидан\w*", "мовний розділ"),
+        (r"\bпереглядан\w*", "перегляди"),
+        (r"\bцікавіст\w*", "інтерес"),
+        (r"\bза рівняння", "порівняно з"),
+        (r"\bрізко падіння", "різке падіння"),
+        (r"\bу абсолютн\w*", "в абсолютних"),
+    ),
+    "ru": (
+        (r"объ[её]м\w* внимания", "доля внимания"),
+        (r"\bиздани[еяю]\w*", "языковой раздел"),
+    ),
     "en": ((r"attention volume|volume of attention", "attention share"),),
 }
 """One term per measure, as the charts and the code's lines use it: the article's share of its
 Wikipedia's views is the attention share ("частка уваги"), its own count is views
-("перегляди"). A pattern the report language must not use, and the term to write instead."""
+("перегляди"); an edition is a language section ("мовний розділ"). Then wordings a cheap model
+got wrong in Ukrainian (the v0.2 review of the veganism report). A pattern the report language
+must not use, and what to write instead."""
 _UI_MISSING_SHARE = 0.5
 """More labels than this share left out: the report's headings and charts stay English."""
 _UI_MISSING_SHOWN = 6
