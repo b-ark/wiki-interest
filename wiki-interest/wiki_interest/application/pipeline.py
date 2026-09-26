@@ -50,6 +50,7 @@ from wiki_interest.application.summary_builder import (
     SummaryBuilder,
 )
 from wiki_interest.application.window import (
+    compact_trust_line,
     context_range,
     headline,
     read_window,
@@ -586,6 +587,7 @@ def _with_verdict_text(summary: AnalysisSummary, translator: Translator) -> Anal
             "verdict": verdict,
             "recommendations": recommendations,
             "decision": decision,
+            "trust_line": compact_trust_line(verdicts, translator),
         }
     )
 

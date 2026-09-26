@@ -172,6 +172,9 @@ LABELS: Mapping[str, str] = {
     ),
     "chat.follow_up.related_topics": "Я могу добавить в анализ смежные статьи",
     # -- v0.2: the trust in each verdict
+    "trust.compact": "Доверие: {items}.",
+    "trust.compact_item": "{label} — {level}{why}",
+    "trust.compact_why": " ({reason})",
     "trust.line": "Доверие ({label}): {level} — {reasons}.",
     "trust.level.high": "высокое",
     "trust.level.medium": "среднее",

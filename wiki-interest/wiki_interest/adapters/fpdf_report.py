@@ -368,14 +368,6 @@ class _Page:
         note = summary.request.report.audience_note
         if note:
             self._paragraph(note, self._style.subtitle_pt, color=self._theme.muted_color)
-        # The verdict of each language, read on the window alone: what the headline says.
-        for verdict in summary.verdicts:
-            if verdict.line:
-                self._paragraph(verdict.line, self._style.body_pt)
-            if verdict.trust is not None and verdict.trust.line:
-                self._paragraph(
-                    verdict.trust.line, self._style.small_pt, color=self._theme.muted_color
-                )
 
     def _charts_block(self) -> None:
         """The main chart across the page, the second under it, the season if it fits."""

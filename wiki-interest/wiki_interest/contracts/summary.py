@@ -757,6 +757,9 @@ class AnalysisSummary(_Model):
     """The window's verdict of each (topic, edition) with data, in request order."""
     recommendations: list[RecommendationOut] = Field(default_factory=list)
     """One per topic (per edition when topics are compared in one edition)."""
+    trust_line: str | None = None
+    """The trust in every verdict in one line, for the PDF: each language's level and the
+    reason that limits it most. The full trust lines are in ``verdicts[].trust.line``."""
     resolution: list[TopicResolutionOut] = Field(default_factory=list)
     series: list[SeriesOut] = Field(default_factory=list)
     metrics: list[MetricsOut] = Field(default_factory=list)

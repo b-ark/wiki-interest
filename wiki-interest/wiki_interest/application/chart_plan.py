@@ -103,12 +103,13 @@ def _drawn(
     trends: Mapping[str, WindowTrend],
     absolute: bool,
     topic_labels: Mapping[str, str],
+    keep: Collection[str] = (),
 ) -> list[_Drawn]:
     """The audiences both charts draw, in the order of the request.
 
     With more than the lines one scale holds, the largest by their window (views or the
     trend line's last level); the two charts always show the same audiences under the same
-    names.
+    names; the recommendation's choices (``keep``) are always among them.
     """
     topics = {h.topic_id for h in histories}
     languages = {h.language for h in histories}
@@ -132,7 +133,9 @@ def _drawn(
                 return t.views_avg or 0.0
             return t.level_end or 0.0
 
-        largest = sorted(drawn, key=size, reverse=True)[:_MAX_SHARE_LINES]
+        # The recommendation's choice is always drawn, then the largest.
+        largest = sorted(drawn, key=lambda d: (d.history.pair in keep, size(d)), reverse=True)
+        largest = largest[:_MAX_SHARE_LINES]
         kept = {d.history.pair for d in largest}
         drawn = [d for d in drawn if d.history.pair in kept]
     return drawn
@@ -148,6 +151,7 @@ def share_years_data(  # noqa: PLR0913 -- the series, what was found, and the tw
     absolute: bool,
     topic_labels: Mapping[str, str],
     trust: Mapping[str, Trust] | None = None,
+    keep: Collection[str] = (),
 ) -> ShareYears | None:
     """What the main chart draws: the history as context, the analysis window and its trend.
 
@@ -161,9 +165,12 @@ def share_years_data(  # noqa: PLR0913 -- the series, what was found, and the tw
             verdict reads the share).
         topic_labels: Topic id -> label, to name lines when there are several topics.
         trust: The trust in each verdict: a step it finds technical is drawn as such.
+        keep: The recommendation's choices (``<topic>/<language>``): always drawn.
     """
     drawn: list[tuple[PairHistory, ShareLine]] = []
-    for d in _drawn(histories, trends=trends, absolute=absolute, topic_labels=topic_labels):
+    for d in _drawn(
+        histories, trends=trends, absolute=absolute, topic_labels=topic_labels, keep=keep
+    ):
         history = d.history
         kept = [k for k, m in enumerate(history.months) if context.start <= m <= context.end]
         if not kept:
@@ -217,6 +224,7 @@ def audience_years_data(
     *,
     trends: Mapping[str, WindowTrend],
     topic_labels: Mapping[str, str],
+    keep: Collection[str] = (),
 ) -> AudienceYears | None:
     """What the chart of views draws: the twelve months before the last twelve, and the last.
 
@@ -225,7 +233,7 @@ def audience_years_data(
     get from them. Under the last span, the window's verdict on the share.
     """
     lines: list[AudienceLine] = []
-    for d in _drawn(histories, trends=trends, absolute=False, topic_labels=topic_labels):
+    for d in _drawn(histories, trends=trends, absolute=False, topic_labels=topic_labels, keep=keep):
         history = d.history
         n = len(history.months)
         spans = [(n - 2 * _MONTHS, n - _MONTHS), (n - _MONTHS, n)]

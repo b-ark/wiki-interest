@@ -51,6 +51,7 @@ __all__ = [
     "ControlSeries",
     "DayShares",
     "WindowReading",
+    "compact_trust_line",
     "context_range",
     "headline",
     "read_day_shares",
@@ -427,6 +428,39 @@ def trust_out(trust: Trust, settings: TrustSettings | None = None) -> TrustOut:
 
 def _whole(value: float | None) -> float | None:
     return None if value is None else float(round(value))
+
+
+_LIMITING = (
+    "control_explains",
+    "yoy_against",
+    "volume_low",
+    "window_short",
+    "few_months",
+    "ci_zero",
+    "snr_low",
+    "ci_wide",
+    "step_not_trend",
+    "artifact",
+)
+"""Reasons that hold a verdict's trust back, the most telling first: the compact line names one."""
+
+
+def compact_trust_line(verdicts: Sequence[TrendOut], t: Translator) -> str | None:
+    """The trust of every verdict in one line: "Trust: ru medium (…); cs high".
+
+    One line for the page: each language's level and the reason that limits it most, none
+    for a high level. The full lines stay in the chat answer and ``summary.json``.
+    """
+    items = []
+    for v in verdicts:
+        trust = v.trust
+        if trust is None or v.substitute:
+            continue
+        level = t.t(f"trust.level.{trust.confidence}")
+        limiting = next((r for code in _LIMITING for r in trust.reasons if r.code == code), None)
+        why = t.t("trust.compact_why", reason=reason_text(limiting, t)) if limiting else ""
+        items.append(t.t("trust.compact_item", label=v.label, level=level, why=why))
+    return t.t("trust.compact", items="; ".join(items)) if items else None
 
 
 def trust_line(item: TrendOut, t: Translator) -> str:

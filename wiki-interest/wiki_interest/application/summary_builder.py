@@ -254,6 +254,15 @@ class SummaryBuilder:
         verdicts_in = trends or {}
         shown = history_range or period
         topic_labels = {t.topic_id: labels.topic(t.topic_id) for t in resolved}
+        topics_seen = {h.topic_id for h in histories}
+        languages = {h.language for h in histories}
+        pair_labels = {
+            h.pair: line_label(h, topics_seen, languages, topic_labels) for h in histories
+        }
+        substitutes = {h.pair for h in histories if h.substitute}
+        verdicts = trend_outs(verdicts_in, pair_labels, self._t, substitutes, trust)
+        recommendations = _recommendations(verdicts, next_checks or {}, self._t)
+        chosen = {r.choice for r in recommendations if r.choice}
         share_chart = share_years_data(
             histories,
             observations,
@@ -263,21 +272,16 @@ class SummaryBuilder:
             absolute=not normalised,
             topic_labels=topic_labels,
             trust=trust,
+            keep=chosen,
         )
         # With raw views asked for, the main chart shows the views already.
         audience_chart = (
-            audience_years_data(histories, trends=verdicts_in, topic_labels=topic_labels)
+            audience_years_data(
+                histories, trends=verdicts_in, topic_labels=topic_labels, keep=chosen
+            )
             if normalised
             else None
         )
-        topics_seen = {h.topic_id for h in histories}
-        languages = {h.language for h in histories}
-        pair_labels = {
-            h.pair: line_label(h, topics_seen, languages, topic_labels) for h in histories
-        }
-        substitutes = {h.pair for h in histories if h.substitute}
-        verdicts = trend_outs(verdicts_in, pair_labels, self._t, substitutes, trust)
-        recommendations = _recommendations(verdicts, next_checks or {}, self._t)
         recommended = [
             recommendation_observation(r, verdicts, topic_labels.get(r.topic_id, r.topic_id))
             for r in recommendations

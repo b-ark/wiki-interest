@@ -671,6 +671,9 @@ MESSAGES: dict[str, str] = {
     "rec.next.external": "Next check: outside Wikipedia, with Google Trends or a small ad test.",
     "chat.follow_up.related_topics": "I can add the neighbouring articles to this analysis",
     # -- v0.2: the trust in each verdict
+    "trust.compact": "Trust: {items}.",
+    "trust.compact_item": "{label} {level}{why}",
+    "trust.compact_why": " ({reason})",
     "trust.line": "Trust ({label}): {level} — {reasons}.",
     "trust.level.high": "high",
     "trust.level.medium": "medium",

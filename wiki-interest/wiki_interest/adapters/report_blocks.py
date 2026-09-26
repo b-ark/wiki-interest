@@ -126,7 +126,9 @@ def decision_lines(summary: AnalysisSummary) -> list[str]:
     if decision is None:
         return []
     meaning = [decision.summary] if decision.summary else []
-    return [*decision.lines, *meaning, decision.next_step]
+    # The recommendation and the trust in it are one block: a tight page keeps both.
+    code = "\n".join([*decision.lines, *([summary.trust_line] if summary.trust_line else [])])
+    return [*([code] if code else []), *meaning, decision.next_step]
 
 
 # -- labels and tables shared by summary.md and the PDF ------------------------------

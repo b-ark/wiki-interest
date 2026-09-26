@@ -90,6 +90,8 @@ def _texts(summary: AnalysisSummary) -> Iterator[tuple[str, str]]:
     for rec in summary.recommendations:
         yield "recommendation", rec.line
         yield "next check", rec.next_line
+    if summary.trust_line:
+        yield "trust", summary.trust_line
     for paragraph in summary.happening:
         yield "story", paragraph
     decision = summary.decision
