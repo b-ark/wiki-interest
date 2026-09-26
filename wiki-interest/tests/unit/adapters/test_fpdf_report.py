@@ -313,3 +313,12 @@ def test_charts_are_drawn_as_wide_as_the_page_places_them() -> None:
     text_width = A4_WIDTH_MM - 2 * theme.pdf.margin_mm
     assert theme.chart.width_mm == text_width
     assert theme.chart.half_width_mm == (text_width - theme.pdf.chart_gap_mm) / 2
+
+
+def test_the_charts_get_lower_before_a_paragraph_of_the_story_goes() -> None:
+    """The story lost its third paragraph with room for it left at the foot of the page."""
+    renderer = FpdfReportRenderer(Translator("en"))
+    layouts = list(renderer._layouts())
+    first_cut = next(i for i, layout in enumerate(layouts) if layout.max_happening is not None)
+    assert layouts[first_cut].chart_height is not None
+    assert layouts[first_cut].charts == 2

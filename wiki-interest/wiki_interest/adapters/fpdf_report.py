@@ -161,23 +161,20 @@ class FpdfReportRenderer:
         """Tightening sequence, from what the reader misses least to what they miss most.
 
         The seasonal chart goes first (the text states the season), then decision lines
-        beyond the conclusion and sentences of what happened beyond two; then both charts get
-        lower, then the second chart (the views by year) goes, and the main one gets lower
-        still. The headline, the main chart, the conclusion with the next step and the footer
-        always stay; the font never shrinks.
+        beyond the conclusion; then both charts get lower, to the middle height, before any
+        paragraph of what happened goes: that text is the analysis, and a story lost its third
+        paragraph with room for it left at the foot of the page. Then the paragraphs beyond
+        two go, the second chart (the views by year) goes, and the main one gets lower still.
+        The headline, the main chart, the conclusion with the next step and the footer always
+        stay; the font never shrinks.
         """
         style = self._theme.pdf
         layout = _Layout()
         yield layout
-        first = layout
-        for layout in (  # each step from the first; the loop keeps the last
-            replace(first, charts=2),
-            replace(first, charts=2, max_decision=2),
-            replace(first, charts=2, max_decision=2, max_happening=3),
-            replace(first, charts=2, max_decision=1, max_happening=3),
-            replace(first, charts=2, max_decision=1, max_happening=2),
-        ):
-            yield layout
+        layout = replace(layout, charts=2)
+        yield layout
+        layout = replace(layout, max_decision=2)
+        yield layout
         # Two lower charts read better than one: lower both to the middle height first, then
         # drop the second and lower the main one to the minimum.
         heights = []
@@ -189,6 +186,10 @@ class FpdfReportRenderer:
         for height in middle:
             layout = replace(layout, chart_height=height)
             yield layout
+        yield replace(layout, max_happening=3)
+        yield replace(layout, max_decision=1, max_happening=3)
+        layout = replace(layout, max_decision=1, max_happening=2)
+        yield layout
         layout = replace(layout, charts=1, chart_height=None)
         yield layout
         for height in heights:
