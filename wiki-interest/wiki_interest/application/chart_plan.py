@@ -46,11 +46,11 @@ from wiki_interest.contracts.charts import (
     ShareSegment,
     ShareYears,
 )
-from wiki_interest.domain.findings import SeasonalProfile
 from wiki_interest.domain.models import WikiProject
 from wiki_interest.domain.observations import (
     Observation,
     PairHistory,
+    SeasonProfile,
     YearLevel,
     round_count,
     round_share,
@@ -377,6 +377,9 @@ class ChartPlanner:
             with the findings (:func:`~wiki_interest.application.insights.season_visibility`)
             so a chart never shows a pattern the text calls too weak. All are shown when
             not given.
+        seasons: The season of each ``(topic_id, edition domain)``, as the text reads it
+            (:func:`~wiki_interest.domain.observations.season_profile`); an edition without
+            one gets no season chart.
     """
 
     def __init__(
@@ -386,14 +389,19 @@ class ChartPlanner:
         short_label: Callable[[str, WikiProject], str] | None = None,
         *,
         show_season: Callable[[PairAnalysis], bool] | None = None,
+        seasons: Mapping[tuple[str, str], SeasonProfile] | None = None,
     ) -> None:
         self._t = translator
         self._label = pair_label
         self._short = short_label or pair_label
         self._show_season = show_season
+        self._seasons = seasons or {}
+
+    def _season(self, pair: PairAnalysis) -> SeasonProfile | None:
+        return self._seasons.get((pair.topic_id, pair.project.domain))
 
     def _seasonal(self, pair: PairAnalysis) -> bool:
-        if _profile(pair) is None:
+        if self._season(pair) is None:
             return False
         return self._show_season is None or self._show_season(pair)
 
@@ -457,7 +465,7 @@ class ChartPlanner:
 
     def season_bars(self, pair: PairAnalysis) -> ChartSpec | None:
         """Each calendar month against the usual level, in percent."""
-        profile = _profile(pair)
+        profile = self._season(pair)
         if profile is None or not self._seasonal(pair):
             return None
         return ChartSpec(
@@ -471,7 +479,7 @@ class ChartPlanner:
                 ChartSeries(
                     label=self._t.t("chart.season_title"),
                     x=[self._t.t(f"month.short.{m}") for m in range(1, _MONTHS + 1)],
-                    y=[None if e is None else round(e * _PERCENT, 1) for e in profile.effects],
+                    y=list(profile.percents),
                 )
             ],
             reference_y=0.0,
@@ -480,7 +488,7 @@ class ChartPlanner:
 
     def season_lines(self, pairs: Sequence[PairAnalysis]) -> ChartSpec | None:
         """Seasonal profiles of the editions that have one, on one chart."""
-        profiled = [(p, _profile(p)) for p in pairs[:_MAX_LINES] if self._seasonal(p)]
+        profiled = [(p, self._season(p)) for p in pairs[:_MAX_LINES] if self._seasonal(p)]
         if not profiled:
             return None
         months = [self._t.t(f"month.short.{m}") for m in range(1, _MONTHS + 1)]
@@ -495,7 +503,7 @@ class ChartPlanner:
                 ChartSeries(
                     label=self._pair(p),
                     x=months,
-                    y=[None if e is None else round(e * _PERCENT, 1) for e in profile.effects],
+                    y=list(profile.percents),
                 )
                 for p, profile in profiled
                 if profile is not None
@@ -504,21 +512,15 @@ class ChartPlanner:
         )
 
     def _season_period(self, pair: PairAnalysis) -> str | None:
-        season = pair.findings.season
-        if season is None or season.start is None or season.end is None:
+        season = self._season(pair)
+        if season is None:
             return None
         return self._t.t(
             "chart.season_period",
-            start=_month_label(season.start),
-            end=_month_label(season.end),
+            start=_month_label(season.first),
+            end=_month_label(season.last),
         )
 
 
 def _month_label(day: date) -> str:
     return day.strftime("%Y-%m")
-
-
-def _profile(pair: PairAnalysis) -> SeasonalProfile | None:
-    """The seasonal profile of the pair's whole history, if one could be computed."""
-    season = pair.findings.season
-    return season.profile if season is not None else None

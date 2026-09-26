@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import date
 
 from wiki_interest.application.analysis import PairAnalysis, PairFindings
@@ -31,7 +31,7 @@ from wiki_interest.domain.models import (
     TrendMetrics,
     WikiProject,
 )
-from wiki_interest.domain.observations import PairHistory, observe
+from wiki_interest.domain.observations import PairHistory, SeasonProfile, observe, season_profile
 from wiki_interest.domain.seasonality import SeasonEvidence, SeasonReason
 from wiki_interest.i18n import Translator
 
@@ -74,12 +74,13 @@ def _strong_season(pair: PairAnalysis) -> bool:
     return season is not None and season.solid
 
 
-def _planner() -> ChartPlanner:
+def _planner(seasons: Mapping[tuple[str, str], SeasonProfile] | None = None) -> ChartPlanner:
     return ChartPlanner(
         Translator("en"),
         lambda _topic, project: project.domain,
         lambda _topic, project: project.language,
         show_season=_strong_season,
+        seasons=seasons,
     )
 
 
@@ -311,9 +312,29 @@ def test_season_is_drawn_only_when_the_calendar_matters() -> None:
 
     weak = _pair(UK, [10.0] * 24, findings=season(0.1, SeasonReason.WEAK))
     strong = _pair(CS, [10.0] * 24, findings=season(0.6, SeasonReason.SOLID))
-    planner = _planner()
+    drawn = SeasonProfile(tuple([10.0] * 6 + [-10.0] * 6), date(2020, 9, 1), date(2026, 8, 1))
+    planner = _planner({(p.topic_id, p.project.domain): drawn for p in (weak, strong)})
     assert planner.season_bars(weak) is None
-    assert planner.season_bars(strong) is not None
+    bars = planner.season_bars(strong)
+    assert bars is not None
+    assert bars.series[0].y == list(drawn.percents)
+    assert bars.subtitle == "Computed on 2020-09 – 2026-08."
     lines = planner.season_lines([weak, strong])
     assert lines is not None
     assert [s.label for s in lines.series] == ["cs.wikipedia"]
+    # Without the profile the text reads, there is no season chart.
+    assert _planner().season_bars(strong) is None
+
+
+def test_the_season_chart_draws_the_profile_the_text_words() -> None:
+    """A burst in one March once made the chart's March +95 % while the text said October."""
+
+    def shape(k: int) -> float:
+        month = (8 + k) % 12 + 1
+        return 5_000.0 * (1.3 if month == 10 else 1.0) * (8 if k == 30 else 1)
+
+    profile = season_profile(_history(shape))
+    assert profile is not None
+    percents = dict(enumerate(profile.percents, start=1))
+    assert max(percents, key=lambda m: percents[m]) == 10
+    assert percents[3] < 10

@@ -57,6 +57,7 @@ __all__ = [
     "ObservationSettings",
     "PairHistory",
     "Quoted",
+    "SeasonProfile",
     "ShareMove",
     "ViewsDirection",
     "Weight",
@@ -66,6 +67,7 @@ __all__ = [
     "observe",
     "round_count",
     "round_share",
+    "season_profile",
     "share_move",
     "views_direction",
     "year_levels",
@@ -1594,6 +1596,42 @@ class YearLevel:
     views: float
     partial: bool
     change: YearChange | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SeasonProfile:
+    """Each calendar month against the usual level, as the ``season`` observation reads it.
+
+    Attributes:
+        percents: January to December, in % against the months around each (``+60.0``).
+        first: The first month read.
+        last: The last month read.
+    """
+
+    percents: tuple[float, ...]
+    first: date
+    last: date
+
+
+def season_profile(
+    history: PairHistory, settings: ObservationSettings | None = None
+) -> SeasonProfile | None:
+    """The season of one pair, for the chart that shows what the text says about it.
+
+    The same profile the ``season`` observation words (the share against the 13 months
+    around each month, bursts and plateaus left out), over the same years: the chart once
+    drew another algorithm's profile and could name another month (audit of 2026-09-26).
+    ``None`` below the years the observation needs.
+    """
+    s = settings or ObservationSettings()
+    if len(history.months) < s.min_long_years * _YEAR:
+        return None
+    pair = _prepare(history, 0, s)
+    return SeasonProfile(
+        percents=tuple(round(pair.profile[m], 1) for m in range(1, _YEAR + 1)),
+        first=history.months[0],
+        last=history.months[-1],
+    )
 
 
 def year_levels(

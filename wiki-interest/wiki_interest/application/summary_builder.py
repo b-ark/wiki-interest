@@ -97,7 +97,7 @@ from wiki_interest.domain.models import (
     TrendMetrics,
     WikiProject,
 )
-from wiki_interest.domain.observations import Observation, PairHistory
+from wiki_interest.domain.observations import Observation, PairHistory, season_profile
 from wiki_interest.errors import ClarificationNeededError, TopicNotFoundError
 from wiki_interest.i18n import Translator
 
@@ -192,7 +192,7 @@ class SummaryBuilder:
         labels = _TopicLabels(resolved)
         normalised = request.normalization == "per_million"
         season_requested = request.report.seasonality == "show"
-        charts = self._charts(request, analysis, labels)
+        charts = self._charts(request, analysis, labels, histories)
         start = trend_start(request, period)
         topic_labels = {t.topic_id: labels.topic(t.topic_id) for t in resolved}
         share_chart = share_years_data(
@@ -637,10 +637,15 @@ class SummaryBuilder:
     # -- charts ---------------------------------------------------------------------------
 
     def _charts(
-        self, request: AnalysisRequest, analysis: AnalysisResult, labels: _TopicLabels
+        self,
+        request: AnalysisRequest,
+        analysis: AnalysisResult,
+        labels: _TopicLabels,
+        histories: Sequence[PairHistory],
     ) -> list[ChartSpec]:
         """The charts besides the main one: the scatter for many audiences, the seasons.
 
+        A season chart draws the profile the text words, from the same long series.
         See :class:`~wiki_interest.application.chart_plan.ChartPlanner` for what each shows.
         """
         with_data = [p for p in analysis.pairs if p.views is not None]
@@ -654,7 +659,14 @@ class SummaryBuilder:
             visibility = season_visibility(pair, settings, requested=season_requested)
             return visibility is SeasonVisibility.CHART
 
-        plots = ChartPlanner(self._t, labels.pair, labels.short, show_season=charted)
+        seasons = {
+            (h.topic_id, h.project): profile
+            for h in histories
+            if (profile := season_profile(h)) is not None
+        }
+        plots = ChartPlanner(
+            self._t, labels.pair, labels.short, show_season=charted, seasons=seasons
+        )
         return plots.plan(with_data, normalised=normalised)
 
     # -- prose ----------------------------------------------------------------------------
