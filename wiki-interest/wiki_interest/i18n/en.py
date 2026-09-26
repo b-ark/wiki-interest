@@ -675,6 +675,9 @@ MESSAGES: dict[str, str] = {
     "trust.level.high": "high",
     "trust.level.medium": "medium",
     "trust.level.low": "low",
+    "trust.reason.yoy_against": (
+        "only {count} of {months} months year on year on the verdict's side"
+    ),
     "trust.reason.yoy_down": "down in {count} of {months} months year on year",
     "trust.reason.yoy_up": "up in {count} of {months} months year on year",
     "trust.reason.yoy_mixed": "year on year below in {down}, above in {up} of {months} months",

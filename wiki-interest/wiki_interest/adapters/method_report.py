@@ -116,7 +116,7 @@ _TRUST_RULES = (
         "Theil–Sen trend of the log attention share (seasonal rhythm divided out, "
         "bursts and months one day dominated left out) over the analysis window; after a step "
         "inside the window (six months against six, at least trust_split_step) that leaves at "
-        "least trust_min_segment_months, from the step on",
+        "least trust_min_segment_months (more than one seasonal cycle), from the step on",
         "growing / declining beyond ±trust_stable_pct_per_year % a year, else stable",
     ),
     (
@@ -143,6 +143,11 @@ _TRUST_RULES = (
         "a signal when at least trust_snr_min",
     ),
     ("growing / declining", "the three signals above", "3 high, 2 medium, 0–1 low"),
+    (
+        "Year on year against",
+        "fewer than half the months compared on the verdict's side",
+        "low: the slope contradicts the months",
+    ),
     (
         "Control explains",
         "the control articles' median trend over the same months is at least "

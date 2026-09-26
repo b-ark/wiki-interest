@@ -1,0 +1,146 @@
+[
+  {
+    "id": "a0",
+    "kind": "deterministic",
+    "type": "tool_called",
+    "text": "tool_called(pattern='run\\\\.py')",
+    "passed": true,
+    "evidence": "1 matching call(s); first: PowerShell cd 'X:\\personal_projects\\wiki-interest\\tools\\skill-evals\\runs\\v02-final\\sandboxes\\v02-veganism-ru-cs-rep-1'; uv run --project '.\\.claude\\skills\\wiki-"
+  },
+  {
+    "id": "a1",
+    "kind": "deterministic",
+    "type": "no_tool_called",
+    "text": "no_tool_called(pattern='wikimedia\\\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\\\.get|urllib\\\\.request')",
+    "passed": true,
+    "evidence": "0 matching call(s); first: -"
+  },
+  {
+    "id": "a2",
+    "kind": "deterministic",
+    "type": "file_exists",
+    "text": "file_exists(glob='**/report.pdf', min_count=1)",
+    "passed": true,
+    "evidence": "1 file(s) match: wiki-interest-runs\\veganism-ru-cs-202609\\20260926-175233-ff94\\report.pdf"
+  },
+  {
+    "id": "a3",
+    "kind": "deterministic",
+    "type": "pdf_pages",
+    "text": "pdf_pages(glob='**/report.pdf', max_pages=1)",
+    "passed": true,
+    "evidence": "report.pdf: 1 page(s)"
+  },
+  {
+    "id": "a4",
+    "kind": "deterministic",
+    "type": "numbers_grounded",
+    "text": "numbers_grounded(summary_glob='**/summary.json', tolerance_rel=0.02, tolerance_abs=0.5, ignore_below=10)",
+    "passed": true,
+    "evidence": "44 number(s) checked against 1 summary file(s)"
+  },
+  {
+    "id": "a5",
+    "kind": "deterministic",
+    "type": "caveats_relayed",
+    "text": "caveats_relayed(summary_glob='**/summary.json', min_reasons=1)",
+    "passed": true,
+    "evidence": "reliability is high everywhere; nothing to relay"
+  },
+  {
+    "id": "a6",
+    "kind": "deterministic",
+    "type": "summary_field",
+    "text": "summary_field(summary_glob='**/summary.json', path='status', equals='ok', regex=None)",
+    "passed": true,
+    "evidence": "status = \"ok\""
+  },
+  {
+    "id": "a7",
+    "kind": "deterministic",
+    "type": "max_turns",
+    "text": "max_turns(n=25)",
+    "passed": true,
+    "evidence": "11 turn(s), budget 25"
+  },
+  {
+    "id": "a8",
+    "kind": "deterministic",
+    "type": "narrative_accepted",
+    "text": "narrative_accepted(pattern='render\\\\.py')",
+    "passed": true,
+    "evidence": "1/1 rendered run(s) accepted"
+  },
+  {
+    "id": "a9",
+    "kind": "deterministic",
+    "type": "chat_answer_relayed",
+    "text": "chat_answer_relayed(min_overlap=0.9)",
+    "passed": true,
+    "evidence": "answer carries 99% of the accepted text; 99% of it comes from there"
+  },
+  {
+    "id": "a10",
+    "kind": "deterministic",
+    "type": "summary_field",
+    "text": "summary_field(summary_glob='**/summary.json', path='request.period.start', equals=None, regex='2024-09')",
+    "passed": true,
+    "evidence": "request.period.start = \"2024-09\""
+  },
+  {
+    "id": "a11",
+    "kind": "deterministic",
+    "type": "summary_field",
+    "text": "summary_field(summary_glob='**/summary.json', path='verdicts.0.verdict', equals=None, regex='stable')",
+    "passed": true,
+    "evidence": "verdicts.0.verdict = \"stable\""
+  },
+  {
+    "id": "a12",
+    "kind": "deterministic",
+    "type": "summary_field",
+    "text": "summary_field(summary_glob='**/summary.json', path='verdicts.1.verdict', equals=None, regex='declining')",
+    "passed": true,
+    "evidence": "verdicts.1.verdict = \"declining\""
+  },
+  {
+    "id": "verdicts-kept",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer says interest in the Russian Wikipedia is stable (stabilised after a drop) and in the Czech Wikipedia is falling over the requested period, and never says it is falling in both.",
+    "passed": true,
+    "evidence": "The answer states plainly: \"ru: інтерес стабілізувався після спаду\" and \"cs: інтерес продовжує падати\", repeated consistently in the bold summary, the trend paragraph (\"Російська редакція стабілізувала інтерес після спаду... а потім залишилася на одному рівні\" vs \"Чеська редакція продовжує втрачати інтерес... інтерес далі падає\"), the recommendation, and the 'what this means' section. It never states that interest (the attention-share trend) is falling in both editions; the one line \"Обидві редакції втрачають перегляди швидше, ніж їхні Вікіпедії\" refers to raw view counts falling faster than overall Wikipedia traffic (matching the vs_edition facts, -33%/-22% for ru and -41%/-13% for cs), not a claim that the share/interest trend itself is falling in both. This matches the reference material's verdicts (ru stabilised, cs declining)."
+  },
+  {
+    "id": "trust-explained",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer says how far the verdicts can be trusted (the trust level) with at least one concrete reason from the analysis.",
+    "passed": true,
+    "evidence": "The answer explicitly states trust levels with concrete reasons: \\\"Довіра (ru): середня — −5 %/рік [−11; +4]; р/р нижче у 9, вище у 3 з 12 міс.; тренд понад ±10 %/рік не виключений; контрольні статті +5 %/рік; перейменувань немає.\\\" and \\\"Довіра (cs): середня — спад у 12 з 12 міс. р/р; −30 %/рік [−38; −18]; зміна в межах шуму (сигнал/шум 1,9); контрольні статті +5 %/рік; перейменувань немає.\\\" It also reiterates in the meaning section: \\\"Довіря до цього рішення: середня, оскільки обидва тренди близькі до меж похибок.\\\" These match the facts.json trust observations (confidence intervals, month consistency, signal/noise ratio) and give concrete, verifiable reasons for the medium trust rating.</evidence>\n</invoke>\n"
+  },
+  {
+    "id": "recommends",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer recommends the Russian Wikipedia if one must be chosen, says neither grows, and names a next check the skill can run itself (neighbouring articles such as vegetarianism).",
+    "passed": true,
+    "evidence": "The answer states: 'Якщо обирати — російська Вікіпедія' (recommends Russian Wikipedia), 'Жоден мовний розділ не показує зростання' (says neither grows), and 'Наступна перевірка: суміжні статті — вегетаріанство, рослинна дієта; я можу додати їх до цього аналізу' (names next check on neighbouring articles including vegetarianism, which the skill can run itself)."
+  },
+  {
+    "id": "user-language",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer is written in Ukrainian, the language the user wrote in.",
+    "passed": true,
+    "evidence": "The entire candidate answer is written in Ukrainian, matching the user's Ukrainian-language question. E.g., \"Веганство: у російській Вікіпедії інтерес стабілізувався після спаду; у чеській Вікіпедії інтерес продовжує падати.\" and \"Довіра (ru): середня — −5 %/рік [−11; +4]...\" and closing lines \"Що ще я можу зробити:\" — all text, headings, and recommendations are consistently in Ukrainian with no significant portions in another language."
+  },
+  {
+    "id": "faithful",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine.",
+    "passed": false,
+    "evidence": "The answer states in the meaning section: \"Російська Вікіпедія є перспективнішою: вона тримає інтерес стабільним, тоді як чеська зменшує його вдвічі швидше\" (Czech interest declines \"twice as fast\"). No observation in facts.json supports a 2x magnitude comparison between the two editions' declines: the trend observations give -5%/year for ru vs -30%/year for cs (a ~6x difference, not 2x), the vs_edition observations give -33% vs -41% article-view declines (~1.24x), and the long_term observations give \"about half\" for ru vs \"about a third\" for cs since 2021 — none of these yield a \"twice as fast\" ratio, and no observation (trend, trust, vs_edition, long_term, decision, or recommendation) uses \"twice\" or an equivalent multiplier language for the rate of decline. This is a specific quantitative comparison invented beyond what the observations state, which goes beyond minor rewording/rounding and says something stronger (a precise multiplier) than the source observations give.\""
+  }
+]

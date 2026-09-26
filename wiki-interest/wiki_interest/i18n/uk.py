@@ -179,6 +179,7 @@ LABELS: Mapping[str, str] = {
     "trust.level.high": "висока",
     "trust.level.medium": "середня",
     "trust.level.low": "низька",
+    "trust.reason.yoy_against": "лише {count} з {months} міс. р/р на боці вердикту",
     "trust.reason.yoy_down": "спад у {count} з {months} міс. р/р",
     "trust.reason.yoy_up": "зростання у {count} з {months} міс. р/р",
     "trust.reason.yoy_mixed": "р/р нижче у {down}, вище у {up} з {months} міс.",

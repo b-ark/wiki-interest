@@ -98,7 +98,7 @@ class TestVerdict:
         assert trend.level_start == pytest.approx(40.0, rel=0.05)
 
     def test_a_step_too_late_to_leave_a_year_reads_the_whole_window(self) -> None:
-        trend = _trend(_history(lambda k: (6_000.0 if k < 64 else 4_000.0) * _noise(k)))
+        trend = _trend(_history(lambda k: (6_000.0 if k < 60 else 4_000.0) * _noise(k)))
         assert trend.segment_start == WINDOW
         assert trend.step is None
 

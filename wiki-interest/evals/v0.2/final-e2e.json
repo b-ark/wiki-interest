@@ -1,0 +1,261 @@
+{
+  "skill_name": "wiki-interest",
+  "scenarios": [
+    {
+      "id": "v02-veganism-ru-cs",
+      "name": "v0.2 reference: veganism in the Russian and Czech Wikipedias, 2024-09 – 2026-08",
+      "tags": [
+        "v02",
+        "compare",
+        "uk"
+      ],
+      "turns": [
+        "Порівняй інтерес до веганства в російській та чеській Вікіпедії за період з вересня 2024 по серпень 2026. Який мовний розділ перспективніший і наскільки цьому можна довіряти?"
+      ],
+      "expected": "Compare run for ru and cs over 2024-09 – 2026-08; the code's verdicts (ru stable after a drop, cs declining), trust lines and recommendation (ru; next: vegetarianism, plant-based diet) are relayed.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
+        },
+        {
+          "type": "summary_field",
+          "path": "request.period.start",
+          "regex": "2024-09"
+        },
+        {
+          "type": "summary_field",
+          "path": "verdicts.0.verdict",
+          "regex": "stable"
+        },
+        {
+          "type": "summary_field",
+          "path": "verdicts.1.verdict",
+          "regex": "declining"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "verdicts-kept",
+          "criterion": "The answer says interest in the Russian Wikipedia is stable (stabilised after a drop) and in the Czech Wikipedia is falling over the requested period, and never says it is falling in both."
+        },
+        {
+          "id": "trust-explained",
+          "criterion": "The answer says how far the verdicts can be trusted (the trust level) with at least one concrete reason from the analysis."
+        },
+        {
+          "id": "recommends",
+          "criterion": "The answer recommends the Russian Wikipedia if one must be chosen, says neither grows, and names a next check the skill can run itself (neighbouring articles such as vegetarianism)."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
+        }
+      ]
+    },
+    {
+      "id": "assess-astronomy-uk",
+      "name": "Assignment 2: is interest in astronomy growing in Ukrainian Wikipedia, can we trust it",
+      "tags": [
+        "assignment",
+        "assess",
+        "uk"
+      ],
+      "turns": [
+        "Ми думаємо додати курс з астрономії до освітнього застосунку. Чи зростає інтерес до цієї теми в україномовній Wikipedia, і наскільки цьому зростанню можна довіряти?"
+      ],
+      "expected": "Assess run for uk; states direction and year-over-year change, how robust the conclusion is with reasons, and seasonality.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.question_type",
+          "regex": "assess|compare"
+        },
+        {
+          "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-question",
+          "criterion": "The answer states whether interest in astronomy in Ukrainian Wikipedia is growing, flat or falling, with a number for the change."
+        },
+        {
+          "id": "trust-explained",
+          "criterion": "The answer says how robust the result is (for example that recent months confirm the trend, give a mixed signal, or that the data are too weak to judge) and gives at least one concrete reason taken from the analysis."
+        },
+        {
+          "id": "limitations-stated",
+          "criterion": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
+        }
+      ]
+    },
+    {
+      "id": "rank-english-learning",
+      "name": "Assignment 3: English learning across chosen editions, which audiences to research next",
+      "tags": [
+        "assignment",
+        "rank",
+        "uk"
+      ],
+      "turns": [
+        "Ми створюємо застосунок для вивчення мов. Порівняй інтерес до вивчення англійської в українському, польському, чеському, румунському та угорському розділах Wikipedia та підготуй короткий звіт: які аудиторії варто дослідити наступними й чому?"
+      ],
+      "expected": "Rank (or compare) over five editions; names the next audiences to research with reasons; admits that interest declines everywhere if it does.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.projects.4",
+          "regex": "wikipedia"
+        },
+        {
+          "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
+        },
+        {
+          "type": "question_relayed"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "recommends-audiences",
+          "criterion": "The answer names which language audiences to research next and gives a data-based reason for each (growth, volume, trust)."
+        },
+        {
+          "id": "honest-about-decline",
+          "criterion": "If interest is falling in the recommended editions, the answer says so rather than calling them growing markets."
+        },
+        {
+          "id": "limitations-stated",
+          "criterion": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
+        }
+      ]
+    }
+  ]
+}

@@ -87,7 +87,9 @@ class TrustSettings:
         min_window_months: Fewer months in the window give ``insufficient_data``: under a
             year the seasonal rhythm and the trend cannot be told apart.
         min_segment_months: Months a step inside the window must leave after it before the
-            trend is read from it on; fewer, and the whole window is read.
+            trend is read from it on; fewer, and the whole window is read. More than a year:
+            a trend over one seasonal cycle reads the season (a school-year topic after a
+            September step "grew" 85 % a year while its views fell by half, final v0.2 run).
         split_step: Ratio of the six months after a month to the six before (seasonal rhythm
             removed) that splits the window's trend. Lower than the ``step`` a history
             observation needs (1.35): inside a two-year window a 25 % shift within a year is
@@ -121,7 +123,7 @@ class TrustSettings:
 
     stable_pct_per_year: float = 10.0
     min_window_months: int = 12
-    min_segment_months: int = 12
+    min_segment_months: int = 15
     split_step: float = 1.25
     volume_floor: float = 100.0
     yoy_strong: int = 9
@@ -634,8 +636,9 @@ def assess_trust(  # noqa: PLR0913 -- the verdict and everything that weighs on 
     else:
         level, own = _trend_level(trend, m, settings)
         # When the control explains the change, that is the first thing the reader must know.
-        first = [r for r in own if r.code == "control_explains"]
-        rest = [r for r in own if r.code != "control_explains"]
+        leading = ("control_explains", "yoy_against")
+        first = [r for r in own if r.code in leading]
+        rest = [r for r in own if r.code not in leading]
         reasons = [*first, _yoy_reason(trend, m), _slope_reason(m), *rest]
     reasons += _context_reasons(trend, m, breakpoints, spike_months, settings)
     return replace(
@@ -719,6 +722,10 @@ def _trend_level(
     else:
         reasons.append(Reason("snr_low", (("snr", round(m.snr or 0.0, 1)),)))
     level = {3: Confidence.HIGH, 2: Confidence.MEDIUM}.get(signals, Confidence.LOW)
+    if m.compared and m.direction * 2 < m.compared:
+        # Most months sit on the other side of the year before: the slope contradicts them.
+        level = Confidence.LOW
+        reasons.insert(0, Reason("yoy_against", (("count", m.direction), ("months", m.compared))))
     if m.control is not None and m.slope and m.control / m.slope >= settings.control_explains:
         level = Confidence.LOW
         reasons.insert(0, Reason("control_explains", (("change", round(m.control)),)))
