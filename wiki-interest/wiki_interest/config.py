@@ -20,6 +20,7 @@ from wiki_interest.domain.assessment import AssessmentSettings
 from wiki_interest.domain.models import ReliabilityThresholds
 from wiki_interest.domain.monthly_anomalies import AnomalySettings
 from wiki_interest.domain.seasonality import SeasonSettings
+from wiki_interest.domain.trust import TrustSettings
 
 __all__ = ["RUNS_DIRNAME", "Settings", "default_user_agent", "skill_root"]
 
@@ -30,6 +31,7 @@ _DEFAULT_THRESHOLDS = ReliabilityThresholds()
 _DEFAULT_ASSESSMENT = AssessmentSettings()
 _DEFAULT_SEASON = SeasonSettings()
 _DEFAULT_ANOMALY = AnomalySettings()
+_DEFAULT_TRUST = TrustSettings()
 
 
 def skill_root() -> Path:
@@ -147,6 +149,29 @@ class Settings(BaseSettings):
     season_min_strength: float = Field(default=_DEFAULT_SEASON.min_strength, ge=0, le=1)
     season_min_range: float = Field(default=_DEFAULT_SEASON.min_range, ge=0)
 
+    # The analysis window's verdict and the trust in it (v0.2): one field per
+    # ``TrustSettings`` threshold, ``WIKI_INTEREST_TRUST_<NAME>`` in the environment.
+    trust_stable_pct_per_year: float = Field(default=_DEFAULT_TRUST.stable_pct_per_year, ge=0)
+    trust_min_window_months: int = Field(default=_DEFAULT_TRUST.min_window_months, ge=0)
+    trust_min_segment_months: int = Field(default=_DEFAULT_TRUST.min_segment_months, ge=0)
+    trust_split_step: float = Field(default=_DEFAULT_TRUST.split_step, ge=0)
+    trust_volume_floor: float = Field(default=_DEFAULT_TRUST.volume_floor, ge=0)
+    trust_yoy_strong: int = Field(default=_DEFAULT_TRUST.yoy_strong, ge=0)
+    trust_snr_min: float = Field(default=_DEFAULT_TRUST.snr_min, ge=0)
+    trust_control_explains: float = Field(default=_DEFAULT_TRUST.control_explains, ge=0)
+    trust_day_spike_share: float = Field(default=_DEFAULT_TRUST.day_spike_share, ge=0)
+    trust_bootstrap_reps: int = Field(default=_DEFAULT_TRUST.bootstrap_reps, ge=0)
+    trust_bootstrap_block: int = Field(default=_DEFAULT_TRUST.bootstrap_block, ge=0)
+    trust_bootstrap_seed: int = Field(default=_DEFAULT_TRUST.bootstrap_seed, ge=0)
+    trust_ci_level: float = Field(default=_DEFAULT_TRUST.ci_level, ge=0)
+    trust_rename_months: int = Field(default=_DEFAULT_TRUST.rename_months, ge=0)
+    trust_control_sample: int = Field(default=_DEFAULT_TRUST.control_sample, ge=0)
+    trust_control_candidates: int = Field(default=_DEFAULT_TRUST.control_candidates, ge=0)
+    trust_control_top: int = Field(default=_DEFAULT_TRUST.control_top, ge=0)
+    trust_control_seed: int = Field(default=_DEFAULT_TRUST.control_seed, ge=0)
+    trust_control_ttl_days: int = Field(default=_DEFAULT_TRUST.control_ttl_days, ge=0)
+    trust_control_spike_multiple: float = Field(default=_DEFAULT_TRUST.control_spike_multiple, ge=0)
+
     # Months that stand out.
     anomaly_min_multiple: float = Field(default=_DEFAULT_ANOMALY.min_multiple, gt=1)
     anomaly_strong_multiple: float = Field(default=_DEFAULT_ANOMALY.strong_multiple, gt=1)
@@ -179,6 +204,7 @@ class Settings(BaseSettings):
             "anomaly_min_multiple",
             "anomaly_strong_multiple",
             "anomaly_mad_multiplier",
+            *(f"trust_{name}" for name in TrustSettings.__dataclass_fields__),
         )
         values = self.model_dump()
         return {name: values[name] for name in names if name in values}
@@ -192,6 +218,35 @@ class Settings(BaseSettings):
             min_recent_shift=self.min_recent_shift,
             min_recent_views=self.min_recent_views,
         )
+
+    def trust_settings(self) -> TrustSettings:
+        """The window's verdict and the trust in it: every threshold in one object."""
+        return TrustSettings(
+            stable_pct_per_year=self.trust_stable_pct_per_year,
+            min_window_months=self.trust_min_window_months,
+            min_segment_months=self.trust_min_segment_months,
+            split_step=self.trust_split_step,
+            volume_floor=self.trust_volume_floor,
+            yoy_strong=self.trust_yoy_strong,
+            snr_min=self.trust_snr_min,
+            control_explains=self.trust_control_explains,
+            day_spike_share=self.trust_day_spike_share,
+            bootstrap_reps=self.trust_bootstrap_reps,
+            bootstrap_block=self.trust_bootstrap_block,
+            bootstrap_seed=self.trust_bootstrap_seed,
+            ci_level=self.trust_ci_level,
+            rename_months=self.trust_rename_months,
+            control_sample=self.trust_control_sample,
+            control_candidates=self.trust_control_candidates,
+            control_top=self.trust_control_top,
+            control_seed=self.trust_control_seed,
+            control_ttl_days=self.trust_control_ttl_days,
+            control_spike_multiple=self.trust_control_spike_multiple,
+        )
+
+    def control_dir(self) -> Path:
+        """Where the editions' control baskets are kept: next to the HTTP cache."""
+        return self.cache_path.parent / "control"
 
     def season_settings(self) -> SeasonSettings:
         """When a seasonal pattern is stated."""

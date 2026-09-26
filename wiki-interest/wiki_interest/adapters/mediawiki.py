@@ -19,6 +19,7 @@ from __future__ import annotations
 import html
 import re
 from collections.abc import Iterator, Mapping, Sequence
+from datetime import date
 from itertools import batched
 from typing import Any
 
@@ -78,6 +79,10 @@ def raise_for_action_api_error(payload: Any, url: str) -> dict[str, Any]:
     if error is not None:
         raise ActionApiError(error, url)
     return as_object(payload, url)
+
+
+_ISO_DAY = 10
+"""``YYYY-MM-DD``, the day part of a log timestamp."""
 
 
 class MediaWikiApi:
@@ -169,6 +174,24 @@ class MediaWikiApi:
             Mention(title=str(hit["title"]), snippet=_plain_text(str(hit.get("snippet", ""))))
             for hit in hits
         )
+
+    def moves(self, project: WikiProject, title: str) -> Sequence[date]:
+        """Days ``title`` was moved away from (the move log), oldest first."""
+        params: dict[str, str | int] = {
+            "action": "query",
+            "list": "logevents",
+            "letype": "move",
+            "letitle": title,
+            "leprop": "timestamp",
+            "lelimit": "max",
+        }
+        days: list[date] = []
+        for query in self._paginate(project, params):
+            for raw in as_array(query.get("logevents", []), "query.logevents"):
+                stamp = str(as_object(raw, "logevents[]").get("timestamp", ""))
+                if len(stamp) >= _ISO_DAY:
+                    days.append(date.fromisoformat(stamp[:_ISO_DAY]))
+        return tuple(sorted(days))
 
     def _query(self, project: WikiProject, params: Mapping[str, str | int]) -> dict[str, Any]:
         """Issue an ``action=query`` request and return its ``query`` object."""

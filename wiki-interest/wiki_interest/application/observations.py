@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import date
 
 from wiki_interest.application.loading import LoadedSeries
 from wiki_interest.application.resolution import ResolvedTopic
+from wiki_interest.application.window import trust_observation, trust_out
 from wiki_interest.contracts.request import AnalysisRequest, Period
 from wiki_interest.contracts.summary import AssessmentOut, ObservationOut, QuotedNumber
 from wiki_interest.domain.models import BundleStatus
@@ -28,7 +30,7 @@ from wiki_interest.domain.observations import (
     edition_name,
     observe,
 )
-from wiki_interest.domain.trust import WindowTrend
+from wiki_interest.domain.trust import BreakpointVerdict, Trust, WindowTrend
 
 __all__ = [
     "observation_start",
@@ -102,6 +104,7 @@ def run_observations(
     request: AnalysisRequest,
     period: Period,
     trends: Mapping[str, WindowTrend] | None = None,
+    trust: Mapping[str, Trust] | None = None,
 ) -> list[Observation]:
     """The detectors' observations for every pair with an article.
 
@@ -110,12 +113,51 @@ def run_observations(
         request: The request.
         period: The analysis window.
         trends: The window's verdict of each pair (``read_trends``).
+        trust: The trust in each verdict (``read_trust``): a ``trust:`` observation per
+            pair, and each step says whether it looks technical.
     """
     found = observe(histories, window_start=period.start, trends=trends)
+    if trust:
+        found = _with_trust(found, histories, trust)
     if request.normalization == "absolute":
         found.insert(0, _RAW_VIEWS)
     found[:0] = _period_cautions(request.period, period)
     return found
+
+
+def _with_trust(
+    found: list[Observation], histories: Sequence[PairHistory], trust: Mapping[str, Trust]
+) -> list[Observation]:
+    """Each pair's trust after its verdict, and each step's check against the control."""
+    names = {h.pair: (h.topic, h.project) for h in histories}
+    out: list[Observation] = []
+    for o in found:
+        pair = o.pair or ""
+        checked = _checked_step(o, trust[pair]) if o.kind == "step" and pair in trust else o
+        out.append(checked)
+        if o.kind == "trend" and pair in trust and pair in names:
+            topic, project = names[pair]
+            out.append(trust_observation(pair, topic, project, trust_out(trust[pair])))
+    return out
+
+
+def _checked_step(step: Observation, trust: Trust) -> Observation:
+    """``step`` with what the control articles and the move log say of it."""
+    found = next((b for b in trust.breakpoints if b.month == step.month), None)
+    if found is None or step.month is None:
+        return step
+    if found.verdict is BreakpointVerdict.ARTIFACT:
+        why = (
+            "the article was renamed then"
+            if found.renamed
+            else "the edition's control articles moved the same way that month"
+        )
+        tail = f" Probably a technical change, not interest: {why}."
+    elif found.verdict is BreakpointVerdict.REAL:
+        tail = " The edition's control articles did not move that month: the change is the topic's."
+    else:
+        return step
+    return replace(step, statement=step.statement + tail)
 
 
 def _period_cautions(requested: Period | None, period: Period) -> list[Observation]:

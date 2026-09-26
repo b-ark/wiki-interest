@@ -16,8 +16,22 @@ from pathlib import Path
 
 import pytest
 
+from wiki_interest.application.window import ControlSeries, DayShares, read_trends, read_trust
 from wiki_interest.domain.observations import PairHistory, first_data, pair_steps
-from wiki_interest.domain.trust import TrendVerdict, TrustSettings, WindowTrend, window_trend
+from wiki_interest.domain.trust import (
+    BreakpointVerdict,
+    Confidence,
+    TrendVerdict,
+    Trust,
+    TrustSettings,
+    WindowTrend,
+    breakpoint_verdict,
+    control_step,
+    control_trend,
+    day_spike_months,
+    window_trend,
+    yoy_counts,
+)
 
 EDITION = 100_000_000.0
 MONTHS = 72
@@ -132,3 +146,165 @@ class TestReference:
         assert trend.segment_start == date(2025, 5, 1)
         assert trend.slope_pct_per_year is not None
         assert trend.slope_pct_per_year < -20
+
+
+def _trust(
+    history: PairHistory,
+    *,
+    controls: list[list[float | None]] | None = None,
+    moves: tuple[date, ...] = (),
+    spikes: tuple[date, ...] = (),
+) -> Trust:
+    """The trust of ``history`` as the pipeline reads it."""
+    control = (
+        {history.project: ControlSeries(history.months, tuple(tuple(c) for c in controls))}
+        if controls
+        else None
+    )
+    trends = read_trends([history], WINDOW, spikes={history.pair: spikes})
+    days = {history.pair: DayShares({}, spikes)} if spikes else None
+    return read_trust([history], trends, controls=control, moves={history.pair: moves}, days=days)[
+        history.pair
+    ]
+
+
+def _control(shape: Callable[[int], float], count: int = 30) -> list[list[float | None]]:
+    """``count`` control articles of the same shape, each a little off the others."""
+    return [[shape(k) * (1 + 0.01 * j) for k in range(MONTHS)] for j in range(count)]
+
+
+class TestTrustMetrics:
+    def test_a_steady_trend_with_little_noise_is_trusted(self) -> None:
+        trust = _trust(_history(lambda k: 5_000.0 * 0.7 ** (k / 12) * _noise(k)))
+        assert (trust.yoy_down, trust.yoy_months) == (12, 12)
+        assert trust.ci90 is not None
+        assert trust.ci90[1] < 0  # the interval leaves out zero
+        assert trust.snr is not None
+        assert trust.snr >= 2
+        assert trust.confidence is Confidence.HIGH
+
+    def test_a_flat_series_is_trusted_as_stable(self) -> None:
+        trust = _trust(_history(lambda k: 5_000.0 * _noise(k)))
+        assert trust.ci90 is not None
+        assert -10 < trust.ci90[0] < trust.ci90[1] < 10
+        assert trust.confidence is Confidence.HIGH
+
+    def test_noise_leaves_a_stable_verdict_uncertain(self) -> None:
+        rough = [1.0, 1.5, 0.6, 1.4, 0.7, 1.3, 0.5, 1.6, 0.8, 1.2, 0.6, 1.5]
+        trust = _trust(_history(lambda k: 5_000.0 * rough[k % 12] * (1 + (k % 5) / 10)))
+        assert trust.confidence is not Confidence.HIGH
+
+    def test_the_bootstrap_is_seeded(self) -> None:
+        history = _history(lambda k: 5_000.0 * 0.8 ** (k / 12) * (1 + 0.2 * math.sin(k * 2.3)))
+        assert _trust(history).ci90 == _trust(history).ci90
+
+    def test_too_few_views_are_insufficient_and_say_why(self) -> None:
+        trust = _trust(_history(lambda k: 50.0 * _noise(k)))
+        assert trust.confidence is Confidence.LOW
+        assert [r.code for r in trust.reasons] == ["volume_low"]
+
+    def test_the_control_explains_a_fall_its_articles_share(self) -> None:
+
+        def shape(k: int) -> float:
+            return float(0.7 ** (k / 12) * _noise(k))
+
+        trust = _trust(
+            _history(lambda k: 5_000.0 * shape(k)), controls=_control(lambda k: 50.0 * shape(k))
+        )
+        assert trust.control_change == pytest.approx(-30, abs=4)
+        assert trust.confidence is Confidence.LOW
+        assert trust.reasons[0].code == "control_explains"
+
+    def test_a_flat_control_leaves_the_fall_to_the_topic(self) -> None:
+        trust = _trust(
+            _history(lambda k: 5_000.0 * 0.7 ** (k / 12) * _noise(k)),
+            controls=_control(lambda k: 50.0 * _noise(k)),
+        )
+        assert trust.control_change is not None
+        assert abs(trust.control_change) < 3
+        assert trust.confidence is Confidence.HIGH
+        assert "control" in [r.code for r in trust.reasons]
+
+
+class TestBreakpoints:
+    def _step(self) -> PairHistory:
+        return _history(lambda k: (8_000.0 if k < 30 else 4_000.0) * _noise(k))
+
+    def test_a_step_the_control_did_not_take_is_real(self) -> None:
+        trust = _trust(self._step(), controls=_control(lambda k: 50.0 * _noise(k)))
+        (step,) = [b for b in trust.breakpoints if b.month == date(2023, 3, 1)]
+        assert step.verdict is BreakpointVerdict.REAL
+        assert step.control_change_pct is not None
+        assert abs(step.control_change_pct) < 5
+        # Flat on both sides: a step, not a trend.
+        assert step.flat_around(10.0)
+
+    def test_a_step_the_control_took_too_is_an_artifact(self) -> None:
+        trust = _trust(
+            self._step(), controls=_control(lambda k: (60.0 if k < 30 else 32.0) * _noise(k))
+        )
+        (step,) = [b for b in trust.breakpoints if b.month == date(2023, 3, 1)]
+        assert step.verdict is BreakpointVerdict.ARTIFACT
+        assert "artifact" in [r.code for r in trust.reasons]
+
+    def test_a_rename_next_to_a_step_makes_it_an_artifact(self) -> None:
+        trust = _trust(self._step(), moves=(date(2023, 2, 17),))
+        (step,) = [b for b in trust.breakpoints if b.month == date(2023, 3, 1)]
+        assert step.renamed
+        assert step.verdict is BreakpointVerdict.ARTIFACT
+        assert "renames" in [r.code for r in trust.reasons]
+
+    def test_without_control_data_a_step_is_unknown(self) -> None:
+        trust = _trust(self._step())
+        (step,) = [b for b in trust.breakpoints if b.month == date(2023, 3, 1)]
+        assert step.verdict is BreakpointVerdict.UNKNOWN
+        assert "control_none" in [r.code for r in trust.reasons]
+        assert "renames_none" in [r.code for r in trust.reasons]
+
+    def test_the_verdict_rule_weighs_the_change_in_log_terms(self) -> None:
+        assert breakpoint_verdict(-40, -25, renamed=False) is BreakpointVerdict.ARTIFACT
+        assert breakpoint_verdict(-40, -10, renamed=False) is BreakpointVerdict.REAL
+        assert breakpoint_verdict(-40, +20, renamed=False) is BreakpointVerdict.REAL
+        assert breakpoint_verdict(-40, None, renamed=False) is BreakpointVerdict.UNKNOWN
+
+
+class TestDaySpikes:
+    def test_a_day_that_dominates_its_month_makes_a_spike_month(self) -> None:
+        daily = [(date(2025, 3, d), 100.0) for d in range(1, 32)]
+        daily[9] = (date(2025, 3, 10), 3_000.0)  # 3,000 of 6,000: half the month on one day
+        daily += [(date(2025, 4, d), 100.0) for d in range(1, 31)]
+        shares, spikes = day_spike_months(daily)
+        assert shares[date(2025, 3, 1)] == pytest.approx(0.5)
+        assert shares[date(2025, 4, 1)] == pytest.approx(1 / 30)
+        assert spikes == (date(2025, 3, 1),)
+
+    def test_a_spike_month_is_left_out_of_the_slope(self) -> None:
+        def burst(k: int) -> float:
+            return 5_000.0 * _noise(k) * (4.0 if k == 60 else 1.0)
+
+        history = _history(burst)
+        plain = read_trends([history], WINDOW)[history.pair]
+        left_out = read_trends([history], WINDOW, spikes={history.pair: (date(2025, 9, 1),)})[
+            history.pair
+        ]
+        assert date(2025, 9, 1) in left_out.excluded
+        assert left_out.months == plain.months - 1 or date(2025, 9, 1) in plain.excluded
+
+    def test_a_steady_window_has_no_spike(self) -> None:
+        daily = [(date(2025, 3, d), 100.0 + d) for d in range(1, 32)]
+        assert day_spike_months(daily)[1] == ()
+
+
+def test_yoy_counts_read_the_windows_last_twelve_months() -> None:
+    shares = [10.0] * 12 + [9.0] * 6 + [11.0] * 6
+    assert yoy_counts(shares, window_first=0) == (6, 6, 12)
+    # A window of twelve months has no year before it inside the window.
+    assert yoy_counts(shares, window_first=12) == (0, 0, 0)
+
+
+def test_control_step_and_trend_read_the_median_article() -> None:
+    controls = [[10.0] * 12 + [5.0] * 12 for _ in range(5)]
+    assert control_step(controls, 12) == pytest.approx(-50)
+    trend, count = control_trend([[10.0 * 0.9 ** (k / 12) for k in range(24)]] * 3, 0, 24)
+    assert trend == pytest.approx(-10, abs=0.5)
+    assert count == 3

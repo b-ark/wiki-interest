@@ -21,6 +21,7 @@ from wiki_interest.application.chart_plan import (
     audience_years_spec,
     share_years_spec,
 )
+from wiki_interest.application.control import ControlBaskets, RenameLog
 from wiki_interest.application.coverage import CoverageAdvisor
 from wiki_interest.application.facts import (
     apply_narrative,
@@ -44,7 +45,12 @@ from wiki_interest.application.summary_builder import (
     RunContext,
     SummaryBuilder,
 )
-from wiki_interest.application.window import context_range, headline, read_trends, verdict_line
+from wiki_interest.application.window import (
+    context_range,
+    headline,
+    read_window,
+    with_lines,
+)
 from wiki_interest.contracts.charts import ChartSpec
 from wiki_interest.contracts.narrative import Facts, Narrative, NarrativeProblem
 from wiki_interest.contracts.request import AnalysisRequest, Period
@@ -113,6 +119,10 @@ class RunServices:
     """Cut-offs of the conclusions; the domain defaults when ``None``."""
     trust: TrustSettings | None = None
     """Thresholds of the window's verdict and of the trust in it; defaults when ``None``."""
+    control: ControlBaskets | None = None
+    """The editions' control baskets; without them the trust says it has none."""
+    renames: RenameLog | None = None
+    """The move log of the articles; without it no step is put down to a rename."""
     stop_after_resolve: bool = False
     """End the run after the topic stage (see ``Settings.stop_after``)."""
 
@@ -343,15 +353,26 @@ class Pipeline:
             settings=services.analysis_settings,
         )
         histories = pair_histories(loaded, resolved)
-        trends = read_trends(histories, period.start, settings=services.trust)
+        reading = read_window(
+            histories,
+            loaded,
+            resolved,
+            period.start,
+            control=services.control,
+            renames=services.renames,
+            settings=services.trust,
+        )
         summary = builder.build(
             request=request,
             period=period,
             resolved=resolved,
             analysis=analysis,
-            observations=run_observations(histories, request, period, trends),
+            observations=run_observations(
+                histories, request, period, reading.trends, reading.trust
+            ),
             histories=histories,
-            trends=trends,
+            trends=reading.trends,
+            trust=reading.trust,
             history_range=context_range(period, observe_from),
         )
         # The report shows the code's own text until the agent's is accepted: the same
@@ -525,9 +546,7 @@ def _with_verdict_text(summary: AnalysisSummary, translator: Translator) -> Anal
     """
     if not summary.verdicts:
         return summary
-    verdicts = [
-        v.model_copy(update={"line": verdict_line(v, translator)}) for v in summary.verdicts
-    ]
+    verdicts = [with_lines(v, translator) for v in summary.verdicts]
     labels = {r.topic_id: r.label or r.query for r in summary.resolution}
     by_topic: dict[str, list[TrendOut]] = {}
     for item in verdicts:

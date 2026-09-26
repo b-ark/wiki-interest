@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date
 from typing import Protocol
 
 from wiki_interest.domain.models import WikiProject
@@ -77,5 +78,13 @@ class MediaWikiGateway(Protocol):
         Unlike :meth:`search`, which matches the words anywhere ("post" alone finds a
         politician), this finds articles that name the topic, for users choosing a substitute
         when an edition has no article of its own.
+        """
+        ...
+
+    def moves(self, project: WikiProject, title: str) -> Sequence[date]:
+        """Days the page ``title`` was moved (renamed) away from, oldest first.
+
+        A move leaves the old title as a redirect, so the moves of an article are found on
+        its redirects' titles.
         """
         ...

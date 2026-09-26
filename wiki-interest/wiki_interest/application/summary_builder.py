@@ -101,7 +101,7 @@ from wiki_interest.domain.models import (
     WikiProject,
 )
 from wiki_interest.domain.observations import Observation, PairHistory, season_profile
-from wiki_interest.domain.trust import WindowTrend
+from wiki_interest.domain.trust import Trust, WindowTrend
 from wiki_interest.errors import ClarificationNeededError, TopicNotFoundError
 from wiki_interest.i18n import Translator
 
@@ -190,6 +190,7 @@ class SummaryBuilder:
         observations: Sequence[Observation] = (),
         histories: Sequence[PairHistory] = (),
         trends: Mapping[str, WindowTrend] | None = None,
+        trust: Mapping[str, Trust] | None = None,
         history_range: Period | None = None,
     ) -> AnalysisSummary:
         """Compose the full summary of a successful run.
@@ -204,6 +205,7 @@ class SummaryBuilder:
             histories: The pairs' long series (:func:`pair_histories`), for the main chart.
             trends: The window's verdict of each pair (``read_trends``): the headline and
                 the verdict lines read it.
+            trust: The trust in each verdict (``read_trust``).
             history_range: The months the charts show (``context_range``); the window
                 when ``None``.
         """
@@ -223,6 +225,7 @@ class SummaryBuilder:
             trends=verdicts_in,
             absolute=not normalised,
             topic_labels=topic_labels,
+            trust=trust,
         )
         # With raw views asked for, the main chart shows the views already.
         audience_chart = (
@@ -236,7 +239,7 @@ class SummaryBuilder:
             h.pair: line_label(h, topics_seen, languages, topic_labels) for h in histories
         }
         substitutes = {h.pair for h in histories if h.substitute}
-        verdicts = trend_outs(verdicts_in, pair_labels, self._t, substitutes)
+        verdicts = trend_outs(verdicts_in, pair_labels, self._t, substitutes, trust)
         insights = select_insights(
             analysis, self._insight_settings, season_requested=season_requested
         )

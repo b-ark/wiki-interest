@@ -762,6 +762,9 @@ class MatplotlibChartRenderer:
         last = max(_month_number(line.x[-1]) for line in share.lines)
         for index, (mark, label) in enumerate(zip(share.marks, spec.mark_labels, strict=False)):
             color = self._theme.palette[mark.line % len(self._theme.palette)]
+            if mark.verdict == "artifact":
+                # A probable technical change is grey: it is not the topic's.
+                color = self._theme.muted_color
             x = _month_number(mark.x)
             if mark.kind == "step":
                 if label is None:

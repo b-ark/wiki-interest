@@ -14,6 +14,7 @@ from typing import Self
 from wiki_interest import __version__
 from wiki_interest.adapters.agent_summary import AgentSummaryRenderer
 from wiki_interest.adapters.clock import SystemClock
+from wiki_interest.adapters.control_store import JsonBasketStore
 from wiki_interest.adapters.fpdf_report import FpdfReportRenderer
 from wiki_interest.adapters.http import HttpJsonClient
 from wiki_interest.adapters.matplotlib_charts import MatplotlibChartRenderer
@@ -24,6 +25,7 @@ from wiki_interest.adapters.sqlite_cache import SqliteCache
 from wiki_interest.adapters.wikidata import WikidataApi
 from wiki_interest.adapters.wikimedia_rest import WikimediaRestPageviews
 from wiki_interest.application.analysis import AnalysisSettings
+from wiki_interest.application.control import ControlBaskets, RenameLog
 from wiki_interest.application.coverage import CoverageAdvisor
 from wiki_interest.application.loading import LoadSettings, SeriesLoader
 from wiki_interest.application.pipeline import Pipeline, Renderers, RunServices
@@ -156,6 +158,17 @@ class Container:
             renderers=renderers,
             provenance=self.provenance(),
             assessment=self.settings.assessment_settings(),
+            trust=self.settings.trust_settings(),
+            control=ControlBaskets(
+                self.pageviews,
+                JsonBasketStore(self.settings.control_dir()),
+                self.clock,
+                self.settings.trust_settings(),
+                access=Access(request.access),
+                agent=Agent(request.agent),
+                max_workers=self.settings.max_concurrency,
+            ),
+            renames=RenameLog(self.mediawiki),
             stop_after_resolve=self.settings.stop_after == "resolve",
         )
 

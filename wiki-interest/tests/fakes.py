@@ -180,6 +180,8 @@ class FakeMediaWiki:
         self.pages: dict[WikiProject, dict[str, FakePage]] = {}
         self.search_index: dict[WikiProject, dict[str, list[str]]] = {}
         self.mention_index: dict[WikiProject, dict[str, list[Mention]]] = {}
+        self.move_log: dict[tuple[WikiProject, str], list[date]] = {}
+        """``(edition, title)`` -> days that title was moved away from."""
         self.calls: list[tuple[str, tuple[object, ...]]] = []
 
     def add_page(self, project: WikiProject, page: FakePage) -> FakePage:
@@ -233,6 +235,10 @@ class FakeMediaWiki:
         self.calls.append(("search", (project, query, limit)))
         return self.search_index.get(project, {}).get(query, [])[:limit]
 
+    def moves(self, project: WikiProject, title: str) -> Sequence[date]:
+        self.calls.append(("moves", (project, title)))
+        return tuple(sorted(self.move_log.get((project, title), [])))
+
     def mentions(self, project: WikiProject, phrase: str, *, limit: int = 5) -> Sequence[Mention]:
         self.calls.append(("mentions", (project, phrase, limit)))
         return self.mention_index.get(project, {}).get(phrase, [])[:limit]
@@ -255,6 +261,8 @@ class FakePageviews:
     def __init__(self) -> None:
         self.articles: dict[_ArticleKey, dict[date, float]] = {}
         self.aggregates: dict[_AggregateKey, dict[date, float]] = {}
+        self.tops: dict[str, list[tuple[str, float]]] = {}
+        """Edition domain -> the top list any month returns."""
         self.calls: list[tuple[str, tuple[object, ...]]] = []
 
     def set_article(
@@ -301,6 +309,12 @@ class FakePageviews:
         self.calls.append(("aggregate", (project, window, access, agent)))
         values = self.aggregates.get((project.domain, window.granularity, agent, access), {})
         return _aligned(values, window)
+
+    def top(
+        self, project: WikiProject, month: date, *, access: Access
+    ) -> Sequence[tuple[str, float]]:
+        self.calls.append(("top", (project, month, access)))
+        return tuple(self.tops.get(project.domain, ()))
 
 
 def _aligned(values: Mapping[date, float], window: Window) -> Series:

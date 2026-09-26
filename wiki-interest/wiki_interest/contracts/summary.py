@@ -32,6 +32,7 @@ __all__ = [
     "ArticleOut",
     "Artifacts",
     "AssessmentOut",
+    "BreakpointOut",
     "BundleOut",
     "CandidateOut",
     "CheckOut",
@@ -50,11 +51,13 @@ __all__ = [
     "Provenance",
     "QuotedNumber",
     "RankedRow",
+    "ReasonOut",
     "ReliabilityOut",
     "SeasonOut",
     "SeriesOut",
     "TopicResolutionOut",
     "TrendOut",
+    "TrustOut",
     "Verdict",
 ]
 
@@ -219,6 +222,81 @@ class RankedRow(_Model):
     rationale: str
 
 
+class ReasonOut(_Model):
+    """One machine-made reason behind a confidence level: a code and its numbers."""
+
+    code: str
+    params: dict[str, float | int | str] = Field(default_factory=dict)
+
+
+class BreakpointOut(_Model):
+    """A step of the level, checked against the control articles and the move log.
+
+    Attributes:
+        month: First month at the new level (``2022-09``).
+        change: The article's change of level at the step, whole %.
+        control_change_same_month: The control articles' median change the same month,
+            whole %; ``None`` without control data there.
+        renamed: The article was moved within a month of the step.
+        verdict: ``real``, ``artifact`` (probably a technical change) or ``unknown``.
+        slope_before: The trend of the segment before, whole % a year.
+        slope_after: The trend of the segment after, whole % a year.
+        in_window: Inside the analysis window.
+    """
+
+    month: str = Field(pattern=r"^\d{4}-\d{2}$")
+    change: float
+    control_change_same_month: float | None = None
+    renamed: bool = False
+    verdict: Literal["real", "artifact", "unknown"]
+    slope_before: float | None = None
+    slope_after: float | None = None
+    in_window: bool = False
+
+
+class TrustOut(_Model):
+    """How far a pair's window verdict can be trusted (``domain.trust.assess_trust``).
+
+    Attributes:
+        confidence: ``high``, ``medium`` or ``low``.
+        yoy_down: Months of the window's last twelve below the same month a year earlier.
+        yoy_up: Months above it.
+        yoy_months: Months compared.
+        yoy_consistency: Share of them on the verdict's side (two decimals).
+        slope_pct_per_year: The trend, whole % a year.
+        ci90: Its 90 % interval (block bootstrap), whole % a year.
+        snr: The change over the spread of the month-to-month changes (one decimal).
+        control_change: The control articles' median trend over the same months, whole %
+            a year.
+        control_articles: How many control articles gave one.
+        breakpoints: The steps, oldest first.
+        max_day_share: The largest share of a month's views on one day in the window.
+        spike_months: Months one day dominated, left out of the slope.
+        views_avg: Mean monthly views over the window.
+        volume_floor: The views a month under which there is no verdict.
+        reasons: Why the level is what it is.
+        line: The trust line in the report's language.
+    """
+
+    confidence: Literal["high", "medium", "low"]
+    yoy_down: int = 0
+    yoy_up: int = 0
+    yoy_months: int = 0
+    yoy_consistency: float | None = None
+    slope_pct_per_year: float | None = None
+    ci90: list[float] | None = None
+    snr: float | None = None
+    control_change: float | None = None
+    control_articles: int = 0
+    breakpoints: list[BreakpointOut] = Field(default_factory=list)
+    max_day_share: float | None = None
+    spike_months: list[str] = Field(default_factory=list)
+    views_avg: float | None = None
+    volume_floor: float = 100.0
+    reasons: list[ReasonOut] = Field(default_factory=list)
+    line: str = ""
+
+
 class TrendOut(_Model):
     """The analysis window's verdict for one (topic, edition): what the headline reads.
 
@@ -242,6 +320,7 @@ class TrendOut(_Model):
         line: The verdict line in the report's language.
         substitute: Measured through another article: its line is shown, but the headline
             leaves it out (it is another subject).
+        trust: How far the verdict can be trusted.
     """
 
     topic_id: str
@@ -259,6 +338,7 @@ class TrendOut(_Model):
     views_avg: float | None = None
     line: str = ""
     substitute: bool = False
+    trust: TrustOut | None = None
 
 
 class Verdict(_Model):

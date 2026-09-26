@@ -60,7 +60,7 @@ from wiki_interest.domain.observations import (
     round_share,
     year_levels,
 )
-from wiki_interest.domain.trust import TrendVerdict, WindowTrend
+from wiki_interest.domain.trust import BreakpointVerdict, TrendVerdict, Trust, WindowTrend
 from wiki_interest.i18n import Translator
 
 __all__ = [
@@ -149,6 +149,7 @@ def share_years_data(  # noqa: PLR0913 -- the series, what was found, and the tw
     trends: Mapping[str, WindowTrend],
     absolute: bool,
     topic_labels: Mapping[str, str],
+    trust: Mapping[str, Trust] | None = None,
 ) -> ShareYears | None:
     """What the main chart draws: the history as context, the analysis window and its trend.
 
@@ -161,6 +162,7 @@ def share_years_data(  # noqa: PLR0913 -- the series, what was found, and the tw
         absolute: Views a month instead of the attention share (no trend line then: the
             verdict reads the share).
         topic_labels: Topic id -> label, to name lines when there are several topics.
+        trust: The trust in each verdict: a step it finds technical is drawn as such.
     """
     drawn: list[tuple[PairHistory, ShareLine]] = []
     for d in _drawn(histories, trends=trends, absolute=absolute, topic_labels=topic_labels):
@@ -206,7 +208,7 @@ def share_years_data(  # noqa: PLR0913 -- the series, what was found, and the tw
     return ShareYears(
         absolute=absolute,
         lines=[line for _, line in drawn],
-        marks=_marks(drawn, observations),
+        marks=_marks(drawn, observations, trust or {}),
         recent_months=0,
         window_start=_month_label(window.start) if window.start > context.start else None,
         window_end=_month_label(window.end),
@@ -263,6 +265,13 @@ _MOVES: Mapping[TrendVerdict, Literal["gained", "held", "lost"]] = {
     TrendVerdict.DECLINING: "lost",
 }
 """The window's verdict as the symbol row under the views reads it (▲ ≈ ▼)."""
+
+
+_MARK_VERDICTS: Mapping[BreakpointVerdict, Literal["real", "artifact", "unknown"]] = {
+    BreakpointVerdict.REAL: "real",
+    BreakpointVerdict.ARTIFACT: "artifact",
+    BreakpointVerdict.UNKNOWN: "unknown",
+}
 
 
 def round_significant(value: float, digits: int = 3) -> float:
@@ -329,7 +338,12 @@ def share_years_spec(data: ShareYears, t: Translator, cited: Collection[str]) ->
         t: The report-language translator, the agent's labels included.
         cited: Ids of the observations the report text cites.
     """
-    labels = [_month_name(mark.x, t) for mark in data.marks]
+    labels = [
+        t.t("chart.share.artifact", month=_month_name(mark.x, t))
+        if mark.verdict == "artifact"
+        else _month_name(mark.x, t)
+        for mark in data.marks
+    ]
     mark_labels = [
         label if mark.kind == "step" or mark.observation in cited else None
         for mark, label in zip(data.marks, labels, strict=True)
@@ -385,7 +399,9 @@ def line_label(
 
 
 def _marks(
-    drawn: Sequence[tuple[PairHistory, ShareLine]], observations: Sequence[Observation]
+    drawn: Sequence[tuple[PairHistory, ShareLine]],
+    observations: Sequence[Observation],
+    trust: Mapping[str, Trust],
 ) -> list[ShareMark]:
     out: list[ShareMark] = []
     for index, (history, line) in enumerate(drawn):
@@ -397,7 +413,20 @@ def _marks(
                 continue
             kind: Literal["step", "spike"] = "step" if o.kind == "step" else "spike"
             value = line.y[line.x.index(month)]
-            out.append(ShareMark(kind=kind, line=index, x=month, y=value, observation=o.id))
+            checked = trust.get(history.pair)
+            verdict = (
+                next(
+                    (_MARK_VERDICTS[b.verdict] for b in checked.breakpoints if b.month == o.month),
+                    None,
+                )
+                if checked and kind == "step"
+                else None
+            )
+            out.append(
+                ShareMark(
+                    kind=kind, line=index, x=month, y=value, observation=o.id, verdict=verdict
+                )
+            )
     return out
 
 

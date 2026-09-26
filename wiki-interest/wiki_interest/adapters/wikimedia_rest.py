@@ -15,6 +15,7 @@ dates in ``references/api-notes.md``):
 from __future__ import annotations
 
 import calendar
+from collections.abc import Sequence
 from datetime import date, timedelta
 from urllib.parse import quote
 
@@ -100,6 +101,29 @@ class WikimediaRestPageviews:
             f"{start}/{end}"
         )
         return self._fetch_series(url, window)
+
+    def top(
+        self, project: WikiProject, month: date, *, access: Access
+    ) -> Sequence[tuple[str, float]]:
+        """The month's most viewed pages (``/metrics/pageviews/top``), most viewed first."""
+        url = (
+            f"{self._settings.pageviews_base_url}/metrics/pageviews/top/{project.domain}/"
+            f"{access.value}/{month.year}/{month.month:02d}/all-days"
+        )
+        window = Window(Granularity.MONTHLY, month, month)
+        try:
+            payload = self._http.get_json(url, ttl_seconds=self._ttl_for(window))
+        except HttpNotFoundError:
+            return ()
+        items = as_array(as_object(payload, url).get("items"), url)
+        if not items:
+            return ()
+        articles = as_array(as_object(items[0], url).get("articles"), url)
+        out = []
+        for raw in articles:
+            article = as_object(raw, url)
+            out.append((str(article["article"]).replace("_", " "), float(article["views"])))
+        return tuple(out)
 
     def _fetch_series(self, url: str, window: Window) -> Series:
         try:

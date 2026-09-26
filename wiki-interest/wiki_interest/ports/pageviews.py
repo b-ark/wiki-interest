@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from datetime import date
 from typing import Protocol
 
 from wiki_interest.domain.models import Access, Agent, Series, WikiProject, Window
@@ -55,5 +57,20 @@ class PageviewsSource(Protocol):
         """Return total views of a whole project, used to normalise article series.
 
         Same bucket and gap semantics as :meth:`per_article`.
+        """
+        ...
+
+    def top(
+        self, project: WikiProject, month: date, *, access: Access
+    ) -> Sequence[tuple[str, float]]:
+        """The month's most viewed pages of a project, most viewed first.
+
+        Args:
+            project: Language edition.
+            month: First day of the month.
+            access: Access method filter.
+
+        Returns:
+            ``(title, views)`` pairs, titles with spaces; empty when the API has no list.
         """
         ...

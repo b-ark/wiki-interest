@@ -19,6 +19,7 @@ from wiki_interest.contracts.summary import (
     MetricsOut,
     ReliabilityOut,
     TopicResolutionOut,
+    TrendOut,
 )
 from wiki_interest.errors import RenderError
 from wiki_interest.i18n import Translator
@@ -92,6 +93,7 @@ def method_markdown(summary: AnalysisSummary) -> str:
         + (" This run analysed raw views." if request.normalization == "absolute" else ""),
         "",
         *_articles(summary.resolution),
+        *_window(summary),
         "## Per edition",
         "",
     ]
@@ -106,6 +108,156 @@ def method_markdown(summary: AnalysisSummary) -> str:
         "",
     ]
     return "\n".join(lines)
+
+
+_TRUST_RULES = (
+    (
+        "Verdict",
+        "Theil–Sen trend of the log attention share (seasonal rhythm divided out, "
+        "bursts and months one day dominated left out) over the analysis window; after a step "
+        "inside the window (six months against six, at least trust_split_step) that leaves at "
+        "least trust_min_segment_months, from the step on",
+        "growing / declining beyond ±trust_stable_pct_per_year % a year, else stable",
+    ),
+    (
+        "No verdict",
+        "fewer than trust_min_window_months months, or fewer than trust_volume_floor views a month",
+        "insufficient_data, confidence low",
+    ),
+    (
+        "Year on year",
+        "months of the window's last twelve on the verdict's side of the same month a year earlier",
+        "a signal when at least trust_yoy_strong of 12",
+    ),
+    (
+        "Slope interval",
+        "90 % interval of the slope, moving-block bootstrap (blocks of "
+        "trust_bootstrap_block months, trust_bootstrap_reps resamples, seed "
+        "trust_bootstrap_seed)",
+        "a signal when it leaves out zero",
+    ),
+    (
+        "Signal/noise",
+        "the trend's change over the segment against the standard deviation of "
+        "its month-to-month changes",
+        "a signal when at least trust_snr_min",
+    ),
+    ("growing / declining", "the three signals above", "3 high, 2 medium, 0–1 low"),
+    (
+        "Control explains",
+        "the control articles' median trend over the same months is at least "
+        "trust_control_explains of the article's, the same way",
+        "low: the edition moved, not the topic",
+    ),
+    (
+        "stable",
+        "the whole slope interval within ±trust_stable_pct_per_year % a year",
+        "high; an interval past it medium; fewer than trust_min_window_months months fitted low",
+    ),
+    (
+        "Step verdict",
+        "the control articles' median change of level the same month is at "
+        "least trust_control_explains of the article's, or the article was renamed within "
+        "trust_rename_months",
+        "artifact; otherwise real; no control data unknown",
+    ),
+    (
+        "Spike month",
+        "one day took more than trust_day_spike_share of the month's views",
+        "left out of the slope",
+    ),
+    (
+        "Control basket",
+        "trust_control_sample articles drawn with seed trust_control_seed "
+        "from the first trust_control_top of the reference month's top list, without the main "
+        "page, other namespaces, articles younger than two years and bursts (over "
+        "trust_control_spike_multiple times their median of the year before); rebuilt after "
+        "trust_control_ttl_days days",
+        "stored per edition next to the HTTP cache",
+    ),
+)
+
+
+def _window(summary: AnalysisSummary) -> list[str]:
+    """The analysis window, the verdict rules as a table, and each verdict's trust."""
+    window = summary.analysis_window or summary.period
+    context = summary.context_range
+    lines = [
+        "## The analysis window and the trust in its verdicts",
+        "",
+        f"Analysis window: {window.start:%Y-%m} – {window.end:%Y-%m}; the headline, each "
+        "language's verdict, the comparison and the recommendation read it alone."
+        + (
+            f" The charts show the history from {context.start:%Y-%m} as context."
+            if context is not None and context.start < window.start
+            else ""
+        ),
+        "",
+        "| Rule | How | Outcome |",
+        "| --- | --- | --- |",
+        *(f"| {rule} | {how} | {outcome} |" for rule, how, outcome in _TRUST_RULES),
+        "",
+    ]
+    for item in summary.verdicts:
+        lines += _verdict(item)
+    return lines
+
+
+def _or_na(value: float | None) -> str:
+    return "n/a" if value is None else str(value)
+
+
+def _verdict(item: TrendOut) -> list[str]:
+    head = (
+        f"- {item.topic_id} in {item.project}: {item.verdict}, trend read from "
+        f"{item.segment_start}"
+        + (
+            f" (after the step of {item.after_step}, {item.step_change:+.0f} %)"
+            if item.after_step
+            else ""
+        )
+    )
+    if item.level_start is not None and item.level_end is not None:
+        head += (
+            f"; trend line {item.level_start} → {item.level_end} per million, "
+            f"{item.slope_pct_per_year:+.0f} % a year"
+        )
+    lines = [head + "."]
+    trust = item.trust
+    if trust is None:
+        return lines
+    ci = f"[{trust.ci90[0]:+.0f}; {trust.ci90[1]:+.0f}]" if trust.ci90 else "n/a"
+    lines.append(
+        f"  - Confidence {trust.confidence}: year on year {trust.yoy_down} down, "
+        f"{trust.yoy_up} up of {trust.yoy_months}; 90 % interval {ci} % a year; signal/noise "
+        f"{trust.snr if trust.snr is not None else 'n/a'}; control articles "
+        + (
+            f"{trust.control_change:+.0f} % a year ({trust.control_articles} articles)"
+            if trust.control_change is not None
+            else "none"
+        )
+        + f"; largest one-day share of a month {_or_na(trust.max_day_share)}"
+        + (
+            f"; spike months left out: {', '.join(trust.spike_months)}"
+            if trust.spike_months
+            else ""
+        )
+        + "."
+    )
+    for b in trust.breakpoints:
+        control = (
+            f"control {b.control_change_same_month:+.0f} %"
+            if b.control_change_same_month is not None
+            else "no control data"
+        )
+        lines.append(
+            f"  - Step {b.month} ({'in the window' if b.in_window else 'history'}): "
+            f"{b.change:+.0f} %, {control}, {'renamed' if b.renamed else 'not renamed'}: "
+            f"{b.verdict}; trend before "
+            f"{'n/a' if b.slope_before is None else f'{b.slope_before:+.0f} %'}, after "
+            f"{'n/a' if b.slope_after is None else f'{b.slope_after:+.0f} %'} a year."
+        )
+    return lines
 
 
 def _articles(resolution: Sequence[TopicResolutionOut]) -> list[str]:
