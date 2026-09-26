@@ -10,7 +10,7 @@ metadata:
 # Wiki Interest
 
 Turns Wikipedia pageview statistics into a short, data-backed answer: is interest in a topic
-growing, how does it differ between language editions, which audiences look promising, and
+growing, how does it differ between language Wikipedias, which audiences look promising, and
 how much can that be trusted. Output: a one-page `report.pdf` with charts (for the user) and
 your answer in the chat.
 
@@ -20,7 +20,7 @@ The code measures, decides and observes. It reads the **analysis window** (the p
 user named, by default the last 24 complete months) and gives each language a verdict on its
 attention share: `growing`, `stable`, `declining` or `insufficient_data`. It says how far each
 verdict can be trusted (`high`, `medium`, `low`, with its reasons: year-on-year months, the
-trend's interval, the edition's control articles, renames). It recommends which language to
+trend's interval, the control articles of the same Wikipedia, renames). It recommends which language to
 pick and what to check next. It writes the headline, one verdict line and one trust line per
 language, and the recommendation line: those go into the PDF and the chat word for word. The
 six years before the window are context: the charts show them and some observations describe
@@ -53,13 +53,13 @@ which may be read-only.
    "Меркурій" finds the planet first, the element is "ртуть". Interest in learning or
    teaching a subject ("learning English", "an astronomy course") is measured on the subject
    itself: `query` is "English language", "astronomy"; articles about learning it are missing
-   from most editions.
+   from most Wikipedias.
 2. **Needs only `uv`.** The first run creates the Python environment by itself (about ten
    seconds). If `uv` is missing, run `<skill>/scripts/setup.sh` (Windows:
    `<skill>/scripts/setup.ps1`) once.
 3. **Write `request.json`** in the current directory with your file-writing tool. Copy the
    closest example from `<skill>/assets/examples/` and change only what the user asked for:
-   - `question_type`: `compare` (editions or topics against each other), `assess` (is one
+   - `question_type`: `compare` (Wikipedias or topics against each other), `assess` (is one
      topic growing and can we trust it), `rank` (which audiences to pursue next);
    - inside each topic: `query` in the user's own words, `query_language` = the language of
      that wording, `query_en` = the topic in English (skip it if the query is English), and
@@ -71,7 +71,7 @@ which may be read-only.
    - `projects`: language codes such as `["pl", "cs"]`;
    - `period` only if the user named one (default: last 24 complete months);
    - `report.language`: the language the user writes in (`ru`, `de`, `es`...), never the
-     language of an edition and never the example's value: "Is interest in Stoicism growing
+     language of a Wikipedia and never the example's value: "Is interest in Stoicism growing
      on German Wikipedia?" is `en`, with `projects: ["de"]`;
    - `report.audience_note`: one line of context if the user gave any, in their language
      (the PDF prints it);
@@ -103,9 +103,9 @@ which may be read-only.
      observations that answer the question, connect them (why the numbers move, not only
      that they move), leave the rest out;
    - `meaning`: `{"text": ..., "uses": [...]}`: explain the code's recommendation
-     (`recommendation:...`) in the user's words, name the edition or topic it chose, cite it
+     (`recommendation:...`) in the user's words, name the Wikipedia or topic it chose, cite it
      and the decision observations you use; never pick another;
-   - `limits`: one line (views show curiosity, not willingness to pay; an edition is a
+   - `limits`: one line (views show interest, not willingness to pay; a Wikipedia is a
      language, not a country);
    - `ui`: the interface labels of `facts.ui`, in English: translate each value, keep
      `{placeholders}` (nothing to do when `facts.ui` is empty).
@@ -152,7 +152,7 @@ which may be read-only.
 |---|---|---|
 | 0 | done | write `narrative.json`, render (steps 6–7) |
 | 2 | request invalid | fix the field named in `error`, rerun |
-| 3 | a decision is needed | Nothing has been measured yet; `clarification.kind` says what. `ambiguous_topic`: if the conversation clearly means one of the `candidates`, set its `qid` and rerun, and say which meaning you chose; otherwise ask. With `from_search`, no item is named like the query and the candidates are guesses of a text search: take one only if its description fits what the user asked about; if none does, never the closest, say the topic was not found and ask for a link to a Wikipedia article in any language (`topics[].article_url`). `missing_article`: some edition has no article, and the code has composed the question. If `clarification.ui` lists labels, translate them into the user's language: write `question.json` as `{"ui": {...}}` (keep every `{placeholder}`) and run `render.py <run_dir> --ui question.json`. Send `ask_user` (from that output, or from `clarification` when no labels were listed) word for word as your whole message and end your turn. Only after the user answers, copy that option's `choose` value into `topics[].substitutes` and rerun; never choose for the user. "Skip Polish" or "without it" is the `skip` option: write `"skip"` for that edition and keep it in `projects`, so the report says it has no article. `topic_not_found`: say plainly that nothing was found and ask for a link to a Wikipedia article about what they mean; put it into `topics[].article_url`, rerun. |
+| 3 | a decision is needed | Nothing has been measured yet; `clarification.kind` says what. `ambiguous_topic`: if the conversation clearly means one of the `candidates`, set its `qid` and rerun, and say which meaning you chose; otherwise ask. With `from_search`, no item is named like the query and the candidates are guesses of a text search: take one only if its description fits what the user asked about; if none does, never the closest, say the topic was not found and ask for a link to a Wikipedia article in any language (`topics[].article_url`). `missing_article`: some Wikipedia has no article, and the code has composed the question. If `clarification.ui` lists labels, translate them into the user's language: write `question.json` as `{"ui": {...}}` (keep every `{placeholder}`) and run `render.py <run_dir> --ui question.json`. Send `ask_user` (from that output, or from `clarification` when no labels were listed) word for word as your whole message and end your turn. Only after the user answers, copy that option's `choose` value into `topics[].substitutes` and rerun; never choose for the user. "Skip Polish" or "without it" is the `skip` option: write `"skip"` for that Wikipedia and keep it in `projects`, so the report says it has no article. `topic_not_found`: say plainly that nothing was found and ask for a link to a Wikipedia article about what they mean; put it into `topics[].article_url`, rerun. |
 | 4 | Wikimedia unreachable or no data for the period | say so, offer to retry or change the period |
 | 5 | internal error | report `error`; run `uv run --project "<skill>" "<skill>/scripts/doctor.py"` and include its output |
 
@@ -166,12 +166,12 @@ Errors are JSON on stdout with `error`, `exit_code` and `hint`.
   show.
 - `verdicts[]`: per language, `verdict`, `segment_start` (after a step inside the window the
   trend is read from it: "stabilised after a drop"), `level_start` → `level_end` of the trend
-  line (per million views of the edition), `slope_pct_per_year`, and `trust`:
+  line (per million views of that Wikipedia), `slope_pct_per_year`, and `trust`:
   `confidence`, `yoy_down`/`yoy_up` of `yoy_months`, `ci90`, `snr`, `control_change`,
   `breakpoints[]` (each `real`, `artifact` or `unknown`), `max_day_share`, `spike_months`,
   `reasons[]`, and its `line`.
 - `recommendations[]`: `choice`, `why`, `confidence`, `next_check` (neighbouring articles
-  or more editions the skill can add itself, with the `request.json` change), `line`,
+  or more Wikipedias the skill can add itself, with the `request.json` change), `line`,
   `next_line`.
 
 When the user asks "can I trust this?", answer from `trust` (its line says it); when they
@@ -186,25 +186,25 @@ What it cannot check is meaning, so:
 - Say which meaning of the topic was analysed, in one line ("Python, the programming
   language"), even when it seems obvious.
 - Keep each observation's direction and words: "slower than in 2025" is not "speeds up"; a
-  step in one edition is not in both. Each language's direction is its verdict's: a stable
+  step in one Wikipedia is not in both. Each language's direction is its verdict's: a stable
   share is not "falling" even when its views fall.
 - History before the analysis window is context: say so ("in the wider context since
   2021"), and never tell it as the window's direction.
 - One term per measure: the attention share ("частка уваги", "доля внимания") for views per
-  million of the edition, views ("перегляди") for the article's own count; a language edition
+  million of that Wikipedia, views ("перегляди") for the article's own count; a language Wikipedia
   is a "мовний розділ" / "языковой раздел". Name periods as the observations do ("in 2021",
   "January–August 2026 against the same months of 2025"), never "five years ago"; a partial
   year is named as partial, and its caution about the season is kept.
 - Every cause or guess comes from an observation and keeps its "possibly" or "probably";
   add no causes of your own and no outside events.
 - Views are how often the article is opened ("the article is opened about 560 times a
-  month"), not people and not a market size; they measure attention and curiosity, not
-  demand or willingness to pay. Name editions by language ("the Polish Wikipedia"), never
+  month"), not people and not a market size; they measure attention and interest, not
+  demand or willingness to pay. Name each Wikipedia by its language ("the Polish Wikipedia"), never
   by country.
-- An edition without an article has "no article", not "no interest"; a substitute
+- A Wikipedia without an article has "no article", not "no interest"; a substitute
   (`pl.wikipedia (Post)`) is named every time.
 - State any change you made to what the user asked for: a period moved because data starts
-  in 2015-07, a topic reworded, an edition dropped.
+  in 2015-07, a topic reworded, a Wikipedia dropped.
 
 ## When to read more
 

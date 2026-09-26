@@ -533,3 +533,22 @@ uk, pl, cs, ro, hu). Харнесс `tools/skill-evals`: headless Claude Code, �
 
 Второй график теперь на месте и в эталоне, и в случае с пятью языками.
 Эталон: `evals/v0.2/phase-5b/report.pdf`.
+
+## Термины у источника (по разбору пользователя)
+
+Haiku переводил английские слова из того, что читает: «edition» → «видання», «curiosity» →
+«цікавість». Запретный список лечил симптом (stage16 → 16b: 32 → 28 отказов).
+
+- `b767a9e`: «edition» убрано из всего, что видит модель в `facts.json`: тексты наблюдений
+  («this Wikipedia», «both Wikipedias»), правила, пример, follow-ups; идентификаторы
+  `vs_edition` → `vs_wikipedia`, `editions:*` → `sections:*`, `decision:editions:*` →
+  `decision:sections:*`, `add_editions` → `add_sections`. Тест держит `facts.json`
+  украинского отчёта без слова «edition».
+- **stage16c** (те же 4 сценария × 3): отказов за термины **18** (было 32 / 28), «видання» —
+  **0** (было 12); ходов 10,5 (11,9), $0,161 на случай (0,179). Остались «цікавість» (10) и
+  «переглядання» (6).
+- После stage16c: в `SKILL.md` «views show curiosity» / «attention and curiosity» → «interest»
+  (источник «цікавість»), «edition» в прозе `SKILL.md` → «Wikipedia» (кроме описания-триггера).
+  На Haiku ещё не проверено.
+
+Автозамену в тексте модели не делали: ломает согласование слов разного рода.
