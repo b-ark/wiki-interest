@@ -17,7 +17,7 @@ from rich.console import Console
 
 from skill_evals.graders.judge import ClaudeCliJudge, Judge
 from skill_evals.oracle import render_markdown as render_oracle_markdown
-from skill_evals.oracle import run_oracle, uv_pipeline_runner
+from skill_evals.oracle import run_oracle, uv_narrator, uv_pipeline_runner
 from skill_evals.providers.base import ModelProvider
 from skill_evals.providers.claude_cli import (
     DEFAULT_ALLOWED_TOOLS,
@@ -204,6 +204,7 @@ def oracle(
         oracle_dir or scenarios.parent / "oracle",
         out,
         uv_pipeline_runner(skill),
+        uv_narrator(skill),
     )
     out.mkdir(parents=True, exist_ok=True)
     (out / "oracle.md").write_text(render_oracle_markdown(report), encoding="utf-8", newline="\n")

@@ -4,8 +4,9 @@ Before any paid run, the deterministic graders are exercised on two synthetic ag
 scenario, without calling a model:
 
 * the **oracle** runs the skill's own pipeline on hand-written requests
-  (``evals/oracle/<scenario>.json``) exactly as a perfect agent would, and answers with the
-  generated ``summary.md`` verbatim;
+  (``evals/oracle/<scenario>.json``) exactly as a perfect agent would; after a finished run
+  it has the code's own report text rendered (``render.py --narrative``, as an agent sends
+  its text) and answers with the chat answer that returns, else with ``summary.md``;
 * the **null** agent calls no tools, produces no files and answers "I don't know".
 
 An assertion the oracle fails is too strict or wrongly written; an assertion the null agent
@@ -22,7 +23,7 @@ import os
 import shutil
 import subprocess
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -35,6 +36,7 @@ __all__ = [
     "NULL_ANSWER",
     "NULL_NEUTRAL_TYPES",
     "AssertionCheck",
+    "Narrator",
     "OracleReport",
     "OracleSpec",
     "PipelineRunner",
@@ -42,14 +44,31 @@ __all__ = [
     "load_oracle_spec",
     "render_markdown",
     "run_oracle",
+    "uv_narrator",
     "uv_pipeline_runner",
 ]
 
 NULL_ANSWER = "I don't know."
 NULL_NEUTRAL_TYPES = frozenset(
-    {"no_tool_called", "answer_not_contains", "max_turns", "max_cost_usd"}
+    {
+        "no_tool_called",
+        "answer_not_contains",
+        "max_turns",
+        "max_cost_usd",
+        "chat_answer_relayed",
+        "question_relayed",
+    }
 )
-"""Assertion types that forbid or bound behaviour; doing nothing trivially satisfies them."""
+"""Assertion types that forbid or bound behaviour, or hold only once something was produced
+(a relayed text, a relayed question); doing nothing trivially satisfies them."""
+
+MODEL_ONLY_TYPES = frozenset({"narrative_accepted", "chat_answer_relayed", "answer_contains"})
+"""Checks of the report text. The oracle sends the code's own text, written in English; in a
+report in another language the skill rightly rejects it, and only a model that writes in the
+user's language can pass these, so the oracle marks them instead of failing them."""
+
+_LANGUAGE_PROBLEM = "in the report language"
+"""Words of the skill's rejection of a text in the wrong language (narrative_check)."""
 
 CLARIFICATION_REPLY = "Which of these do you mean?"
 """What an ideal agent adds after relaying the candidates of a clarification summary."""
@@ -120,6 +139,58 @@ def uv_pipeline_runner(skill_dir: Path, *, timeout_s: int = 600) -> PipelineRunn
     return run
 
 
+Narrator = Callable[[Path], PipelineOutput]
+"""Renders the code's own report text for a finished run directory, as an agent would."""
+
+_TEMPLATE_SCRIPT = """
+import json, sys
+from pathlib import Path
+from wiki_interest.application.facts import template_narrative
+from wiki_interest.application.runs import load_summary
+from wiki_interest.i18n import Translator
+run_dir, out = Path(sys.argv[1]), Path(sys.argv[2])
+facts = json.loads((run_dir / "facts.json").read_text(encoding="utf-8"))
+summary = load_summary(run_dir)
+text = template_narrative(summary, Translator(summary.request.report.language), ui=facts["ui"])
+out.write_text(text.model_dump_json(), encoding="utf-8")
+"""
+"""Writes the text the code composes for a run (the one the skill falls back to)."""
+
+
+def uv_narrator(skill_dir: Path, *, timeout_s: int = 600) -> Narrator:
+    """Write the code's own text for a run and render it with ``scripts/render.py``."""
+    uv = shutil.which("uv")
+    if uv is None:
+        msg = "uv is not on PATH; the oracle renders the report text with it"
+        raise RuntimeError(msg)
+
+    def call(args: list[str]) -> subprocess.CompletedProcess[str]:
+        env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}
+        return subprocess.run(
+            [uv, "run", "--directory", str(skill_dir), *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=timeout_s,
+            check=False,
+            env=env,
+        )
+
+    def narrate(run_dir: Path) -> PipelineOutput:
+        text = run_dir / "oracle-narrative.json"
+        written = call(["python", "-c", _TEMPLATE_SCRIPT, str(run_dir.resolve()), str(text)])
+        if written.returncode != 0:
+            return PipelineOutput(written.returncode, {"error": written.stderr[-500:]})
+        rendered = call(["scripts/render.py", str(run_dir.resolve()), "--narrative", str(text)])
+        try:
+            payload = json.loads(rendered.stdout)
+        except json.JSONDecodeError:
+            payload = {"error": rendered.stdout[-500:] + rendered.stderr[-500:]}
+        return PipelineOutput(rendered.returncode, payload)
+
+    return narrate
+
+
 @dataclass(frozen=True, slots=True)
 class AssertionCheck:
     """One assertion graded for the oracle and the null agent."""
@@ -130,11 +201,13 @@ class AssertionCheck:
     oracle_evidence: str
     null_passed: bool
     null_evidence: str
+    model_only: bool = False
+    """The oracle cannot pass it: the report text must be in a language only a model writes."""
 
     @property
     def too_strict(self) -> bool:
         """The ideal answer fails: the assertion or the scenario is wrong."""
-        return not self.oracle_passed
+        return not self.oracle_passed and not self.model_only
 
     @property
     def not_discriminating(self) -> bool:
@@ -202,6 +275,7 @@ class OracleReport:
                             "oracle_evidence": c.oracle_evidence,
                             "null_passed": c.null_passed,
                             "null_evidence": c.null_evidence,
+                            "model_only": c.model_only,
                         }
                         for c in s.checks
                     ],
@@ -216,6 +290,7 @@ def run_oracle(
     oracle_dir: Path,
     out_dir: Path,
     runner: PipelineRunner,
+    narrator: Narrator | None = None,
 ) -> OracleReport:
     """Grade every scenario that has an oracle spec, for the oracle and the null agent.
 
@@ -224,6 +299,8 @@ def run_oracle(
         oracle_dir: Directory with ``<scenario-id>.json`` specs.
         out_dir: Where pipeline outputs are written (one subdirectory per scenario).
         runner: Executes one request; see :func:`uv_pipeline_runner`.
+        narrator: Renders the report text of a finished run (:func:`uv_narrator`); without
+            it the oracle answers with ``summary.md`` and sends no text.
 
     Returns:
         The report; scenarios without a spec are listed in ``skipped``.
@@ -235,12 +312,17 @@ def run_oracle(
         if not spec_path.is_file():
             skipped.append(scenario.id)
             continue
-        results.append(_check_scenario(scenario, load_oracle_spec(spec_path), out_dir, runner))
+        spec = load_oracle_spec(spec_path)
+        results.append(_check_scenario(scenario, spec, out_dir, runner, narrator))
     return OracleReport(tuple(results), tuple(skipped))
 
 
 def _check_scenario(
-    scenario: Scenario, spec: OracleSpec, out_dir: Path, runner: PipelineRunner
+    scenario: Scenario,
+    spec: OracleSpec,
+    out_dir: Path,
+    runner: PipelineRunner,
+    narrator: Narrator | None = None,
 ) -> ScenarioCheck:
     if len(spec.requests) != len(scenario.turns):
         return ScenarioCheck(
@@ -255,6 +337,7 @@ def _check_scenario(
     requests_dir.mkdir(parents=True)
     turns: list[TurnRecord] = []
     exit_codes: list[int] = []
+    untranslated = False
     for index, (prompt, request) in enumerate(zip(scenario.turns, spec.requests, strict=True)):
         request_file = requests_dir / f"request-{index + 1}.json"
         request_file.write_text(json.dumps(request, ensure_ascii=False), encoding="utf-8")
@@ -267,7 +350,11 @@ def _check_scenario(
                 error=f"pipeline exit {output.exit_code}: {output.payload.get('error')}",
                 exit_codes=tuple(exit_codes),
             )
-        turns.append(_oracle_turn(prompt, request_file, answer))
+        render = _render(output, narrator)
+        if render is not None and isinstance(render.payload.get("chat_answer"), str):
+            answer = str(render.payload["chat_answer"])
+        untranslated = untranslated or (render is not None and _only_language(render))
+        turns.append(_oracle_turn(prompt, request_file, answer, render))
     oracle = Trajectory(provider="oracle", requested_model="oracle", turns=turns)
     null = Trajectory(
         provider="null",
@@ -280,27 +367,73 @@ def _check_scenario(
         _check(i, assertion, GradeContext(artifacts, oracle), GradeContext(empty, null))
         for i, assertion in enumerate(scenario.assertions)
     )
+    if untranslated:
+        checks = tuple(
+            replace(c, model_only=True) if c.type in MODEL_ONLY_TYPES and not c.oracle_passed else c
+            for c in checks
+        )
     return ScenarioCheck(scenario.id, checks, exit_codes=tuple(exit_codes))
 
 
+def _only_language(render: PipelineOutput) -> bool:
+    """The code's text was rejected for its language alone, which only a model can write."""
+    problems = render.payload.get("problems")
+    return (
+        render.payload.get("status") != "accepted"
+        and isinstance(problems, list)
+        and bool(problems)
+        and all(
+            isinstance(p, dict) and _LANGUAGE_PROBLEM in str(p.get("message", "")) for p in problems
+        )
+    )
+
+
 def _ideal_answer(output: PipelineOutput) -> str | None:
-    """``summary.md`` verbatim, plus the question an ideal agent asks after a clarification."""
+    """``summary.md`` verbatim, plus the question an ideal agent asks after a clarification.
+
+    A question the code composed (``clarification.ask_user``) is sent word for word, as the
+    skill tells the agent to.
+    """
     summary_md = output.payload.get("summary_md")
     if output.exit_code not in (0, 3) or not isinstance(summary_md, str):
         return None
+    clarification = output.payload.get("clarification")
+    if isinstance(clarification, dict) and isinstance(clarification.get("ask_user"), str):
+        return str(clarification["ask_user"])
     text = Path(summary_md).read_text(encoding="utf-8")
     if output.payload.get("status") == "needs_clarification":
         text = f"{text}\n\n{CLARIFICATION_REPLY}"
     return text
 
 
-def _oracle_turn(prompt: str, request_file: Path, answer: str) -> TurnRecord:
+def _render(output: PipelineOutput, narrator: Narrator | None) -> PipelineOutput | None:
+    """The report text rendered for a finished run, when a narrator is given."""
+    run_dir = output.payload.get("run_dir")
+    if narrator is None or output.exit_code != 0 or not isinstance(run_dir, str):
+        return None
+    return narrator(Path(run_dir))
+
+
+def _oracle_turn(
+    prompt: str, request_file: Path, answer: str, render: PipelineOutput | None = None
+) -> TurnRecord:
     command = f"uv run scripts/run.py {request_file.name}"
+    calls = [ToolCall(name="Bash", input={"command": command}, command=command)]
+    if render is not None:
+        rendered = "uv run scripts/render.py <run_dir> --narrative oracle-narrative.json"
+        calls.append(
+            ToolCall(
+                name="Bash",
+                input={"command": rendered},
+                command=rendered,
+                result=json.dumps(render.payload, ensure_ascii=False),
+            )
+        )
     return TurnRecord(
         prompt=prompt,
         final_answer=answer,
-        tool_calls=[ToolCall(name="Bash", input={"command": command}, command=command)],
-        num_turns=_ORACLE_TURNS_PER_REQUEST,
+        tool_calls=calls,
+        num_turns=_ORACLE_TURNS_PER_REQUEST + (1 if render is not None else 0),
         cost_usd=0.0,
     )
 
@@ -342,6 +475,21 @@ def render_markdown(report: OracleReport) -> str:
                 problems.append(f"{where}: null PASSES: {c.null_evidence}")
     errors = [f"- `{s.scenario_id}`: {s.error}" for s in report.scenarios if s.error]
     lines += ["", "## Problems", "", *(errors + problems or ["None."])]
+    model_only = [
+        f"- `{s.scenario_id}` a{c.index} `{c.type}`"
+        for s in report.scenarios
+        for c in s.checks
+        if c.model_only
+    ]
+    if model_only:
+        lines += [
+            "",
+            "## Checks only a model can pass",
+            "",
+            "The report is not in English, and the oracle's text is the code's own English one.",
+            "",
+            *model_only,
+        ]
     lines += [
         "",
         "## Per scenario",

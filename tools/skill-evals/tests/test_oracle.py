@@ -127,3 +127,45 @@ def test_resolve_stage_reaches_the_pipeline_as_environment(tmp_path: Path) -> No
     run_oracle([_scenario(stage="resolve")], oracle_dir, tmp_path / "out", spy)
     run_oracle([_scenario()], oracle_dir, tmp_path / "out2", spy)
     assert seen == [{"WIKI_INTEREST_STOP_AFTER": "resolve"}, {}]
+
+
+def test_the_oracle_sends_the_report_text_and_relays_the_chat_answer(tmp_path: Path) -> None:
+    """Without it the oracle failed every narrative_accepted and chat_answer_relayed."""
+    scenario = _scenario(
+        assertions=[{"type": "narrative_accepted"}, {"type": "chat_answer_relayed"}]
+    )
+
+    def runner(request_file: Path, runs_dir: Path, extra_env: Mapping[str, str]) -> PipelineOutput:
+        output = _fake_runner()(request_file, runs_dir, extra_env)
+        run_dir = str(Path(str(output.payload["summary_md"])).parent)
+        return PipelineOutput(0, {**output.payload, "run_dir": run_dir})
+
+    def narrator(run_dir: Path) -> PipelineOutput:
+        (run_dir / "chat_brief.md").write_text("The accepted text.", encoding="utf-8")
+        return PipelineOutput(0, {"status": "accepted", "chat_answer": "The accepted text."})
+
+    report = run_oracle([scenario], _spec(tmp_path), tmp_path / "out", runner, narrator)
+    (check,) = report.scenarios
+    assert [c.oracle_passed for c in check.checks] == [True, True]
+    assert check.checks[0].null_passed is False
+
+
+def test_a_text_rejected_only_for_its_language_needs_a_model(tmp_path: Path) -> None:
+    """The code's text is English: in a Ukrainian report only a model can pass the text checks."""
+    scenario = _scenario(assertions=[{"type": "narrative_accepted"}])
+
+    def runner(request_file: Path, runs_dir: Path, extra_env: Mapping[str, str]) -> PipelineOutput:
+        output = _fake_runner()(request_file, runs_dir, extra_env)
+        run_dir = str(Path(str(output.payload["summary_md"])).parent)
+        return PipelineOutput(0, {**output.payload, "run_dir": run_dir})
+
+    def narrator(run_dir: Path) -> PipelineOutput:
+        problem = {"block": "story", "message": "Write this block in the report language ('uk')"}
+        return PipelineOutput(2, {"status": "rejected", "problems": [problem]})
+
+    report = run_oracle([scenario], _spec(tmp_path), tmp_path / "out", runner, narrator)
+    (check,) = report.scenarios[0].checks
+    assert check.model_only
+    assert not check.too_strict
+    assert report.healthy
+    assert "Checks only a model can pass" in render_markdown(report)

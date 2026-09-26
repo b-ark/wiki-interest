@@ -44,10 +44,14 @@ produced it.
 
 A grader that passes everything or fails everything produces confident nonsense. Before any
 paid run, `skill-evals oracle` runs the real pipeline on the `oracle/` requests and grades two
-synthetic agents per scenario: one that answers with `summary.md` verbatim, and one that does
-nothing and says "I don't know". The first must pass every assertion, the second must fail
-every assertion that requires work. Current result, 2026-09-22: 100 % and 0 %
-([`results/oracle.md`](results/oracle.md)). The check already caught a bad scenario: the
+synthetic agents per scenario: one that works as a perfect agent (it relays the question the
+code composed, sends the code's own report text through `render.py --narrative` and answers
+with the chat answer that returns), and one that does nothing and says "I don't know". The
+first must pass every assertion, the second must fail every assertion that requires work.
+The code's own text is English, so in a report in another language the checks of the text
+can only be passed by a model; the oracle lists them apart instead of failing them. Current
+result on `report-30.json`, 2026-09-26: healthy, no assertion too strict or undiscriminating,
+16 text checks left to the model ([`results/oracle.md`](results/oracle.md)). The check already caught a bad scenario: the
 English word "football" is genuinely ambiguous on Wikidata, while the user's Ukrainian
 "футбол" is not.
 
