@@ -14,6 +14,7 @@ from urllib.parse import unquote
 
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     Field,
     field_serializer,
@@ -53,7 +54,19 @@ _ARTICLE_URL_RE = re.compile(
 _YEAR_MONTH_RE = re.compile(r"^(\d{4})-(\d{2})$")
 _MIN_COMPARE_COMBINATIONS = 2
 
-Slug = Annotated[str, Field(pattern=_SLUG_RE.pattern, max_length=64)]
+
+def _slug(value: object) -> object:
+    """``Eng_Learn`` -> ``eng-learn``: case, underscores and spaces are not worth a rejection.
+
+    Agents wrote ``"id": "eng_learn"`` and spent a turn on the schema error (3 of 87 cases in
+    stage15). Anything else the pattern does not allow is still rejected.
+    """
+    if not isinstance(value, str):
+        return value
+    return re.sub(r"-{2,}", "-", re.sub(r"[\s_]+", "-", value.strip().lower())).strip("-")
+
+
+Slug = Annotated[str, BeforeValidator(_slug), Field(pattern=_SLUG_RE.pattern, max_length=64)]
 
 
 class _StrictModel(BaseModel):

@@ -220,3 +220,18 @@ class TestArticleUrl:
     def test_non_wikipedia_link_is_rejected(self) -> None:
         with pytest.raises(ValidationError):
             TopicSpec.model_validate({"query": "a", "article_url": "https://example.com/wiki/X"})
+
+
+def test_an_id_with_underscores_or_capitals_is_normalised_not_rejected() -> None:
+    """Agents wrote "eng_learn" and spent a turn on the schema error (stage15)."""
+    spec = TopicSpec.model_validate({"query": "x", "id": "Eng_Learn "})
+    assert spec.id == "eng-learn"
+    request = AnalysisRequest.model_validate(
+        {
+            "question_type": "assess",
+            "topics": [{"query": "x", "id": "tesla_unit"}],
+            "projects": ["en"],
+            "session": "Tesla Unit",
+        }
+    )
+    assert (request.topics[0].id, request.session) == ("tesla-unit", "tesla-unit")
