@@ -11,7 +11,8 @@ so the skill package stays small.
 
 | File | Purpose |
 |---|---|
-| `evals.json` | 12 scenarios: the three requests from the assignment, users writing in Ukrainian, Russian, English and Polish, four multi-turn follow-ups (longer period, main article only, raw numbers, more editions), an ambiguous topic that must produce a question, and a period that starts before the data does. |
+| `evals.json` | 15 scenarios: the three requests from the assignment, users writing in Ukrainian, Russian, English and Polish, four multi-turn follow-ups (longer period, main article only, raw numbers, more editions), an ambiguous topic that must produce a question, and a period that starts before the data does. |
+| `report-30.json` | 29 scenarios of the full report, the set every numbered stage run uses: the questions in English, Russian and Ukrainian, topics that need a meaning, editions without an article, follow-ups and a period before the data. |
 | `oracle/<scenario>.json` | The requests a perfect agent would send for each turn. Used only to check the graders; never copied into the agent's sandbox. |
 | `trigger_evals.json` | 17 short requests, 9 that should activate the skill and 8 near-misses that should not (editing Wikipedia, summarising an article, Google Trends, app analytics). |
 | `results/` | Summaries of real runs: `benchmark.md`/`.json` per compared `SKILL.md` version, and the grader sanity check. Full transcripts stay in the harness's `runs/` directory. |
@@ -61,7 +62,7 @@ Each scenario runs several times per version in a fresh sandbox (a copy of the s
 empty workspace, the same warm HTTP cache so network noise does not differ between
 versions). The benchmark reports pass rates per assertion and per judge criterion, turns,
 tokens, cost and time, and the pairwise difference between versions next to the noise floor
-(`1 / sqrt(scenarios x repetitions)`, about ±17 points for 12 scenarios and 3 repetitions).
+(`1 / sqrt(scenarios x repetitions)`, about ±11 points for 29 scenarios and 3 repetitions).
 A change counts as an improvement only when it exceeds that floor. Infrastructure failures
 (timeouts, rate limits) are recorded separately and never scored as a wrong answer.
 

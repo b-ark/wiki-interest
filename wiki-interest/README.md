@@ -19,16 +19,16 @@ wiki-interest/
 │   └── cli/            # typer commands used by scripts/
 ├── scripts/            # thin entry points the agent runs
 ├── references/         # methodology, request schema, API notes, troubleshooting (loaded on demand)
-├── assets/             # report theme, i18n strings, example requests
+├── assets/             # report theme, example requests
 └── tests/              # unit, contract (recorded API fixtures), live API smoke tests
 ```
 
 Dependency direction is enforced with import-linter: `cli -> application | adapters -> ports -> contracts -> domain`.
 The domain never imports an adapter, so every calculation is testable offline.
 
-Agent evaluations are still pending: the harness is in `../tools/skill-evals`, but the planned
-`evals/` scenario suite and benchmark summaries are not included yet. Passing Python tests
-does not measure how reliably an agent selects the skill or explains its results.
+Passing Python tests does not measure how reliably an agent selects the skill or explains its
+results: [`evals/`](evals/) holds the agent scenarios and the summaries of real runs on
+Claude Haiku 4.5, graded with the harness in `../tools/skill-evals`.
 
 ## Setup
 
