@@ -88,7 +88,8 @@ RULES: tuple[str, ...] = (
     "account (the attention share); where the views moved, and more sharply where; whether "
     "each article gained, held or lost its attention share. Never one paragraph per edition: "
     "an edition's exception (a one-off burst, a step, a partial-year caution) takes one "
-    "sentence.",
+    "sentence. Editions move in opposite directions only when one rises and the other falls; "
+    "when both fall, say both fall and where more sharply.",
     f"meaning: what it means for the next step (at most {LIMITS['meaning']} characters), "
     "built from the decision observations that fit the question; cite them in 'uses'. With "
     "several editions, the trade-off: a larger audience against a growing one. Wikipedia is "

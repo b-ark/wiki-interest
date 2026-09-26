@@ -102,6 +102,10 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -179,6 +183,10 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -259,6 +267,10 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -338,6 +350,10 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -416,6 +432,10 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in Russian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -494,6 +514,10 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in English, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -619,6 +643,10 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in English, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -702,6 +730,10 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -857,6 +889,10 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -929,6 +965,10 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in Russian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1004,6 +1044,10 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1074,6 +1118,10 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1149,6 +1197,10 @@
         {
           "id": "user-language",
           "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1222,6 +1274,10 @@
         {
           "id": "states-findings",
           "criterion": "The answer gives the substance of the analysis, not only a headline, and compares the editions instead of reporting each one apart, drawing on the comparison the report gives: where the audience (views a month) is larger, whether the gap holds once the size of each Wikipedia is taken into account (the attention share, views per million), how the views changed against the same months a year earlier and where more sharply, whether each article gained, held or lost its attention share. It need not state every one of these; it fails when it tells each edition apart or leaves out the comparison altogether. Then the trade-off for the next step (a larger audience against a growing one) and a next step with examples of independent sources, with the numbers as written. With three or more editions it may compare the main ones. It treats Wikipedia as a signal to check further, never as a reason to invest or not to; it does not invent findings or numbers and does not restate the share as '1 in N'."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1295,6 +1351,10 @@
         {
           "id": "states-findings",
           "criterion": "The answer gives the substance of the analysis, not only a headline, and compares the editions instead of reporting each one apart, drawing on the comparison the report gives: where the audience (views a month) is larger, whether the gap holds once the size of each Wikipedia is taken into account (the attention share, views per million), how the views changed against the same months a year earlier and where more sharply, whether each article gained, held or lost its attention share. It need not state every one of these; it fails when it tells each edition apart or leaves out the comparison altogether. Then the trade-off for the next step (a larger audience against a growing one) and a next step with examples of independent sources, with the numbers as written. With three or more editions it may compare the main ones. It treats Wikipedia as a signal to check further, never as a reason to invest or not to; it does not invent findings or numbers and does not restate the share as '1 in N'."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1368,6 +1428,10 @@
         {
           "id": "states-findings",
           "criterion": "The answer gives the substance of the analysis, not only a headline, and compares the editions instead of reporting each one apart, drawing on the comparison the report gives: where the audience (views a month) is larger, whether the gap holds once the size of each Wikipedia is taken into account (the attention share, views per million), how the views changed against the same months a year earlier and where more sharply, whether each article gained, held or lost its attention share. It need not state every one of these; it fails when it tells each edition apart or leaves out the comparison altogether. Then the trade-off for the next step (a larger audience against a growing one) and a next step with examples of independent sources, with the numbers as written. With three or more editions it may compare the main ones. It treats Wikipedia as a signal to check further, never as a reason to invest or not to; it does not invent findings or numbers and does not restate the share as '1 in N'."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1441,6 +1505,10 @@
         {
           "id": "states-findings",
           "criterion": "The answer gives the substance of the analysis, not only a headline, and compares the editions instead of reporting each one apart, drawing on the comparison the report gives: where the audience (views a month) is larger, whether the gap holds once the size of each Wikipedia is taken into account (the attention share, views per million), how the views changed against the same months a year earlier and where more sharply, whether each article gained, held or lost its attention share. It need not state every one of these; it fails when it tells each edition apart or leaves out the comparison altogether. Then the trade-off for the next step (a larger audience against a growing one) and a next step with examples of independent sources, with the numbers as written. With three or more editions it may compare the main ones. It treats Wikipedia as a signal to check further, never as a reason to invest or not to; it does not invent findings or numbers and does not restate the share as '1 in N'."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1514,6 +1582,10 @@
         {
           "id": "states-findings",
           "criterion": "The answer gives the substance of the analysis, not only a headline, and compares the editions instead of reporting each one apart, drawing on the comparison the report gives: where the audience (views a month) is larger, whether the gap holds once the size of each Wikipedia is taken into account (the attention share, views per million), how the views changed against the same months a year earlier and where more sharply, whether each article gained, held or lost its attention share. It need not state every one of these; it fails when it tells each edition apart or leaves out the comparison altogether. Then the trade-off for the next step (a larger audience against a growing one) and a next step with examples of independent sources, with the numbers as written. With three or more editions it may compare the main ones. It treats Wikipedia as a signal to check further, never as a reason to invest or not to; it does not invent findings or numbers and does not restate the share as '1 in N'."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1587,6 +1659,10 @@
         {
           "id": "states-findings",
           "criterion": "The answer gives the substance of the analysis, not only a headline, and compares the editions instead of reporting each one apart, drawing on the comparison the report gives: where the audience (views a month) is larger, whether the gap holds once the size of each Wikipedia is taken into account (the attention share, views per million), how the views changed against the same months a year earlier and where more sharply, whether each article gained, held or lost its attention share. It need not state every one of these; it fails when it tells each edition apart or leaves out the comparison altogether. Then the trade-off for the next step (a larger audience against a growing one) and a next step with examples of independent sources, with the numbers as written. With three or more editions it may compare the main ones. It treats Wikipedia as a signal to check further, never as a reason to invest or not to; it does not invent findings or numbers and does not restate the share as '1 in N'."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1660,6 +1736,10 @@
         {
           "id": "states-findings",
           "criterion": "The answer gives the substance of the analysis, not only a headline, and compares the editions instead of reporting each one apart, drawing on the comparison the report gives: where the audience (views a month) is larger, whether the gap holds once the size of each Wikipedia is taken into account (the attention share, views per million), how the views changed against the same months a year earlier and where more sharply, whether each article gained, held or lost its attention share. It need not state every one of these; it fails when it tells each edition apart or leaves out the comparison altogether. Then the trade-off for the next step (a larger audience against a growing one) and a next step with examples of independent sources, with the numbers as written. With three or more editions it may compare the main ones. It treats Wikipedia as a signal to check further, never as a reason to invest or not to; it does not invent findings or numbers and does not restate the share as '1 in N'."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1733,6 +1813,10 @@
         {
           "id": "states-findings",
           "criterion": "The answer gives the substance of the analysis, not only a headline, and compares the editions instead of reporting each one apart, drawing on the comparison the report gives: where the audience (views a month) is larger, whether the gap holds once the size of each Wikipedia is taken into account (the attention share, views per million), how the views changed against the same months a year earlier and where more sharply, whether each article gained, held or lost its attention share. It need not state every one of these; it fails when it tells each edition apart or leaves out the comparison altogether. Then the trade-off for the next step (a larger audience against a growing one) and a next step with examples of independent sources, with the numbers as written. With three or more editions it may compare the main ones. It treats Wikipedia as a signal to check further, never as a reason to invest or not to; it does not invent findings or numbers and does not restate the share as '1 in N'."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1806,6 +1890,10 @@
         {
           "id": "states-findings",
           "criterion": "The answer gives the substance of the analysis, not only a headline, and compares the editions instead of reporting each one apart, drawing on the comparison the report gives: where the audience (views a month) is larger, whether the gap holds once the size of each Wikipedia is taken into account (the attention share, views per million), how the views changed against the same months a year earlier and where more sharply, whether each article gained, held or lost its attention share. It need not state every one of these; it fails when it tells each edition apart or leaves out the comparison altogether. Then the trade-off for the next step (a larger audience against a growing one) and a next step with examples of independent sources, with the numbers as written. With three or more editions it may compare the main ones. It treats Wikipedia as a signal to check further, never as a reason to invest or not to; it does not invent findings or numbers and does not restate the share as '1 in N'."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1879,6 +1967,10 @@
         {
           "id": "states-findings",
           "criterion": "The answer gives the substance of the analysis, not only a headline, and compares the editions instead of reporting each one apart, drawing on the comparison the report gives: where the audience (views a month) is larger, whether the gap holds once the size of each Wikipedia is taken into account (the attention share, views per million), how the views changed against the same months a year earlier and where more sharply, whether each article gained, held or lost its attention share. It need not state every one of these; it fails when it tells each edition apart or leaves out the comparison altogether. Then the trade-off for the next step (a larger audience against a growing one) and a next step with examples of independent sources, with the numbers as written. With three or more editions it may compare the main ones. It treats Wikipedia as a signal to check further, never as a reason to invest or not to; it does not invent findings or numbers and does not restate the share as '1 in N'."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -1952,6 +2044,10 @@
         {
           "id": "states-findings",
           "criterion": "The answer gives the substance of the analysis, not only a headline, and compares the editions instead of reporting each one apart, drawing on the comparison the report gives: where the audience (views a month) is larger, whether the gap holds once the size of each Wikipedia is taken into account (the attention share, views per million), how the views changed against the same months a year earlier and where more sharply, whether each article gained, held or lost its attention share. It need not state every one of these; it fails when it tells each edition apart or leaves out the comparison altogether. Then the trade-off for the next step (a larger audience against a growing one) and a next step with examples of independent sources, with the numbers as written. With three or more editions it may compare the main ones. It treats Wikipedia as a signal to check further, never as a reason to invest or not to; it does not invent findings or numbers and does not restate the share as '1 in N'."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
@@ -2025,6 +2121,10 @@
         {
           "id": "states-findings",
           "criterion": "The answer gives the substance of the analysis, not only a headline, and compares the editions instead of reporting each one apart, drawing on the comparison the report gives: where the audience (views a month) is larger, whether the gap holds once the size of each Wikipedia is taken into account (the attention share, views per million), how the views changed against the same months a year earlier and where more sharply, whether each article gained, held or lost its attention share. It need not state every one of these; it fails when it tells each edition apart or leaves out the comparison altogether. Then the trade-off for the next step (a larger audience against a growing one) and a next step with examples of independent sources, with the numbers as written. With three or more editions it may compare the main ones. It treats Wikipedia as a signal to check further, never as a reason to invest or not to; it does not invent findings or numbers and does not restate the share as '1 in N'."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
         }
       ]
     },
