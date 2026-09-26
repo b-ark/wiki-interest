@@ -185,8 +185,8 @@ class TestChatBrief:
     def test_labels_left_in_english_give_way_to_forms_without_words(self, tmp_path: Path) -> None:
         pipeline, run_dir = _run(tmp_path, "de")
         facts = _facts(run_dir)
-        # Only the PDF headings are translated, none of the chat's own labels.
-        ui = {k: f"DE {v}" for k, v in facts.ui.items() if k.startswith("report.")}
+        # Every label but the chat's own is translated.
+        ui = {k: f"DE {v}" for k, v in facts.ui.items() if not k.startswith(("chat.", "summary."))}
         narrative = _template(run_dir).model_copy(update={"ui": ui})
         assert pipeline.narrate(run_dir, narrative).status == "accepted"
         brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8")
@@ -546,9 +546,12 @@ class TestRejections:
         facts, narrative = _facts(run_dir), _template(run_dir)
         # The template carries every label to translate; one left out stays English.
         assert narrative.ui
-        some = dict(list(narrative.ui.items())[:1])
-        partly = narrative.model_copy(update={"ui": some})
+        most = dict(list(narrative.ui.items())[1:])
+        partly = narrative.model_copy(update={"ui": most})
         assert not any(p.block == "ui" for p in check_narrative(facts, partly))
+        # Only a couple of them (the example's two) leave the whole PDF English (stage13).
+        few = narrative.model_copy(update={"ui": dict(list(narrative.ui.items())[:2])})
+        assert any("not a few" in p.message for p in check_narrative(facts, few))
         ui = {key: f"DE {text}" for key, text in narrative.ui.items()}
         with_ui = narrative.model_copy(update={"ui": ui})
         assert _messages(facts, with_ui) == []

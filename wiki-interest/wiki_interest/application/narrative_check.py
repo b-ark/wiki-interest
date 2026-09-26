@@ -97,6 +97,9 @@ _DEMAND: Mapping[str, str] = {
     "cs": r"poptávk",
     "de": r"nachfrage",
 }
+_UI_MISSING_SHARE = 0.5
+"""More labels than this share left out: the report's headings and charts stay English."""
+_UI_MISSING_SHOWN = 6
 _COMPARISONS = ("editions", "topics")
 """Observations that set editions or topics against each other: a story of several must cite
 them, or it tells each apart instead of comparing (the user's report spec, 2026-09-25)."""
@@ -476,14 +479,23 @@ class _Checker:
 
         The facts list every label, so the agent translates in place. A label left out
         costs an English word in the PDF; rejecting the text for it cost the user the whole
-        analysis (verified 2026-09-23 on the evals). No translation at all is rejected: an
-        agent that wrote the text from scratch dropped ``ui`` in a third of the runs, and
-        the whole PDF stayed English.
+        analysis (verified 2026-09-23 on the evals). No translation at all, or most labels
+        left out, is rejected: the whole PDF would stay English.
         """
         if self.facts.ui and not self.narrative.ui:
             self.add(
                 "ui",
                 "Translate every label of facts.ui into 'ui' (same keys, keep the {placeholders}).",
+            )
+        missing = [key for key in self.facts.ui if key not in self.narrative.ui]
+        if self.narrative.ui and len(missing) > len(self.facts.ui) * _UI_MISSING_SHARE:
+            # An agent copied the example's two labels and left the other 37 in English: the
+            # whole PDF's headings and charts stayed English (stage13).
+            self.add(
+                "ui",
+                f"Translate every label of facts.ui, not a few: {len(missing)} of "
+                f"{len(self.facts.ui)} are missing, for example "
+                f"{', '.join(missing[:_UI_MISSING_SHOWN])}.",
             )
         for key, text in self.narrative.ui.items():
             english = self.facts.ui.get(key)

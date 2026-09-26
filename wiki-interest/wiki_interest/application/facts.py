@@ -225,8 +225,9 @@ EXAMPLE: Mapping[str, object] = {
         "limits": "Page views show interest, not willingness to pay; each Wikipedia is a "
         "language, not a country.",
         "ui": {
-            "report.decision": "(each key of facts.ui with its label in the report language)",
-            "chat.pdf": "(... keeping {path} as it is)",
+            "report.decision": "What it means for you (in the report language)",
+            "chat.pdf": "PDF report: {path} (in the report language, {path} kept)",
+            "...": "and so on for EVERY key of facts.ui, not only these two",
         },
     },
 }
