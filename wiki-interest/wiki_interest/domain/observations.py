@@ -175,8 +175,9 @@ class PairHistory:
         months: First day of each month.
         views: The article's monthly views (with redirects); ``None`` where missing.
         edition: The edition's monthly views; ``None`` where missing.
-        substitute: Measured through another article (a broader or related one): it gets its
-            own observations and a caution, but is never compared with the topic elsewhere.
+        substitute: The article measured instead, when the edition has none on the topic (a
+            broader or related one): it gets its own observations and a caution, but is never
+            compared with the topic elsewhere; charts name it next to the edition.
     """
 
     topic_id: str
@@ -185,7 +186,7 @@ class PairHistory:
     months: tuple[date, ...]
     views: tuple[float | None, ...]
     edition: tuple[float | None, ...]
-    substitute: bool = False
+    substitute: str | None = None
 
     @property
     def language(self) -> str:

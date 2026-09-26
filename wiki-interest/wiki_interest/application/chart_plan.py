@@ -318,13 +318,19 @@ def _line_label(
     languages: Collection[str],
     topic_labels: Mapping[str, str],
 ) -> str:
-    """``uk`` for one topic; the topic for one edition; both otherwise."""
+    """``uk`` for one topic; the topic for one edition; both otherwise.
+
+    An edition measured through another article names it: ``pl (Post)``, so its line is not
+    read as the topic's.
+    """
     topic = topic_labels.get(history.topic_id, history.topic_id)
     if len(topics) == 1:
-        return history.language
-    if len(languages) == 1:
-        return topic
-    return f"{topic} · {history.language}"
+        label = history.language
+    elif len(languages) == 1:
+        label = topic
+    else:
+        label = f"{topic} · {history.language}"
+    return f"{label} ({history.substitute})" if history.substitute else label
 
 
 def _marks(

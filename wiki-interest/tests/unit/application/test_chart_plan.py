@@ -112,6 +112,7 @@ def _history(
     topic: str = "astronomy",
     project: str = "uk.wikipedia",
     edition: float = 1e8,
+    substitute: str | None = None,
 ) -> PairHistory:
     """72 months from 2020-09 to 2026-08: full calendar years 2021–2025 and a partial 2026."""
     months = tuple(date(2020 + (8 + k) // 12, (8 + k) % 12 + 1, 1) for k in range(72))
@@ -122,6 +123,7 @@ def _history(
         months=months,
         views=tuple(views(k) for k in range(72)),
         edition=tuple(edition for _ in range(72)),
+        substitute=substitute,
     )
 
 
@@ -171,6 +173,14 @@ class TestMainChart:
             _history(lambda _k: 1_000.0, topic="telescope"),
         )
         assert [line.label for line in data.lines] == ["astronomy", "telescope"]
+
+    def test_an_edition_measured_through_another_article_names_it(self) -> None:
+        histories = (
+            _history(_level(5_000.0)),
+            _history(_level(9_000.0), project="pl.wikipedia", substitute="Post"),
+        )
+        assert [line.label for line in _data(*histories).lines] == ["uk", "pl (Post)"]
+        assert [line.label for line in _audience(*histories).lines] == ["uk", "pl (Post)"]
 
     def test_more_than_three_audiences_keep_the_three_largest(self) -> None:
         histories = [

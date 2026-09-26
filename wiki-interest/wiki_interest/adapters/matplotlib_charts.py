@@ -33,6 +33,7 @@ from wiki_interest.errors import RenderError
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
+    from matplotlib.text import Annotation
     from numpy.typing import NDArray
 
 __all__ = ["MatplotlibChartRenderer"]
@@ -98,7 +99,10 @@ LABEL_OFFSET_PT = 4
 SHARE_HEIGHT_SCALE = 1.4
 """The main chart is this many times a wide chart's height: legend and notes under it."""
 SHARE_RIGHT_MM = 14.0
-"""Room right of the main chart's plot for the audiences' names at the ends of their lines."""
+"""Room right of the main chart's plot for the audiences' names at the ends of their lines;
+a longer name (``pl (Post)``) takes more, see :meth:`MatplotlibChartRenderer._ends_inside`."""
+END_FIT_PASSES = 3
+"""Times the plot is narrowed for its end names: a name moves a little less than the plot's edge."""
 SHARE_HEADROOM = 1.12
 """Room over the highest year or month for the value labels."""
 STEP_LINE_WIDTH = 0.6
@@ -648,7 +652,8 @@ class MatplotlibChartRenderer:
         figure.tight_layout(rect=(0, bottom_mm / height, 1, header))
         self._frame(figure, chart.width_mm)
         figure.subplots_adjust(right=1 - SHARE_RIGHT_MM / chart.width_mm)
-        self._share_ends(figure, axes, share, ceiling)
+        ends = self._share_ends(figure, axes, share, ceiling)
+        self._ends_inside(figure, ends, chart.width_mm)
         return figure
 
     def _share_values(self, axes: Axes, share: ShareYears, ceiling: float) -> None:
@@ -756,11 +761,16 @@ class MatplotlibChartRenderer:
                 fontsize=small,
             )
 
-    def _share_ends(self, figure: Figure, axes: Axes, share: ShareYears, ceiling: float) -> None:
+    def _share_ends(
+        self, figure: Figure, axes: Axes, share: ShareYears, ceiling: float
+    ) -> list[Annotation]:
         """Each audience's name at the end of its line, moved apart when they would touch.
 
         Placed once the plot has its size: the least gap is a line of the label's font, in
         the axis's units, whatever height the chart was drawn at.
+
+        Returns:
+            The names placed.
         """
         plot_mm = axes.get_position().height * figure.get_figheight() * MM_PER_INCH
         line_mm = self._theme.chart.font_size_pt * PT_TO_MM * END_LABEL_LINE
@@ -769,13 +779,14 @@ class MatplotlibChartRenderer:
             (line.years[-1].value, index, line.label) for index, line in enumerate(share.lines)
         )
         placed: list[float] = []
+        names: list[Annotation] = []
         for value, index, label in ends:
             y = value
             if placed and y - placed[-1] < gap:
                 y = placed[-1] + gap
             placed.append(y)
             end = _month_number(share.lines[index].years[-1].end) + SEGMENT_END
-            axes.annotate(
+            name = axes.annotate(
                 label,
                 (end, y),
                 xytext=(LABEL_OFFSET_PT * 2, 0),
@@ -786,6 +797,22 @@ class MatplotlibChartRenderer:
                 va="center",
                 annotation_clip=False,
             )
+            names.append(name)
+        return names
+
+    @staticmethod
+    def _ends_inside(figure: Figure, names: Sequence[Annotation], width_mm: float) -> None:
+        """Narrow the plot until the names at the lines' ends stay inside the figure."""
+        if not names:
+            return
+        FigureCanvasAgg(figure)  # a canvas to measure the names on
+        limit_mm = width_mm - FRAME_MIN_MARGIN_MM
+        for _ in range(END_FIT_PASSES):
+            right_mm = max(n.get_window_extent().x1 for n in names) / figure.dpi * MM_PER_INCH
+            overflow = right_mm - limit_mm
+            if overflow <= 0:
+                return
+            figure.subplots_adjust(right=figure.subplotpars.right - overflow / width_mm)
 
     def _share_years_axis(self, axes: Axes, spec: ChartSpec, last: float) -> None:
         """One label per calendar year, under its middle."""

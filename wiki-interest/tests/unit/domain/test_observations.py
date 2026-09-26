@@ -280,7 +280,7 @@ class TestAcrossPairs:
 
     def test_a_substitute_is_never_set_against_the_topic(self) -> None:
         uk = _history(_flat(4_000.0))
-        pl = replace(_history(_flat(9_000.0), project="pl.wikipedia"), substitute=True)
+        pl = replace(_history(_flat(9_000.0), project="pl.wikipedia"), substitute="Post")
         found = _by_id(observe([uk, pl]))
         assert "editions:astronomy" not in found
         assert "size:astronomy/pl" in found  # it keeps its own observations

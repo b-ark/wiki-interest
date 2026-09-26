@@ -203,6 +203,22 @@ def test_the_main_chart_names_each_audience_and_writes_each_year(
     assert "Attention share over time" in text
 
 
+def test_a_long_name_at_a_line_end_stays_inside_the_chart(
+    renderer: MatplotlibChartRenderer, tmp_path: Path
+) -> None:
+    data = share_years_data(2)
+    long = data.lines[1].model_copy(update={"label": "pl (Obserwatorium astronomiczne)"})
+    spec = share_years_spec(
+        data.model_copy(update={"lines": [data.lines[0], long]}), Translator("en"), set()
+    )
+    png, _ = renderer.render(spec, tmp_path)
+    with Image.open(png) as image:
+        rgb = image.convert("RGB")
+        width, height = rgb.size
+        edge = {rgb.getpixel((x, y)) for x in range(width - 4, width) for y in range(height)}
+    assert edge == {rgb.getpixel((0, 0))}  # the background alone: no letter cut at the edge
+
+
 def test_the_main_chart_marks_only_what_the_text_cites(
     renderer: MatplotlibChartRenderer, tmp_path: Path
 ) -> None:

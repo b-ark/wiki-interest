@@ -90,7 +90,7 @@ def pair_histories(
                 months=views.periods,
                 views=views.values,
                 edition=tuple(by_month.get(m) for m in views.periods),
-                substitute=substitute is not None,
+                substitute=substitute,
             )
         )
     return histories
