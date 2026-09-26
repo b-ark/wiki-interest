@@ -15,7 +15,7 @@ dates in ``references/api-notes.md``):
 from __future__ import annotations
 
 import calendar
-from datetime import date
+from datetime import date, timedelta
 from urllib.parse import quote
 
 from wiki_interest.adapters.http import HttpJsonClient, HttpNotFoundError, as_array, as_object
@@ -116,10 +116,14 @@ class WikimediaRestPageviews:
         return _align(views, window)
 
     def _ttl_for(self, window: Window) -> int | None:
-        """Short TTL when the window reaches the current month, otherwise the closed-period TTL."""
-        today = self._clock.today()
-        last = window.end
-        if (last.year, last.month) >= (today.year, today.month):
+        """The short TTL until the window's last day is ``publish_lag_days`` old.
+
+        After that, the closed-period TTL. "The last full month" is asked for from the 1st,
+        before the API has published it; a window that only just ended is refreshed like an
+        open one.
+        """
+        settled = _window_last_day(window) + timedelta(days=self._settings.publish_lag_days)
+        if self._clock.today() < settled:
             return self._settings.open_period_ttl_s
         return self._settings.closed_period_ttl_s
 

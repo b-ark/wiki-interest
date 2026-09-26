@@ -196,6 +196,19 @@ class TestTtlPolicy:
         source.per_article(UK, "X", MONTHLY_Q1, access=Access.ALL, agent=Agent.USER)
         assert ttls == [settings.open_period_ttl_s]
 
+    @pytest.mark.parametrize(
+        ("today", "open_"),
+        [(date(2024, 4, 2), True), (date(2024, 4, 8), False)],
+    )
+    def test_a_month_just_ended_is_refreshed_until_it_is_published(
+        self, ttls: list[int | None], settings: Settings, today: date, open_: bool
+    ) -> None:
+        """A run on the 2nd cached the last month's absence forever."""
+        source = WikimediaRestPageviews(self.http, FixedClock(today))
+        source.per_article(UK, "X", MONTHLY_Q1, access=Access.ALL, agent=Agent.USER)
+        expected = settings.open_period_ttl_s if open_ else settings.closed_period_ttl_s
+        assert ttls == [expected]
+
     def test_daily_window_ending_in_current_month_uses_open_period_ttl(
         self, ttls: list[int | None], settings: Settings
     ) -> None:

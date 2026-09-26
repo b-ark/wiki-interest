@@ -50,6 +50,19 @@ build_container: Callable[[], Container] = Container.build
 """Factory for the composition root; tests replace it with one built on fakes."""
 
 
+def _doctor_container() -> Container:
+    """The doctor's composition root, without the persistent cache.
+
+    Through it the probes answered from disk after the first run, and "the API is
+    reachable" passed offline.
+    """
+    return Container.build(persistent_cache=False)
+
+
+build_doctor_container: Callable[[], Container] = _doctor_container
+"""Factory for the doctor's composition root; tests may replace it."""
+
+
 @app.callback()
 def _root() -> None:
     """Analyse Wikipedia pageview interest across topics and language editions.
@@ -280,7 +293,7 @@ def doctor(
     ] = False,
 ) -> None:
     """Check the environment: Python, cache directory, fonts and (unless offline) the APIs."""
-    with _guarded(), build_container() as container:
+    with _guarded(), build_doctor_container() as container:
         report = run_doctor(container, online=not offline)
         _emit(report.to_dict())
         raise typer.Exit(code=0 if report.ok else EXIT_PROBLEMS_FOUND)

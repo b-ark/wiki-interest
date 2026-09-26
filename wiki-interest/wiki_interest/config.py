@@ -90,6 +90,9 @@ class Settings(BaseSettings):
             data is still being written upstream and must be refreshed daily.
         closed_period_ttl_s: Cache TTL for series entirely in past months. ``None`` means never
             expires: the Pageviews API does not restate closed months.
+        publish_lag_days: Days after a window's last day before it counts as closed: the API
+            publishes a month some days after it ends, and a run on the 1st that cached the
+            month's absence forever kept it missing in every later run.
         resolution_ttl_s: Cache TTL for Wikidata and MediaWiki lookups (labels, sitelinks,
             redirects, links); they change rarely but do change.
         cache_path: SQLite file for the HTTP cache; parent directories are created on demand.
@@ -111,6 +114,7 @@ class Settings(BaseSettings):
     max_concurrency: int = Field(default=8, ge=1)
     open_period_ttl_s: int = Field(default=_SECONDS_PER_DAY, ge=0)
     closed_period_ttl_s: int | None = Field(default=None, ge=0)
+    publish_lag_days: int = Field(default=7, ge=0)
     resolution_ttl_s: int = Field(default=_RESOLUTION_TTL_DAYS * _SECONDS_PER_DAY, ge=0)
     cache_path: Path = Field(default_factory=_default_cache_path)
     runs_dir: Path = Field(default_factory=_default_runs_dir)
