@@ -171,6 +171,8 @@ class PipelineOutcome:
             }
             if clarification.candidates:
                 details["candidates"] = [c.model_dump() for c in clarification.candidates]
+            if clarification.from_search:
+                details["from_search"] = True
             if clarification.gaps:
                 details["gaps"] = [
                     {

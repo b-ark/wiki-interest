@@ -6,7 +6,9 @@ feed views into it (this is what gets measured). Wikidata is the bridge between 
 MediaWiki supplies edition-specific facts (redirects, search).
 
 The resolver never guesses when the entity is ambiguous: it raises
-:class:`~wiki_interest.errors.ClarificationNeededError` so the agent asks the user. Nor does it
+:class:`~wiki_interest.errors.ClarificationNeededError` so the agent asks the user. When no
+Wikidata item is named like the query, what a full-text search finds is offered the same way,
+never measured. Nor does it
 guess what stands in for a missing article: an edition without one gets a ``NOT_FOUND``
 bundle, :mod:`wiki_interest.application.coverage` offers the user substitutes, and a
 substitute the user chose (``topics[].substitutes``) becomes a ``SUBSTITUTE`` bundle here.
@@ -17,6 +19,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from typing import NoReturn
 
 from wiki_interest.contracts.request import AnalysisRequest, SubstituteSpec, TopicSpec
 from wiki_interest.domain.entity_choice import CandidateEvidence, ChoiceSettings, choose_by_meaning
@@ -184,13 +187,16 @@ class TopicResolver:
             The resolved topic with one bundle per edition.
 
         Raises:
-            ClarificationNeededError: If the query matches several plausible entities.
+            ClarificationNeededError: If the query matches several plausible entities, or no
+                item is named like it and a search of Wikipedia found articles that may be it.
             TopicNotFoundError: If nothing matches the topic in any requested edition.
         """
         if topic.id is None:
             msg = "TopicSpec.id must be set before resolution"
             raise ValueError(msg)
         entity = self._entity(topic, projects)
+        if entity.qid is None and entity.linked_article is None and not topic.substitutes:
+            self._unidentified(topic, projects)
         qid = entity.qid
         missing: list[tuple[WikiProject, str]] = []
         mains = self._main_articles(topic, qid, projects, missing)
@@ -285,6 +291,75 @@ class TopicResolver:
             method=choice.method,
             confidence=choice.confidence,
             runner_up=choice.runner_up,
+        )
+
+    def _unidentified(self, topic: TopicSpec, projects: Sequence[WikiProject]) -> NoReturn:
+        """No Wikidata item is named like the query: offer what a text search finds, or ask.
+
+        A full-text hit is a guess. "tesla unit of magnetic flux density" found "Tesla (unit)"
+        in English, and could as well have found the physicist; measured, the hit was reported
+        as the topic, while the other editions, whose articles are unknown without the item,
+        were asked about as missing. The items of the hits become the candidates of the meaning
+        question instead: the agent takes one only when the conversation clearly means it, and
+        otherwise asks the user for a link. Without any, the topic is not found.
+
+        Raises:
+            ClarificationNeededError: With the items the search found (``from_search``).
+            TopicNotFoundError: If the search found no article with an item.
+        """
+        assert topic.id is not None
+        candidates = self._found_by_search(topic, projects)
+        if candidates:
+            raise ClarificationNeededError(
+                f"No Wikidata item is named {topic.query!r}; a search found articles",
+                topic_id=topic.id,
+                candidates=candidates,
+                coverage=self._coverage(candidates, projects),
+                hint=(
+                    "Set topics[].qid only to a candidate the conversation clearly means; if none "
+                    "is, ask the user for a link to a Wikipedia article about the topic."
+                ),
+                from_search=True,
+            )
+        raise TopicNotFoundError(
+            f"Nothing matches topic {topic.query!r}",
+            topic_id=topic.id,
+            query=topic.query,
+            hint="Ask the user for a link to a Wikipedia article about the topic.",
+        )
+
+    def _found_by_search(
+        self, topic: TopicSpec, projects: Sequence[WikiProject]
+    ) -> tuple[EntityCandidate, ...]:
+        """Items of the articles a full-text search finds, the query's own Wikipedia first.
+
+        Each edition is searched by the user's term for it, then by the query (and in English
+        by ``query_en``); hits without an item are left out, as nothing tells what they are.
+        """
+        editions = list(dict.fromkeys([WikiProject(topic.query_language), *projects]))
+        qids: list[str] = []
+        titles: dict[str, str] = {}
+        for project in editions:
+            texts = [topic.local_terms.get(project.domain), topic.query]
+            if project.language == _ENGLISH:
+                texts.append(topic.query_en)
+            for text in dict.fromkeys(t for t in texts if t):
+                hits = self._mediawiki.search(project, text, limit=self._settings.search_limit)
+                infos = self._mediawiki.page_info(project, hits) if hits else {}
+                for hit in hits:
+                    info = infos.get(hit)
+                    if info is not None and info.qid is not None and info.qid not in titles:
+                        qids.append(info.qid)
+                        titles[info.qid] = info.title
+        qids = qids[: self._settings.candidate_limit]
+        known = self._wikidata.summaries(qids, topic.query_language) if qids else {}
+        return tuple(
+            EntityCandidate(
+                qid=qid,
+                label=(known[qid].label if qid in known else None) or titles[qid],
+                description=known[qid].description if qid in known else None,
+            )
+            for qid in qids
         )
 
     def _search(self, text: str, language: str) -> tuple[EntityCandidate, ...]:

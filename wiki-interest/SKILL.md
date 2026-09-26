@@ -55,7 +55,9 @@ which may be read-only.
      that wording, `query_en` = the topic in English (skip it if the query is English), and
      a short Latin `id`. These fields go in `topics[]`, never at the top level;
    - `topics[].meaning`: what the user means in a few English words ("the chemical element
-     Hg"), when you decided it in step 1;
+     Hg"), when you decided it in step 1. The meaning never goes into `query`: `"query":
+     "tesla", "meaning": "SI unit of magnetic flux density"`, not `"query": "tesla unit of
+     magnetic flux density"`, which names no article;
    - `projects`: language codes such as `["pl", "cs"]`;
    - `period` only if the user named one (default: last 24 complete months);
    - `report.language`: the language the user writes in (`ru`, `de`, `es`...), never the
@@ -137,7 +139,7 @@ which may be read-only.
 |---|---|---|
 | 0 | done | write `narrative.json`, render (steps 6–7) |
 | 2 | request invalid | fix the field named in `error`, rerun |
-| 3 | a decision is needed | Nothing has been measured yet; `clarification.kind` says what. `ambiguous_topic`: if the conversation clearly means one of the `candidates`, set its `qid` and rerun, and say which meaning you chose; otherwise ask. `missing_article`: some edition has no article, and the code has composed the question. If `clarification.ui` lists labels, translate them into the user's language: write `question.json` as `{"ui": {...}}` (keep every `{placeholder}`) and run `render.py <run_dir> --ui question.json`. Send `ask_user` (from that output, or from `clarification` when no labels were listed) word for word as your whole message and end your turn. Only after the user answers, copy that option's `choose` value into `topics[].substitutes` and rerun; never choose for the user. "Skip Polish" or "without it" is the `skip` option: write `"skip"` for that edition and keep it in `projects`, so the report says it has no article. `topic_not_found`: say plainly that nothing was found and ask for a link to a Wikipedia article about what they mean; put it into `topics[].article_url`, rerun. |
+| 3 | a decision is needed | Nothing has been measured yet; `clarification.kind` says what. `ambiguous_topic`: if the conversation clearly means one of the `candidates`, set its `qid` and rerun, and say which meaning you chose; otherwise ask. With `from_search`, no item is named like the query and the candidates are guesses of a text search: take one only if its description fits what the user asked about; if none does, never the closest, say the topic was not found and ask for a link to a Wikipedia article in any language (`topics[].article_url`). `missing_article`: some edition has no article, and the code has composed the question. If `clarification.ui` lists labels, translate them into the user's language: write `question.json` as `{"ui": {...}}` (keep every `{placeholder}`) and run `render.py <run_dir> --ui question.json`. Send `ask_user` (from that output, or from `clarification` when no labels were listed) word for word as your whole message and end your turn. Only after the user answers, copy that option's `choose` value into `topics[].substitutes` and rerun; never choose for the user. "Skip Polish" or "without it" is the `skip` option: write `"skip"` for that edition and keep it in `projects`, so the report says it has no article. `topic_not_found`: say plainly that nothing was found and ask for a link to a Wikipedia article about what they mean; put it into `topics[].article_url`, rerun. |
 | 4 | Wikimedia unreachable or no data for the period | say so, offer to retry or change the period |
 | 5 | internal error | report `error`; run `uv run --project "<skill>" "<skill>/scripts/doctor.py"` and include its output |
 

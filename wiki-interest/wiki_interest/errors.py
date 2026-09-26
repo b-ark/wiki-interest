@@ -63,11 +63,13 @@ class ClarificationNeededError(WikiInterestError):
         candidates: Entities the query matched, best first.
         coverage: Requested editions (``"uk.wikipedia"``) with an article, per candidate id;
             shown next to each candidate, never used to choose one.
+        from_search: No item is named like the query; the candidates are the items of the
+            articles a full-text search of Wikipedia found, so none of them may be the topic.
     """
 
     exit_code = 3
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 -- keyword-only fields of the question
         self,
         message: str,
         *,
@@ -75,11 +77,13 @@ class ClarificationNeededError(WikiInterestError):
         candidates: Sequence[EntityCandidate],
         coverage: Mapping[str, Sequence[str]] | None = None,
         hint: str | None = None,
+        from_search: bool = False,
     ) -> None:
         super().__init__(message, hint=hint)
         self.topic_id = topic_id
         self.candidates = tuple(candidates)
         self.coverage = {qid: tuple(projects) for qid, projects in (coverage or {}).items()}
+        self.from_search = from_search
 
 
 class TopicNotFoundError(WikiInterestError):

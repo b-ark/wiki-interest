@@ -519,6 +519,9 @@ class Clarification(_Model):
     question: str
     """What the agent does next, in English."""
     candidates: list[CandidateOut] = Field(default_factory=list)
+    from_search: bool = False
+    """For ``ambiguous_topic``: no item is named like the query, and the candidates are the
+    items of the articles a text search found; none of them may be the topic."""
     gaps: list[CoverageGapOut] = Field(default_factory=list)
     ask_user: str | None = None
     """For ``missing_article``: the message to send the user word for word, composed by the

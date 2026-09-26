@@ -21,8 +21,13 @@ explaining, or when choosing between `per_million` and `absolute`.
    pick may still be the wrong meaning (Ukrainian "Меркурій" is the planet; the element is
    "ртуть"), so every summary names the analysed entity with its description and the other
    meanings of the name, and the agent checks it against the conversation.
-   When nothing matches at all, the run stops with `topic_not_found` and the agent asks for a
-   link to an article (`article_url`).
+   When no item is named like the query, a full-text search of Wikipedia (the query's own
+   edition, then the requested ones) is a guess, so it is never measured: the items of the
+   articles it finds come back as candidates (`ambiguous_topic` with `from_search`), and the
+   agent takes one only when the conversation clearly means it, or else asks the user for a
+   link. When the search finds no article with an item either, the run stops with
+   `topic_not_found` and the agent asks for a link to an article in any language
+   (`article_url`).
 2. **Main article per edition.** Wikidata sitelinks give the article title in each requested
    edition. No sitelink -> a full-text search in that edition by the item's local label, then by
    the query, marked `search_fallback` (lower confidence). A search hit bound to a *different*

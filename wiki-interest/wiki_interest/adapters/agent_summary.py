@@ -108,7 +108,12 @@ class AgentSummaryRenderer:
         lines = [f"# {report_title(summary, t)}", "", f"## {t.t('summary.clarification_needed')}"]
         if clarification is None:
             return [*lines, "", summary.verdict.headline]
-        lines += ["", f"**{clarification.question}**", "", f"{t.t('summary.candidates')}:"]
+        question = (
+            t.t("summary.which_article", query=clarification.query)
+            if clarification.from_search
+            else clarification.question
+        )
+        lines += ["", f"**{question}**", "", f"{t.t('summary.candidates')}:"]
         for index, candidate in enumerate(clarification.candidates, start=1):
             description = f" — {candidate.description}" if candidate.description else ""
             articles = (
@@ -119,7 +124,8 @@ class AgentSummaryRenderer:
             lines.append(
                 f"{index}. **{candidate.label}** ({candidate.qid}){description} · {articles}"
             )
-        lines += ["", f"_{t.t('summary.clarification_hint')}_"]
+        hint = "summary.search_hint" if clarification.from_search else "summary.clarification_hint"
+        lines += ["", f"_{t.t(hint)}_"]
         return lines
 
     def _coverage_question(

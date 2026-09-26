@@ -233,6 +233,18 @@ MESSAGES: dict[str, str] = {
         "it into topics[].article_url in request.json and run again."
     ),
     "summary.which_meaning": 'Which meaning of "{query}"?',
+    "summary.which_article": (
+        'No Wikidata item is named "{query}". A search of Wikipedia found these articles; is one '
+        "of them the topic?"
+    ),
+    "summary.search_hint": (
+        "These are guesses of a text search, not matches of the name. If the conversation "
+        "clearly means one of them (its description fits what the user asked about), set its "
+        "qid in topics[].qid yourself, say which topic you chose, and rerun. If none fits, do "
+        "not take the closest: tell the user the topic was not found and ask for a link to a "
+        "Wikipedia article about it, in any language; put it into topics[].article_url and run "
+        "again."
+    ),
     "summary.topic_only": (
         "Topic check only: the topic was identified and nothing else will run; there is no report, "
         "and that is expected. Tell the user which topic and articles were identified, and stop."

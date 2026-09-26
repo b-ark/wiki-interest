@@ -294,7 +294,8 @@ class SummaryBuilder:
             clarification=Clarification(
                 topic_id=error.topic_id,
                 query=topic.query,
-                question=self._t.t("summary.which_meaning", query=topic.query),
+                question=self._which(topic.query, from_search=error.from_search),
+                from_search=error.from_search,
                 candidates=[
                     CandidateOut(
                         qid=c.qid,
@@ -306,6 +307,16 @@ class SummaryBuilder:
                 ],
             ),
         )
+
+    def _which(self, query: str, *, from_search: bool) -> str:
+        """The meaning question; for the guesses of a text search, with what to do if none fits.
+
+        The agent reads this line in the run's output (``hint``), not only in ``summary.md``.
+        """
+        if not from_search:
+            return self._t.t("summary.which_meaning", query=query)
+        which = self._t.t("summary.which_article", query=query)
+        return f"{which} {self._t.t('summary.search_hint')}"
 
     def build_topic_only(
         self,

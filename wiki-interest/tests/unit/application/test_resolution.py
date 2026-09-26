@@ -187,6 +187,27 @@ class TestEntityChoice:
             TopicResolver(wikidata, mediawiki).resolve(_topic(query="zzz"), [UK, CS])
         assert (excinfo.value.exit_code, excinfo.value.query) == (3, "zzz")
 
+    def test_articles_a_search_finds_for_an_unnamed_topic_are_offered_not_measured(self) -> None:
+        """No item is named like the query: the items of the search hits become candidates."""
+        wikidata, mediawiki = _world()
+        mediawiki.add_search(UK, "зоряне небо", ["Зоря", "Астрономія", "Телескоп"])
+        topic = _topic(query="зоряне небо", query_language="uk")
+        with pytest.raises(ClarificationNeededError) as excinfo:
+            TopicResolver(wikidata, mediawiki).resolve(topic, [UK, CS])
+        error = excinfo.value
+        assert error.from_search
+        assert [(c.qid, c.label) for c in error.candidates] == [
+            ("Q333", "астрономія"),  # "Зоря" has no item: nothing tells what it is
+            ("Q4213", "телескоп"),
+        ]
+        assert error.coverage["Q333"] == ("uk.wikipedia", "cs.wikipedia")
+
+    def test_hits_without_an_item_leave_the_topic_not_found(self) -> None:
+        wikidata, mediawiki = _world()
+        mediawiki.add_search(UK, "zzz", ["Зоря"])
+        with pytest.raises(TopicNotFoundError):
+            TopicResolver(wikidata, mediawiki).resolve(_topic(query="zzz"), [UK])
+
     def test_a_chosen_substitute_keeps_an_unknown_topic_alive(self) -> None:
         wikidata, mediawiki = _world()
         topic = _topic(query="zzz", substitutes={"uk": {"title": "Зоря", "kind": "mention"}})

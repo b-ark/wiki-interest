@@ -325,6 +325,25 @@ class TestTopicQuestions:
             "question": outcome.summary.clarification.question,
         }
 
+    def test_articles_found_only_by_search_are_offered_with_a_way_out(self, tmp_path: Path) -> None:
+        world = astronomy_world()
+        world.mediawiki.add_search(WikiProject("uk"), "зоряне небо", ["Телескоп"])
+        pipeline = fake_container(world, tmp_path).pipeline()
+        topic = {"query": "зоряне небо", "query_language": "uk", "id": "sky"}
+        outcome = pipeline.run(_request(topics=[topic]), _context(tmp_path))
+        assert outcome.exit_code == 3
+        clarification = outcome.to_dict()["clarification"]
+        assert isinstance(clarification, dict)
+        assert clarification["kind"] == "ambiguous_topic"
+        assert clarification["from_search"] is True
+        assert [c["qid"] for c in clarification["candidates"]] == ["Q4213"]
+        # The agent reads the question in the output: it says what to do when none fits.
+        assert "article_url" in clarification["question"]
+        assert "any language" in clarification["question"]
+        text = Path(outcome.summary.artifacts.summary_md).read_text(encoding="utf-8")
+        assert "guesses of a text search" in text
+        assert not (tmp_path / "runs" / "astro" / "run-1" / "report.pdf").exists()
+
     def test_successful_run_names_the_analysed_entity(self, tmp_path: Path) -> None:
         outcome = _pipeline(tmp_path).run(_request(), _context(tmp_path))
         topics = outcome.to_dict()["topics"]

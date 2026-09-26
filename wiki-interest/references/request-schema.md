@@ -107,7 +107,7 @@ Cached data makes re-runs fast; `scripts/run.py --diff <run_dir-a> <run_dir-b>` 
 |---|---|---|
 | 0 | success | relay `summary.md`, attach the PDF |
 | 2 | request invalid | fix the field named in the message and rerun |
-| 3 | a decision is needed | `clarification.kind` says which: `ambiguous_topic` -> pick the candidate the conversation clearly means (say so) or ask, rerun with `qid`; `missing_article` -> show the numbered options from `summary.md`, ask, copy the chosen option's `choose` value into `topics[].substitutes`, rerun; `topic_not_found` -> say so, ask for a Wikipedia link, rerun with `article_url`. Nothing was measured yet in any case. |
+| 3 | a decision is needed | `clarification.kind` says which: `ambiguous_topic` -> pick the candidate the conversation clearly means (say so) or ask, rerun with `qid`; with `from_search` the candidates are guesses of a text search, and when none is what the user means, ask for a link in any language instead (`article_url`); `missing_article` -> show the numbered options from `summary.md`, ask, copy the chosen option's `choose` value into `topics[].substitutes`, rerun; `topic_not_found` -> say so, ask for a Wikipedia link, rerun with `article_url`. Nothing was measured yet in any case. |
 | 4 | Wikimedia services unreachable after retries, or no data for the period | tell the user, offer to retry or change the period |
 | 5 | internal error | report the message; run `scripts/doctor.py` |
 

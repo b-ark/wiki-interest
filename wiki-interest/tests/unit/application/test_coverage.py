@@ -175,11 +175,15 @@ class TestOptions:
         assert mentions == ["M0", "M1", "M9"]
 
     def test_topic_without_entity_still_gets_options_where_it_is_missing(self) -> None:
+        """The user linked an article without a Wikidata item: it is measured on its own."""
         world = _World()
         world.mediawiki.add_page(CS, FakePage("Zzz článek"))
-        world.mediawiki.add_search(CS, "zzz", ["Zzz článek"])
         world.mediawiki.add_mentions(PL, "zzz", [Mention("Z", "zzz")])
-        (gap,) = world.gaps(query="zzz", query_language="pl")
+        (gap,) = world.gaps(
+            query="zzz",
+            query_language="pl",
+            article_url="https://cs.wikipedia.org/wiki/Zzz_%C4%8Dl%C3%A1nek",
+        )
         assert gap.entity is None
         assert _kinds(gap.options) == [("mention", "Z"), ("skip", None)]
 
