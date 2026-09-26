@@ -146,6 +146,14 @@ class TestTrend:
         m = compute_metrics(monthly(_linear(24, start=3_000, step=-50)))
         assert m.trend_direction is TrendDirection.FALLING
 
+    def test_direction_and_slope_per_year_read_the_same_months(self) -> None:
+        values: list[float | None] = list(_linear(24, start=3_000, step=-50))
+        values[5] = values[6] = values[15] = None
+        m = compute_metrics(monthly(values))
+        assert m.trend_direction is TrendDirection.FALLING
+        assert m.slope_per_year is not None
+        assert m.slope_per_year < 0
+
     def test_noise_is_flat(self) -> None:
         m = compute_metrics(monthly(_noise(24)))
         assert m.trend_direction is TrendDirection.FLAT

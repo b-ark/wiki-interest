@@ -25,7 +25,6 @@ from wiki_interest.domain.trend_tests import (
     mann_kendall,
     pairwise_median_slope,
     seasonal_strength,
-    theil_sen_slope,
 )
 
 __all__ = ["MetricsSettings", "comparable_growth", "compute_automated_share", "compute_metrics"]
@@ -124,7 +123,7 @@ def compute_metrics(
     analysis = per_million if per_million is not None else monthly_views
     analysis_values = analysis.values
     observed_raw = monthly_views.observed
-    trend = _trend(analysis.observed, settings)
+    trend = _trend(analysis_values, settings)
     return TrendMetrics(
         periods=len(monthly_views),
         completeness=monthly_views.completeness,
@@ -214,15 +213,21 @@ def _slope_per_year(values: tuple[float | None, ...], settings: MetricsSettings)
 
 
 def _trend(
-    observed: tuple[float, ...], settings: MetricsSettings
+    values: tuple[float | None, ...], settings: MetricsSettings
 ) -> tuple[float | None, TrendDirection]:
-    """Mann-Kendall p-value and the direction it supports."""
-    if len(observed) < settings.min_trend_observations:
+    """Mann-Kendall p-value and the direction it supports.
+
+    The direction is the sign of the Theil-Sen slope over the months' own positions, as
+    :func:`_slope_per_year` reads them: slopes over the series with its gaps closed up once
+    gave ``rising`` next to a negative slope per year.
+    """
+    points = [(float(i), v) for i, v in enumerate(values) if v is not None]
+    if len(points) < settings.min_trend_observations:
         return None, TrendDirection.UNKNOWN
-    result: MannKendallResult = mann_kendall(observed)
+    result: MannKendallResult = mann_kendall([v for _, v in points])
     if result.p_value >= settings.alpha:
         return result.p_value, TrendDirection.FLAT
-    slope = theil_sen_slope(observed)
+    slope = pairwise_median_slope(points)
     if slope > 0:
         return result.p_value, TrendDirection.RISING
     if slope < 0:
