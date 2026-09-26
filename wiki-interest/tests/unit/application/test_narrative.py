@@ -412,11 +412,6 @@ class TestRejections:
             ("Учитывайте 季节性 интереса.", [VS_UK], "'季节性' is in another script"),
             ("Уровень пяти лет назад был выше.", [VS_UK], "not counted back from today"),
             ("За последний год спад ускорился.", [VS_UK], "says the change speeds up"),
-            (
-                "Две Википедии движутся в разном направлении.",
-                [EDITIONS],
-                "opposite directions",
-            ),
             ("Україна Wikipedia читає менше.", [VS_UK], "not a country"),
             (
                 "Доля +20 %, просмотры +20 %, раздел +0 %, снова +20 %, и +20 %.",

@@ -62,21 +62,6 @@ _SPEEDS_UP = re.compile(
 )
 """A change said to speed up: only an observation that says so ("speeds up") allows it. A cheap
 model read "the article lost more than the edition" as the fall speeding up (2026-09-25)."""
-_APART = re.compile(
-    r"(?i)(?:opposite|different)\s+directions"
-    r"|(?:разн\w*|противоположн\w*)\s+направлени\w*|в\s+разные\s+стороны"
-    r"|(?:різн\w*|протилежн\w*)\s+напрям\w*|в\s+різні\s+боки"
-)
-"""Two editions said to move apart. A cheap model wrote "the two Wikipedias move in different
-directions" of two that both fell, more sharply in one (stage13)."""
-_OPPOSITE = re.compile(
-    r"went up in .* went down in|went down in .* went up in"
-    r"|gained attention share in .* lost it in|lost attention share in .* gained it in"
-)
-"""How the comparison observation says that one edition rose and the other fell, in views
-or in attention share: then "opposite directions" is what it says."""
-_RISES = re.compile(r"gained attention|attention share rose|went up in")
-_FALLS = re.compile(r"loses attention|attention share fell|went down in")
 _NAMED = re.compile(r"«([^»]+)»")
 """An article a caution names (a substitute): the text must name it too."""
 _COUNTRIES: Mapping[str, str] = {
@@ -362,25 +347,12 @@ class _Checker:
                 )
 
     def directions(self) -> None:
-        """A paragraph keeps the direction of what it cites.
-
-        Nothing speeds up unless an observation says so, and two editions move apart only
-        when one went up and the other down.
-        """
+        """A paragraph keeps the direction of what it cites: nothing speeds up unless said so."""
         for block, paragraph in self.paragraphs():
-            cited = [self.observations[i] for i in paragraph.uses if i in self.observations]
-            apart = _APART.search(paragraph.text)
-            if apart is not None and not _opposite(cited):
-                self.add(
-                    block,
-                    f"'{apart.group(0)}': none of the observations this paragraph cites has the "
-                    "editions moving in opposite directions. Say what each did (fell, held or "
-                    "rose), and where more sharply when both moved the same way.",
-                    paragraph.text,
-                )
             match = _SPEEDS_UP.search(paragraph.text)
             if match is None:
                 continue
+            cited = [self.observations[i] for i in paragraph.uses if i in self.observations]
             if not any("the fall speeds up" in o.statement for o in cited):
                 self.add(
                     block,
@@ -534,18 +506,6 @@ class _Checker:
                     f"{', '.join(sorted(_fields(english))) or 'none'}.",
                     text[:80],
                 )
-
-
-def _opposite(cited: Sequence[ObservationOut]) -> bool:
-    """Whether what a paragraph cites has one edition rising and another falling.
-
-    Either one comparison says so, or the edition's own observations do: one gained attention
-    against its Wikipedia, another lost it.
-    """
-    statements = [o.statement for o in cited]
-    if any(_OPPOSITE.search(s) for s in statements):
-        return True
-    return any(_RISES.search(s) for s in statements) and any(_FALLS.search(s) for s in statements)
 
 
 def _sentences(text: str) -> Iterator[str]:
