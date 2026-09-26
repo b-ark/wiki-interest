@@ -43,15 +43,15 @@ def _context(tmp_path: Path, run_id: str = "run-1") -> RunContext:
     )
 
 
-def _pipeline(tmp_path: Path) -> Pipeline:
+def _pipeline(tmp_path: Path, *, draw_charts: bool = False) -> Pipeline:
     world = astronomy_world()
-    container = fake_container(world, tmp_path)
+    container = fake_container(world, tmp_path, draw_charts=draw_charts)
     return container.pipeline()
 
 
 class TestSuccessfulRun:
     def test_writes_every_artifact_and_returns_exit_zero(self, tmp_path: Path) -> None:
-        outcome = _pipeline(tmp_path).run(_request(), _context(tmp_path))
+        outcome = _pipeline(tmp_path, draw_charts=True).run(_request(), _context(tmp_path))
         assert outcome.exit_code == 0
         run_dir = tmp_path / "runs" / "astro" / "run-1"
         assert (run_dir / "summary.json").exists()

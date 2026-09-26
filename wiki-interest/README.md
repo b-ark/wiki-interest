@@ -51,7 +51,7 @@ every transitive dependency, so both paths give the same environment.
 
 ```bash
 uv sync                          # includes the dev group
-uv run pytest --cov              # tests; add `-m live` to also hit the real APIs
+uv run pytest -n auto --cov      # tests in parallel (~30 s); add `-m live` to also hit the real APIs
 uv run ruff check . && uv run ruff format .
 uv run mypy
 uv run lint-imports

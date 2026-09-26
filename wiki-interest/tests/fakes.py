@@ -7,14 +7,20 @@ records the calls it received so tests can assert on request counts and argument
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from pathlib import Path
 
+from PIL import Image
+
+from wiki_interest.adapters.fpdf_report import FpdfReportRenderer
 from wiki_interest.adapters.http import HttpJsonClient
 from wiki_interest.adapters.memory_cache import InMemoryCache
+from wiki_interest.adapters.report_theme import ReportTheme
+from wiki_interest.application.pipeline import Renderers
 from wiki_interest.cli.container import Container
 from wiki_interest.config import Settings
+from wiki_interest.contracts.charts import ChartSpec
 from wiki_interest.domain.models import (
     Access,
     Agent,
@@ -26,11 +32,13 @@ from wiki_interest.domain.models import (
     WikiProject,
     Window,
 )
+from wiki_interest.i18n import Translator
 from wiki_interest.ports.mediawiki import Mention, PageInfo
 from wiki_interest.ports.wikidata import EntitySummary
 
 __all__ = [
     "AstronomyWorld",
+    "BlankChartRenderer",
     "FakeClock",
     "FakeEntity",
     "FakeMediaWiki",
@@ -379,17 +387,87 @@ def _add_months(value: date, months: int) -> date:
     return date(index // 12, index % 12 + 1, 1)
 
 
-def fake_container(world: AstronomyWorld, tmp_path: Path) -> Container:
-    """A composition root over the fake world, writing runs and cache under ``tmp_path``."""
+def fake_container(
+    world: AstronomyWorld, tmp_path: Path, *, draw_charts: bool = False
+) -> Container:
+    """A composition root over the fake world, writing runs and cache under ``tmp_path``.
+
+    Args:
+        world: The fake Wikimedia the run reads.
+        tmp_path: Where the runs and the cache go.
+        draw_charts: Draw the charts with matplotlib, as a real run does. Without it each chart
+            is a blank image of its size (:class:`BlankChartRenderer`): the PDF is laid out and
+            written the same way, a second or so faster per run. A test that looks at a chart's
+            picture or depends on its exact height asks for the real drawing.
+    """
     settings = Settings(cache_path=tmp_path / "cache" / "http.sqlite", runs_dir=tmp_path / "runs")
-    return Container(
+    return _FakeContainer(
         settings=settings,
         clock=world.clock,
         http=HttpJsonClient(settings, InMemoryCache()),
         pageviews=world.pageviews,
         wikidata=world.wikidata,
         mediawiki=world.mediawiki,
+        draw_charts=draw_charts,
     )
+
+
+@dataclass
+class _FakeContainer(Container):
+    """The container with blank charts unless ``draw_charts`` is set."""
+
+    draw_charts: bool = False
+
+    def renderers_for(self, language: str) -> tuple[Translator, Renderers]:
+        translator, renderers = super().renderers_for(language)
+        if self.draw_charts:
+            return translator, renderers
+        charts = BlankChartRenderer()
+        return translator, replace(
+            renderers,
+            charts=charts,
+            report_pdf=FpdfReportRenderer(translator, charts=charts),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Charts
+# ---------------------------------------------------------------------------
+
+
+PIXELS_PER_MM = 2
+"""Enough for the PDF to read an image's shape; the real charts are drawn at 300 dpi."""
+
+
+class BlankChartRenderer:
+    """Writes a blank PNG and an empty SVG of each chart's size instead of drawing it.
+
+    The size is the theme's for the chart's ``size``, or its ``height_mm`` when set. The real
+    renderer adds room for legends and rows under some charts, so a PDF laid out over blank
+    charts may tighten one step earlier or later; the sections it holds are the same.
+    """
+
+    def __init__(self) -> None:
+        self._chart = ReportTheme.load().chart
+        self.rendered: list[str] = []
+        """Ids of the charts drawn, in order."""
+
+    def render(self, spec: ChartSpec, output_dir: Path) -> Sequence[Path]:
+        """Write ``<id>.png`` and ``<id>.svg`` into ``output_dir``."""
+        chart = self._chart
+        width, height = {
+            "half": (chart.half_width_mm, chart.half_height_mm),
+            "strip": (chart.width_mm, chart.strip_height_mm),
+        }.get(spec.size, (chart.width_mm, chart.height_mm))
+        height = spec.height_mm or height
+        output_dir.mkdir(parents=True, exist_ok=True)
+        png = output_dir / f"{spec.id}.png"
+        svg = output_dir / f"{spec.id}.svg"
+        size = (round(width * PIXELS_PER_MM), round(height * PIXELS_PER_MM))
+        Image.new("RGB", size, "white").save(png)
+        svg.write_text("<svg xmlns='http://www.w3.org/2000/svg'/>", encoding="utf-8")
+        self.rendered.append(spec.id)
+        return [png, svg]
 
 
 # ---------------------------------------------------------------------------

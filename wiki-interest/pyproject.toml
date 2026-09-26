@@ -42,6 +42,7 @@ dev = [
   "scipy-stubs",
   "pre-commit>=3.8",
   "skills-ref",
+  "pytest-xdist>=3.6",
 ]
 
 [build-system]

@@ -45,6 +45,7 @@ def _run(
     *,
     run_id: str = "r1",
     world: AstronomyWorld | None = None,
+    draw_charts: bool = False,
 ) -> tuple[Pipeline, Path]:
     data: dict[str, object] = {
         "question_type": "compare",
@@ -55,7 +56,8 @@ def _run(
         "session": "astro",
         **(overrides or {}),
     }
-    pipeline = fake_container(world or astronomy_world(), tmp_path).pipeline()
+    container = fake_container(world or astronomy_world(), tmp_path, draw_charts=draw_charts)
+    pipeline = container.pipeline()
     run_dir = tmp_path / "runs" / "astro" / run_id
     context = RunContext(run_id, "astro", run_dir, datetime(2026, 9, 22, tzinfo=UTC))
     outcome = pipeline.run(AnalysisRequest.model_validate(data), context)
@@ -294,7 +296,8 @@ class TestTemplatePassesItsOwnChecks:
 
     def test_template_of_two_topics(self, tmp_path: Path) -> None:
         topics = [TOPIC, {"query": "telescope", "query_language": "en", "id": "telescope"}]
-        _, run_dir = _run(tmp_path, "uk", {"topics": topics})
+        # Drawn charts: two topics crowd the page, the one run where the PDF tightens.
+        _, run_dir = _run(tmp_path, "uk", {"topics": topics}, draw_charts=True)
         facts = _facts(run_dir)
         assert _own_checks(facts, _with_ui(facts, _template(run_dir))) == []
 
@@ -601,7 +604,7 @@ class TestNarrate:
     def test_the_main_chart_is_drawn_again_in_the_report_language(self, tmp_path: Path) -> None:
         """Its labels are composed when the report is rendered, so the agent's translations
         reach the chart as they reach the rest of the PDF."""
-        pipeline, run_dir = _run(tmp_path, "ru")
+        pipeline, run_dir = _run(tmp_path, "ru", draw_charts=True)
         facts = _facts(run_dir)
         assert "chart.share.title" in facts.ui
         narrative = _russian(facts)

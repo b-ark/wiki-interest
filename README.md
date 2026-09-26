@@ -44,7 +44,7 @@ cd wiki-interest && uv sync             # dev dependencies included by default
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 uv run lint-imports                     # architecture boundaries (domain never imports adapters)
-uv run pytest --cov
+uv run pytest -n auto --cov             # parallel; about 30 s
 uv run agentskills validate ../wiki-interest   # Agent Skills spec compliance (skills-ref package)
 ```
 
