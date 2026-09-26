@@ -78,14 +78,15 @@ class TestSuccessfulRun:
     def test_a_language_without_a_catalog_asks_the_agent_for_its_labels(
         self, tmp_path: Path
     ) -> None:
-        outcome = _pipeline(tmp_path).run(_request(), _context(tmp_path))
+        request = _request(report={"language": "de"})
+        outcome = _pipeline(tmp_path).run(request, _context(tmp_path))
         text = Path(outcome.summary.artifacts.summary_md).read_text(encoding="utf-8")
         # The template stays English until the agent's narrative brings the translations.
         assert "**Answer:**" in text
         assert "uk.wikipedia" in text
         assert "report.pdf" in text
         facts = json.loads((Path(outcome.summary.artifacts.run_dir) / "facts.json").read_text())
-        assert facts["language"] == "uk"
+        assert facts["language"] == "de"
         assert "report.happening" in facts["ui"]
 
     def test_default_period_is_the_last_24_full_months(self, tmp_path: Path) -> None:
@@ -186,7 +187,7 @@ class TestMissingArticle:
         run_dir = Path(outcome.summary.artifacts.run_dir)
         text = (run_dir / "summary.md").read_text(encoding="utf-8")
         # The user sees the broader article with a link to open it before choosing.
-        assert "Broader articles there cover it:" in text
+        assert "Тему охоплюють ширші статті цього розділу:" in text  # written, not translated
         assert "[Nauka](https://pl.wikipedia.org/wiki/Nauka)" in text
         assert gap.options[0].url == "https://pl.wikipedia.org/wiki/Nauka"
         assert gap.options[1].url is None

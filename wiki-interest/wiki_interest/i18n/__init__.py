@@ -10,6 +10,7 @@ from wiki_interest.i18n.formatting import NumberStyle, style_for
 from wiki_interest.i18n.translator import (
     CATALOGS,
     DEFAULT_LANGUAGE,
+    LABELS,
     SUPPORTED_LANGUAGES,
     Translator,
 )
@@ -17,6 +18,7 @@ from wiki_interest.i18n.translator import (
 __all__ = [
     "CATALOGS",
     "DEFAULT_LANGUAGE",
+    "LABELS",
     "SUPPORTED_LANGUAGES",
     "NumberStyle",
     "Translator",

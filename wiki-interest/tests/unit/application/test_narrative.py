@@ -136,7 +136,7 @@ class TestFacts:
         assert observations[START_WITH].weight == "decision"
         assert facts.rules
         assert facts.example["narrative"]["story"][0]["uses"]
-        assert facts.ui  # no Russian catalog: the agent translates the labels
+        assert facts.ui == {}  # Russian labels are written: the agent translates none
         # The code's own text is not shown: the agent retold it instead of explaining.
         assert "template" not in json.loads((run_dir / "facts.json").read_text(encoding="utf-8"))
         assert not (run_dir / "narrative.template.json").exists()  # one file to read
@@ -153,16 +153,30 @@ class TestFacts:
         _, run_dir = _run(tmp_path, "en")
         assert _facts(run_dir).ui == {}
 
-    @pytest.mark.parametrize("language", ["ru", "de"])
-    def test_language_without_a_catalog_asks_for_the_interface_labels(
-        self, tmp_path: Path, language: str
-    ) -> None:
-        _, run_dir = _run(tmp_path, language)
+    def test_language_without_a_catalog_asks_for_the_interface_labels(self, tmp_path: Path) -> None:
+        _, run_dir = _run(tmp_path, "de")
         ui = _facts(run_dir).ui
         # A section heading of the PDF, as the English template the agent translates.
         assert ui["report.decision"] == CATALOGS["en"]["report.decision"]
         # The chat answer's labels are translated with the report's.
         assert ui["chat.pdf"] == CATALOGS["en"]["chat.pdf"]
+
+    @pytest.mark.parametrize(
+        ("language", "heading", "follow_ups"),
+        [
+            ("ru", "Что это значит для вас", "Что ещё я могу сделать:"),
+            ("uk", "Що це означає для вас", "Що ще я можу зробити:"),
+        ],
+    )
+    def test_russian_and_ukrainian_labels_are_written_not_asked_for(
+        self, tmp_path: Path, language: str, heading: str, follow_ups: str
+    ) -> None:
+        """The PDF's headings and the chat answer's lines read the same in every report."""
+        _, run_dir = _run(tmp_path, language)
+        assert _facts(run_dir).ui == {}
+        pdf = "".join(page.extract_text() for page in PdfReader(run_dir / "report.pdf").pages)
+        assert heading in pdf
+        assert follow_ups in (load_summary(run_dir).chat_answer or "")
 
     def test_the_report_shows_the_template_story_before_the_agent_writes(
         self, tmp_path: Path
@@ -341,7 +355,7 @@ class TestComparison:
     ) -> None:
         # The last months are shaded only when the text cites them, which it does after the
         # translations were asked for: their label is asked for anyway.
-        _, run_dir = _run(tmp_path, "ru")
+        _, run_dir = _run(tmp_path, "de")
         assert "chart.share.legend_recent" in _facts(run_dir).ui
 
     def test_the_next_step_names_the_edition_that_grows(self, tmp_path: Path) -> None:
@@ -594,7 +608,7 @@ class TestNarrate:
         assert narrative.meaning.text in brief
         assert narrative.check in brief
         assert narrative.limits in brief
-        assert "(instant: the data are already loaded)" in brief
+        assert "(мгновенно: данные уже загружены)" in brief
         assert brief.endswith("report.pdf")
         payload = outcome.to_dict()
         assert payload["chat_answer"] == brief
@@ -602,17 +616,13 @@ class TestNarrate:
         assert saved["narrative_source"] == "agent"
 
     def test_the_main_chart_is_drawn_again_in_the_report_language(self, tmp_path: Path) -> None:
-        """Its labels are composed when the report is rendered, so the agent's translations
-        reach the chart as they reach the rest of the PDF."""
+        """Its labels are composed when the report is rendered, in the report's language."""
         pipeline, run_dir = _run(tmp_path, "ru", draw_charts=True)
-        facts = _facts(run_dir)
-        assert "chart.share.title" in facts.ui
-        narrative = _russian(facts)
-        ui = {**narrative.ui, "chart.share.title": "Доля внимания по годам"}
-        outcome = pipeline.narrate(run_dir, narrative.model_copy(update={"ui": ui}))
+        narrative = _russian(_facts(run_dir))
+        outcome = pipeline.narrate(run_dir, narrative)
         assert outcome.status == "accepted", outcome.problems
         main = outcome.summary.charts[0]
-        assert (main.id, main.title) == ("share", "Доля внимания по годам")
+        assert (main.id, main.title) == ("share", "Доля внимания во времени")
         assert outcome.summary.cited == [
             "size:astronomy/uk",
             VS_UK,
@@ -621,7 +631,7 @@ class TestNarrate:
             START_WITH,
         ]
         svg = (run_dir / "charts" / "share.svg").read_text(encoding="utf-8")
-        assert "Доля внимания по годам" in svg
+        assert "Доля внимания во времени" in svg
 
     def test_one_rejection_then_the_template_stays(self, tmp_path: Path) -> None:
         pipeline, run_dir = _run(tmp_path, "ru")

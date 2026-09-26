@@ -5,6 +5,8 @@ small, versioned with the code, and must be importable wherever the reports are 
 An unknown key raises :class:`KeyError` on purpose: a mistyped key must fail a test, not
 print an empty label into a report. Only English has a catalog; for any other report language
 the agent translates the labels a report uses, and :meth:`Translator.override` applies them.
+Russian and Ukrainian ship those labels (:data:`LABELS`), so the agent translates none of
+them there and they read the same in every report.
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ from contextlib import contextmanager
 from string import Formatter
 from typing import Any
 
-from wiki_interest.i18n import en
+from wiki_interest.i18n import en, ru, uk
 from wiki_interest.i18n.formatting import (
     NumberStyle,
     format_number,
@@ -25,7 +27,7 @@ from wiki_interest.i18n.formatting import (
     style_for,
 )
 
-__all__ = ["CATALOGS", "DEFAULT_LANGUAGE", "SUPPORTED_LANGUAGES", "Translator"]
+__all__ = ["CATALOGS", "DEFAULT_LANGUAGE", "LABELS", "SUPPORTED_LANGUAGES", "Translator"]
 
 SUPPORTED_LANGUAGES: tuple[str, ...] = ("en",)
 """Report languages with a catalog. Any other language gets the English templates, and the
@@ -37,6 +39,13 @@ DEFAULT_LANGUAGE = "en"
 CATALOGS: Mapping[str, Mapping[str, str]] = {
     "en": en.MESSAGES,
 }
+
+LABELS: Mapping[str, Mapping[str, str]] = {
+    "ru": ru.LABELS,
+    "uk": uk.LABELS,
+}
+"""Interface labels written for a language without a catalog: the charts, the PDF, the chat
+answer's fixed lines, the missing-article question. They win over the agent's translations."""
 
 _PERCENT_SPEC = re.compile(r"(?P<sign>\+)?\.(?P<decimals>\d)%")
 """A percentage field of a template (``.0%``, ``+.1%``): formatted in the report's style."""
@@ -100,6 +109,7 @@ class Translator:
         self.language = language if language in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
         self._catalog = CATALOGS[self.language]
         self._fallback = CATALOGS[DEFAULT_LANGUAGE]
+        self._labels = LABELS.get(language, {})
         self._overrides: dict[str, str] = {}
         self._used: set[str] | None = None
         self.number_style: NumberStyle = style_for(language)
@@ -133,8 +143,11 @@ class Translator:
             self._used = None
 
     def translates(self, key: str) -> bool:
-        """Whether ``key`` reads in the requested language: its catalog, or the agent's text."""
-        return self.has_catalog or key in self._overrides
+        """Whether ``key`` reads in the requested language.
+
+        It does through the language's catalog, its written labels, or the agent's text.
+        """
+        return self.has_catalog or key in self._labels or key in self._overrides
 
     def has(self, key: str) -> bool:
         """Whether ``key`` exists in this language or the English fallback."""
@@ -156,7 +169,7 @@ class Translator:
         """
         if self._used is not None:
             self._used.add(key)
-        template = self._overrides.get(key) or self._catalog.get(key)
+        template = self._labels.get(key) or self._overrides.get(key) or self._catalog.get(key)
         if template is None:
             template = self._fallback.get(key)
         if template is None:

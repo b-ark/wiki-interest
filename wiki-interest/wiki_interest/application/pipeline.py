@@ -524,12 +524,9 @@ def _write_facts(
     One file, read once: the labels to translate sit in the facts, so the agent does not spend
     a turn on a second file.
     """
-    cached = _read_ui(_ui_cache_path(run_dir, translator.requested))
-    ui = (
-        {}
-        if translator.has_catalog
-        else {key: translator.english(key) for key in sorted(used) if key not in cached}
-    )
+    # The session's translations were applied before rendering: what still reads in English
+    # is what the agent translates.
+    ui = {key: translator.english(key) for key in sorted(used) if not translator.translates(key)}
     facts = build_facts(summary, ui=ui)
     _write_json(run_dir / FACTS_JSON, facts.model_dump(mode="json"))
     (run_dir / ATTEMPTS_FILE).unlink(missing_ok=True)

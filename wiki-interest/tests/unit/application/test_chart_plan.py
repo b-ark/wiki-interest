@@ -194,10 +194,10 @@ class TestMainChart:
             return 6_000.0 if k < 50 else 2_500.0
 
         data = _data(_history(shape))
-        t = Translator("uk")
-        t.override({"chart.share.title": "Частка уваги за роками"})
+        t = Translator("de")
+        t.override({"chart.share.title": "Aufmerksamkeitsanteil"})
         spec = share_years_spec(data, t, cited=set())
-        assert spec.title == "Частка уваги за роками"
+        assert spec.title == "Aufmerksamkeitsanteil"
         assert spec.mark_labels == [None]  # the text does not cite the step: no label
         assert spec.year_labels[-1] == "2026 (Jan – Aug)"
         cited = share_years_spec(data, Translator("en"), cited={"step:astronomy/uk"})
@@ -246,11 +246,16 @@ class TestAudienceChart:
 
     def test_the_spec_says_what_the_partial_year_is_compared_with(self) -> None:
         data = _audience(_history(lambda k: 10_000.0 * 0.6 ** (k / 12)))
-        spec = audience_years_spec(data, Translator("uk"))
+        spec = audience_years_spec(data, Translator("de"))
         assert spec.kind == "audience_years"
         assert spec.title == "Average monthly article views, by year"
         assert spec.year_labels[-1] == "2026 (Jan – Aug)"
         assert spec.note == "2026: January–August vs the same months of 2025."
+        # Ukrainian has its labels written: the agent translates none of them.
+        uk = audience_years_spec(data, Translator("uk"))
+        assert uk.title == "Середня кількість переглядів статті за місяць, за роками"
+        assert uk.year_labels[-1] == "2026 (Січ – Сер)"  # noqa: RUF001
+        assert uk.note == "2026: січень–серпень проти тих самих місяців 2025 року."
 
     def test_full_years_need_no_note(self) -> None:
         full = _history(lambda _k: 5_000.0)

@@ -5,11 +5,12 @@ number style, and the labels the agent translated are applied through ``Translat
 """
 
 from datetime import date
+from string import Formatter
 
 import pytest
 
 from wiki_interest.domain.models import ReliabilityLevel
-from wiki_interest.i18n import CATALOGS, SUPPORTED_LANGUAGES, Translator, style_for
+from wiki_interest.i18n import CATALOGS, LABELS, SUPPORTED_LANGUAGES, Translator, en, style_for
 from wiki_interest.i18n.formatting import NARROW_NO_BREAK_SPACE, format_number, format_percent
 
 REASON_KEYS = [
@@ -254,10 +255,33 @@ def test_dates_follow_the_convention_the_agent_gave() -> None:
 
 def test_month_names_are_nominative() -> None:
     assert Translator("en").month_name(1) == "January"
-    assert Translator(NO_CATALOG).month_name(9) == "September"
-    translator = Translator(NO_CATALOG)
-    translator.override({"month.9": "вересень"})
-    assert translator.month_name(9) == "вересень"
+    assert Translator("de").month_name(9) == "September"
+    translator = Translator("de")
+    translator.override({"month.9": "September (de)"})
+    assert translator.month_name(9) == "September (de)"
+    assert Translator("uk").month_name(9) == "вересень"
+
+
+@pytest.mark.parametrize("language", sorted(LABELS))
+def test_written_labels_mirror_the_english_keys_and_placeholders(language: str) -> None:
+    for key, text in LABELS[language].items():
+        assert key in en.MESSAGES, key
+        assert _fields(text) == _fields(en.MESSAGES[key]), key
+
+
+def test_written_labels_win_over_the_agents_and_are_not_asked_for() -> None:
+    translator = Translator("uk")
+    translator.override({"report.happening": "Що коїться"})
+    assert translator.t("report.happening") == "Що відбувається"
+    assert translator.translates("report.happening")
+    assert not translator.has_catalog
+    # What has no written label still falls back to English and is the agent's to translate.
+    assert not translator.translates("summary.answer")
+    assert translator.t("summary.answer") == "Answer"
+
+
+def _fields(template: str) -> set[str]:
+    return {name for _, name, _, _ in Formatter().parse(template) if name}
 
 
 def test_thousands_separator_follows_report_locale() -> None:
