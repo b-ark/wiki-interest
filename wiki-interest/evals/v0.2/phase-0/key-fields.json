@@ -1,0 +1,12 @@
+{
+  "headline": "Interest in веганізм is falling in both editions, more sharply in the Czech Wikipedia.",
+  "observations": {
+    "vs_edition:veganism/ru": "In January–August 2026 (against the same months of 2025) веганізм is read less (−25 % views), but the Russian Wikipedia as a whole fell about as much (−23 %); its attention share barely changed (−3 %). The fall in views comes from Wikipedia losing readers, not from the topic.",
+    "decision:verdict:veganism/ru": "The article on веганізм in the Russian Wikipedia is read less, but no more than its Wikipedia as a whole: the interest is there, with no sign of growth.",
+    "vs_edition:veganism/cs": "In January–August 2026 (against the same months of 2025) the Czech Wikipedia as a whole was read less (−16 % views), and the article on веганізм fell more than that (−42 % views), so its attention share fell (−31 %). Only part of the fall is Wikipedia losing readers; the topic itself is read less. (This compares the article with the edition over the year; only the recent months tell whether the fall is quickening.)",
+    "decision:verdict:veganism/cs": "Interest in веганізм in the Czech Wikipedia is shrinking, faster than its Wikipedia: Wikipedia gives no growth signal to check.",
+    "editions:veganism": "In January–August 2026 the article on веганізм is opened about 5,100 times a month in the Russian Wikipedia against about 530 in the Czech Wikipedia: the Russian Wikipedia is the much larger audience (about 10 times as much). Relative to the size of each Wikipedia the gap almost disappears (9.3 against 8.4 views per million views of each Wikipedia: the attention share): the larger audience in the Russian Wikipedia comes from its larger Wikipedia. Against the same months of 2025 both are read less: the Russian Wikipedia −25 %, the Czech Wikipedia −42 % views, more sharply in the Czech Wikipedia. Against its own Wikipedia it held attention share in the Russian Wikipedia and lost it in the Czech Wikipedia.",
+    "decision:editions:veganism": "The Russian Wikipedia offers the larger existing audience, but neither edition shows growing interest in веганізм.",
+    "headline:veganism": "Interest in веганізм is falling in both editions, more sharply in the Czech Wikipedia."
+  }
+}

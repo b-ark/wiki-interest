@@ -1,0 +1,10 @@
+{
+  "question_type": "compare",
+  "topics": [
+    { "id": "veganism", "query": "веганство", "query_language": "uk", "query_en": "veganism", "qid": "Q181138" }
+  ],
+  "projects": ["ru", "cs"],
+  "period": { "start": "2024-09", "end": "2026-08" },
+  "report": { "language": "uk" },
+  "session": "veganism-ru-cs"
+}
