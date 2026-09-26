@@ -375,6 +375,14 @@ class _Words:
         self.quoted.append(Quoted(rounded))
         return f"{rounded:,}"
 
+    def months(self, value: int) -> str:
+        """A number of months, quoted so a text may repeat it.
+
+        "For 22 months" was the code's own words, yet the check rejected them as a number no
+        observation gave.
+        """
+        return self._plain(value, percent=False)
+
     def _plain(self, value: int, *, percent: bool = True) -> str:
         self.quoted.append(Quoted(value, percent=percent))
         return str(value)
@@ -767,7 +775,8 @@ class _Detector:
                 Weight.CAUTION,
                 w,
                 f"{self.topic} in {self.ed}: {span} its views stayed several times the usual "
-                f"level, almost flat, for {length} months, then dropped back at once. A flat, "
+                f"level, almost flat, for {w.months(length)} months, then dropped back at once. "
+                "A flat, "
                 "abrupt run like this is probably automated traffic, not readers; comparisons "
                 "that include those months overstate it.",
             )
@@ -777,7 +786,7 @@ class _Detector:
                 Weight.HIGH,
                 w,
                 f"{self.topic} in {self.ed}: {span} it was read several times as much as usual "
-                f"for {length} months, then went back. A wave of attention (possibly "
+                f"for {w.months(length)} months, then went back. A wave of attention (possibly "
                 "news-driven) that did not last.",
             )
 
@@ -1056,6 +1065,7 @@ class _Detector:
         while last + 1 in p.spikes:
             last += 1
         months = p.history.months
+        w = _Words()
         after = last + 1 < p.n and p.shares[last + 1] is not None
         if first == last:
             when = f"In {_month(months[k])}"
@@ -1075,13 +1085,14 @@ class _Detector:
             )
         else:
             end = (
-                f" for {last - first + 1} months, then it was back: a short burst, possibly "
+                f" for {w.months(last - first + 1)} months, then it was back: a short burst, "
+                "possibly "
                 "news. A burst like this is not lasting interest."
             )
         self.add(
             "spike",
             Weight.MEDIUM,
-            _Words(),
+            w,
             f"{when} {self.topic} was read several times as much as {usual} in {self.ed}{end}",
             month=months[k],
         )

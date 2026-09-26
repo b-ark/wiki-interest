@@ -278,6 +278,13 @@ class TestEvents:
         found = _by_id(observe([_history(lambda k, _m: 5_000.0 * (5 if k >= MONTHS - 10 else 1))]))
         assert not [oid for oid in found if oid.startswith(("wave:", "unusual:"))]
 
+    def test_a_long_wave_gives_its_months_as_a_number_a_text_may_repeat(self) -> None:
+        """The template's own "for 22 months" was rejected: 22 was in no observation."""
+        found = _by_id(observe([_history(lambda k, _m: 5_000.0 * (5 if 20 <= k < 42 else 1))]))
+        unusual = found["unusual:astronomy/uk"]
+        assert "for 22 months" in unusual.statement
+        assert any(q.value == 22 and not q.percent for q in unusual.numbers)
+
     def test_a_short_uneven_run_is_a_wave_of_attention(self) -> None:
         run = {20: 4, 21: 7, 22: 5}
         found = _by_id(observe([_history(lambda k, _m: 5_000.0 * run.get(k, 1))]))
