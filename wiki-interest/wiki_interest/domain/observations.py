@@ -52,6 +52,7 @@ from statistics import mean, median
 from typing import Literal
 
 __all__ = [
+    "MONTH_NAMES",
     "Observation",
     "ObservationSettings",
     "PairHistory",

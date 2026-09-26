@@ -230,7 +230,12 @@ class TestChatBrief:
         )
         assert pipeline.narrate(run_dir, _template(run_dir)).status == "accepted"
         brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8")
-        assert "Pageview data start in 2015-07, so the analysis begins there" in brief
+        # The start is a caution the text itself carries, so a label left untranslated cannot
+        # drop it (stage13); the unfinished last month stays a line of the answer.
+        caution = next(o for o in _facts(run_dir).observations if o.id == "caution:period_start")
+        assert "asked from January 2010" in caution.statement
+        assert "start in July 2015" in caution.statement
+        assert "start in July 2015" in brief
         assert "2026-09 is not complete yet, so the analysis ends in 2026-08" in brief
 
     def test_a_run_the_user_never_saw_is_not_compared(self, tmp_path: Path) -> None:
@@ -258,6 +263,15 @@ class TestChatBrief:
         assert "uk.wikipedia" in method
 
 
+def _own_checks(facts: Facts, narrative: Narrative) -> list[str]:
+    """The problems of the template, but the one about writing in the report language.
+
+    The template is English by design (the observations are); the agent's text must be in
+    the report language, and the check says so.
+    """
+    return [m for m in _messages(facts, narrative) if "not in English" not in m]
+
+
 class TestTemplatePassesItsOwnChecks:
     """Once the agent answered the labels, the template must pass: the code's own text never
     trips the checks, whatever the language of the report and the word lists."""
@@ -276,13 +290,13 @@ class TestTemplatePassesItsOwnChecks:
     def test_template(self, tmp_path: Path, language: str, overrides: dict[str, object]) -> None:
         _, run_dir = _run(tmp_path, language, overrides)
         facts = _facts(run_dir)
-        assert _messages(facts, _with_ui(facts, _template(run_dir))) == []
+        assert _own_checks(facts, _with_ui(facts, _template(run_dir))) == []
 
     def test_template_of_two_topics(self, tmp_path: Path) -> None:
         topics = [TOPIC, {"query": "telescope", "query_language": "en", "id": "telescope"}]
         _, run_dir = _run(tmp_path, "uk", {"topics": topics})
         facts = _facts(run_dir)
-        assert _messages(facts, _with_ui(facts, _template(run_dir))) == []
+        assert _own_checks(facts, _with_ui(facts, _template(run_dir))) == []
 
 
 class TestComparison:
@@ -303,6 +317,21 @@ class TestComparison:
         told = {oid for paragraph in template.story for oid in paragraph.uses}
         assert "size:astronomy/uk" not in told
         assert VS_UK not in told
+
+    def test_an_english_text_in_a_russian_report_is_rejected(
+        self, ru: tuple[Facts, Narrative]
+    ) -> None:
+        # Haiku once wrote a Russian report in English, copying the observations (stage13).
+        facts, narrative = ru
+        english = narrative.story[0].model_copy(
+            update={
+                "text": "The Russian Wikipedia is the larger audience: the article is opened "
+                "about 4 300 times a month there, and both editions are read less."
+            }
+        )
+        broken = narrative.model_copy(update={"story": [english, *narrative.story[1:]]})
+        assert any("not in English" in m for m in _messages(facts, broken))
+        assert not any("not in English" in m for m in _messages(facts, narrative))
 
     def test_the_chart_labels_to_translate_include_those_shown_only_when_cited(
         self, tmp_path: Path

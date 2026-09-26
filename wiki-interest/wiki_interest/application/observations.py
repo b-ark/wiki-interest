@@ -19,6 +19,7 @@ from wiki_interest.contracts.request import AnalysisRequest, Period
 from wiki_interest.contracts.summary import AssessmentOut, ObservationOut, QuotedNumber
 from wiki_interest.domain.models import BundleStatus
 from wiki_interest.domain.observations import (
+    MONTH_NAMES,
     Observation,
     ObservationSettings,
     PairHistory,
@@ -113,7 +114,37 @@ def run_observations(
     found = observe(histories, trend_start=trend_start(request, period))
     if request.normalization == "absolute":
         found.insert(0, _RAW_VIEWS)
+    found[:0] = _period_cautions(request.period, period)
     return found
+
+
+def _period_cautions(requested: Period | None, period: Period) -> list[Observation]:
+    """Why the analysed period is not the one the user asked for, as cautions the text carries.
+
+    A line in the chat answer was dropped whenever the agent left its label untranslated, and
+    the user who asked "since 2010" never read why the report starts in 2015 (stage13). A
+    caution is written by the agent itself, and the check makes sure it is.
+    """
+    if requested is None or requested.start >= period.start:
+        # The last month cut off as incomplete is a line of the chat answer, not a caution:
+        # it would ask every text about a named period to explain an unfinished month.
+        return []
+    return [
+        Observation(
+            "caution:period_start",
+            "caution",
+            None,
+            Weight.CAUTION,
+            f"The user asked from {_month(requested.start)}, but Wikipedia pageview data start "
+            f"in {_month(period.start)}: the analysis begins there, and nothing can be said "
+            "about the years before.",
+        )
+    ]
+
+
+def _month(day: date) -> str:
+    """``July 2015``."""
+    return f"{MONTH_NAMES[day.month - 1]} {day.year}"
 
 
 _RAW_VIEWS = Observation(

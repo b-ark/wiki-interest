@@ -112,6 +112,10 @@ _CJK_LANGUAGES = frozenset({"zh", "ja", "ko"})
 _CYRILLIC_SCRIPT = re.compile(r"[\u0400-\u04ff]+")
 """Cyrillic: a cheap model writing Polish after reading Ukrainian drops in a Russian word
 ("To означает, że...", 2026-09-25)."""
+_LATIN_LETTERS = re.compile(r"[A-Za-z]")
+_CYRILLIC_LETTERS = re.compile(r"[\u0400-\u04ff]")
+_MIN_LETTERS = 40
+"""A block this short (a name, a code) is not judged by its letters."""
 _CYRILLIC_LANGUAGES = frozenset(
     {"ru", "uk", "be", "bg", "sr", "mk", "kk", "ky", "tg", "mn", "tt", "ba", "cv", "ce", "sah"}
 )
@@ -388,6 +392,13 @@ class _Checker:
                     "(article names in «» may keep theirs).",
                     text,
                 )
+            elif self._mostly_latin(text):
+                self.add(
+                    block,
+                    f"Write this block in the report language ('{language}'), not in English: "
+                    "the observations are your notes, the report is in the user's language.",
+                    text,
+                )
             if jargon and re.search(jargon, text, re.IGNORECASE):
                 self.add(block, "No statistical jargon: say steady, mixed or unclear.", text)
             if demand and block in _DESCRIPTIVE and re.search(demand, text, re.IGNORECASE):
@@ -436,6 +447,20 @@ class _Checker:
             if (match := script.search(bare)) is not None:
                 return match.group(0)
         return None
+
+    def _mostly_latin(self, text: str) -> bool:
+        """A block of a Cyrillic report language written mostly in Latin letters.
+
+        A cheap model wrote a whole Russian report in English, copying the English
+        observations, with ``language: ru`` (2026-09-26). Names in «» and codes (``uk``,
+        ``Google Trends``) are a few words; most of the letters must be the language's own.
+        """
+        if self.facts.language not in _CYRILLIC_LANGUAGES:
+            return False
+        bare = _NAMED.sub("", text)
+        latin = len(_LATIN_LETTERS.findall(bare))
+        cyrillic = len(_CYRILLIC_LETTERS.findall(bare))
+        return latin + cyrillic >= _MIN_LETTERS and latin > cyrillic
 
     def _countries(self) -> re.Pattern[str] | None:
         languages = {

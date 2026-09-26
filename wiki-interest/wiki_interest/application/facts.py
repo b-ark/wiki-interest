@@ -40,13 +40,13 @@ _FIVE_YEARS = 60
 _TEMPLATE_PARAGRAPHS = 4
 _TEMPLATE_STATEMENTS = 3
 _TEMPLATE_DECISIONS = 3
-_STORY_WEIGHTS = ("caution", "high")
 _COMPARISONS = ("editions", "topics")
 """Observations that set editions or topics against each other: the story leads with them."""
 _COMPARED = ("size", "vs_edition")
 """What a comparison already says of each pair."""
 _TRADE_OFFS = ("decision:editions:", "decision:topics:")
 _COMPARED_EDITIONS = 2
+_PERIOD_START = "limitation.period_start"
 _CHAT_FOLLOW_UPS = 3
 """How many next steps the chat answer offers."""
 _BLANK_LINES = re.compile(r"\n{3,}")
@@ -264,12 +264,12 @@ def template_narrative(
 ) -> Narrative:
     """The code's own text as a narrative: the fallback, and the report before the agent's.
 
-    With several editions or topics the story compares them: the comparison observations
-    first, then each pair's cautions and one feature of its own (a step, a wave, the long
-    view), not the size and change the comparison already gives. With one pair it strings
-    together that pair's caution and high observations. The meaning takes the decision
-    observations, the trade-off first; the headline the headline observation. It is
-    English: the observations are.
+    Every caution comes first, since the text must carry each. With several editions or
+    topics the story then compares them: the comparison observations, then one feature of
+    each pair (a step, a wave, the long view), not the size and change the comparison
+    already gives. With one pair it strings together that pair's high observations. The
+    meaning takes the decision observations, the trade-off first; the headline the headline
+    observation. It is English: the observations are.
 
     Args:
         summary: A summary with status ``ok``.
@@ -278,21 +278,22 @@ def template_narrative(
     """
     observations = summary.observations
     comparisons = [o for o in observations if o.kind in _COMPARISONS]
+    # Every caution first, a few to a paragraph: the text must carry each of them, and the
+    # story's length would leave the last edition's out once the comparison took its room.
+    cautions = [o for o in observations if o.weight == "caution"]
     groups: dict[str | None, list[ObservationOut]] = {}
     for o in observations:
-        if o.weight not in _STORY_WEIGHTS or o.kind in _COMPARISONS:
+        if o.weight != "high" or o.kind in _COMPARISONS:
             continue
-        if (
-            comparisons
-            and o.weight != "caution"
-            and (o.kind in _COMPARED or any(x.weight != "caution" for x in groups.get(o.pair, [])))
-        ):
+        if comparisons and (o.kind in _COMPARED or o.pair in groups):
             continue  # the comparison gives the size and change; one feature of each pair
         groups.setdefault(o.pair, []).append(o)
     story: list[Paragraph] = []
     room = LIMITS["story_total"]
-    candidates = [p for c in comparisons for p in _split(c, LIMITS["story"])] + [
-        _fitting(chosen, LIMITS["story"]) for chosen in groups.values()
+    candidates = [
+        *_chunks(cautions, LIMITS["story"]),
+        *(p for c in comparisons for p in _split(c, LIMITS["story"])),
+        *(_fitting(chosen, LIMITS["story"]) for chosen in groups.values()),
     ]
     for paragraph in candidates:
         if paragraph.text and len(paragraph.text) <= min(LIMITS["story"], room):
@@ -342,6 +343,17 @@ def _next_check(summary: AnalysisSummary, t: Translator) -> str | None:
     ]
     label, _ = max(growing or last, key=lambda item: item[1].views)
     return t.t("next_step.check_interest_for", label=edition_name(f"{label}.wikipedia"))
+
+
+def _chunks(observations: Sequence[ObservationOut], limit: int) -> list[Paragraph]:
+    """``observations`` in as many paragraphs as :func:`_fitting` needs to hold them all."""
+    out: list[Paragraph] = []
+    rest = list(observations)
+    while rest:
+        paragraph = _fitting(rest, limit)
+        out.append(paragraph)
+        rest = rest[len(paragraph.uses) :]
+    return out
 
 
 def _split(observation: ObservationOut, limit: int) -> list[Paragraph]:
@@ -515,7 +527,8 @@ def _topic_lines(summary: AnalysisSummary, t: Translator) -> list[str]:
 def _period_lines(summary: AnalysisSummary, t: Translator) -> list[str]:
     """Why the period differs from the one asked for: the agent's text may leave it out."""
     notes = period_notes(summary.request.period, summary.period, t)
-    return [text for key, text in notes if _translated(t, key)]
+    # A period cut at the start is a caution the agent's text carries (caution:period_start).
+    return [text for key, text in notes if key != _PERIOD_START and _translated(t, key)]
 
 
 def _change_lines(
