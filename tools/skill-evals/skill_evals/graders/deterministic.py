@@ -46,6 +46,12 @@ _CHAT_BRIEF = "chat_brief.md"
 _STATUS_RE = re.compile(r'"status"\s*:\s*"(\w+)"|^\s*status\s*:\s*(\w+)', re.MULTILINE)
 """The status of a render: JSON as printed, or the list PowerShell makes of it when the agent
 pipes the output through ``ConvertFrom-Json`` (verified 2026-09-23)."""
+_TABLE_RE = re.compile(
+    r"^(?P<head>.*\bstatus\b.*)\r?\n[ \t]*-+(?:[ \t]+-+)*[ \t]*\r?\n(?P<row>.*)$",
+    re.MULTILINE,
+)
+"""The table PowerShell prints for ``ConvertFrom-Json | Select-Object status, exit_code``: a
+header, a line of dashes, a row (stage12b, 2026-09-26)."""
 _RUN_ID_RE = re.compile(r"\d{8}-\d{6}-[0-9a-f]{4}")
 """A run directory's name (``20260923-171010-345b``). Taken from the command first: PowerShell
 wraps long paths in its output, so a path read back from there may be split."""
@@ -362,17 +368,29 @@ def _narrative_accepted(a: NarrativeAccepted, ctx: GradeContext) -> GradeOutcome
         if not regex.search(command) or "--narrative" not in command:
             continue
         output = call.result or ""
-        status = _STATUS_RE.search(output)
+        status = _render_status(output)
         if status is None:  # a crash or malformed file: nothing was decided about the text
             continue
         run_id = _RUN_ID_RE.search(command) or _RUN_ID_RE.search(output)
-        final[run_id.group(0) if run_id else command] = status.group(1) or status.group(2)
+        final[run_id.group(0) if run_id else command] = status
     if not final:
         return _outcome(a, False, "no render with the agent's text")
     accepted = sum(1 for status in final.values() if status == "accepted")
     others = sorted({s for s in final.values() if s != "accepted"})
     evidence = f"{accepted}/{len(final)} rendered run(s) accepted"
     return _outcome(a, accepted == len(final), evidence + (f"; also {others}" if others else ""))
+
+
+def _render_status(output: str) -> str | None:
+    """The status a render printed, as JSON, a PowerShell list or a PowerShell table."""
+    found = _STATUS_RE.search(output)
+    if found is not None:
+        return found.group(1) or found.group(2)
+    for table in _TABLE_RE.finditer(output):
+        columns, values = table.group("head").split(), table.group("row").split()
+        if len(columns) == len(values):
+            return values[columns.index("status")]
+    return None
 
 
 def _chat_answer_relayed(a: ChatAnswerRelayed, ctx: GradeContext) -> GradeOutcome:

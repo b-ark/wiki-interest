@@ -300,6 +300,16 @@ def test_narrative_accepted_reads_the_powershell_listing_of_the_output(tmp_path:
     assert outcome.evidence == "1/1 rendered run(s) accepted"
 
 
+def test_narrative_accepted_reads_the_powershell_table_of_the_output(tmp_path: Path) -> None:
+    """`render.py ... | Tee-Object o.json | ConvertFrom-Json | Select-Object status, exit_code`."""
+    command = r"uv run scripts/render.py runs\s\20260926-001454-d54d --narrative n.json"
+    table = "status   exit_code\r\n------   ---------\r\naccepted         0"
+    call = ToolCall(name="PowerShell", input={}, command=command, result=table)
+    outcome = grade(NarrativeAccepted(type="narrative_accepted"), _ctx(tmp_path, tool_calls=[call]))
+    assert outcome.passed, outcome.evidence
+    assert outcome.evidence == "1/1 rendered run(s) accepted"
+
+
 def test_narrative_accepted_needs_a_render_with_the_agents_text(tmp_path: Path) -> None:
     check = NarrativeAccepted(type="narrative_accepted")
     assert not grade(check, _ctx(tmp_path)).passed
