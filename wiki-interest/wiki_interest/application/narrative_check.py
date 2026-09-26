@@ -56,12 +56,10 @@ _PEOPLE = re.compile(
     r"Menschen|Personen|Leser)\b"
 )
 """A count of views written as a count of people."""
-_SPEEDS_UP = re.compile(
-    r"(?i)accelerat|speed(?:s|ing)?\s+up|faster\s+than\s+(?:before|ever)|ускор|прискор"
-    r"|przyspiesz|zrychl|beschleunig"
-)
-"""A change said to speed up: only an observation that says so ("speeds up") allows it. A cheap
-model read "the article lost more than the edition" as the fall speeding up (2026-09-25)."""
+_LENGTH_SLACK = 1.1
+"""A block is rejected only this far over its limit. The limits are what the rules ask for,
+and the messages still name them; a paragraph 6 characters over (506 of 500) sent a whole
+analysis back to the template (stage15)."""
 _NAMED = re.compile(r"«([^»]+)»")
 """An article a caution names (a substitute): the text must name it too."""
 _COUNTRIES: Mapping[str, str] = {
@@ -144,7 +142,6 @@ def check_narrative(facts: Facts, narrative: Narrative) -> list[NarrativeProblem
     checker.citations()
     checker.comparisons()
     checker.numbers()
-    checker.directions()
     checker.words()
     checker.ui()
     return checker.problems
@@ -199,7 +196,7 @@ class _Checker:
         for paragraph in n.story:
             self.length("story", paragraph.text, required=True)
         total = sum(len(p.text) for p in n.story)
-        if total > LIMITS["story_total"]:
+        if total > LIMITS["story_total"] * _LENGTH_SLACK:
             self.add(
                 "story",
                 f"Shorten the story to {LIMITS['story_total']} characters in all (now {total}, "
@@ -214,7 +211,7 @@ class _Checker:
         limit = LIMITS[block]
         if required and not text.strip():
             self.add(block, f"'{block}' is empty.")
-        if len(text) > limit:
+        if len(text) > limit * _LENGTH_SLACK:
             self.add(
                 block,
                 f"Shorten to {limit} characters (now {len(text)}): cut at least "
@@ -353,22 +350,6 @@ class _Checker:
                     f"'{number.text}' is not in {where}: quote their numbers (rounding is "
                     "fine), cite the observation a number comes from, and compute nothing new.",
                     sentence,
-                )
-
-    def directions(self) -> None:
-        """A paragraph keeps the direction of what it cites: nothing speeds up unless said so."""
-        for block, paragraph in self.paragraphs():
-            match = _SPEEDS_UP.search(paragraph.text)
-            if match is None:
-                continue
-            cited = [self.observations[i] for i in paragraph.uses if i in self.observations]
-            if not any("speeds up" in o.statement for o in cited):
-                self.add(
-                    block,
-                    f"'{match.group(0)}': none of the observations this paragraph cites says the "
-                    "change speeds up. Keep each observation's direction: 'lost more than the "
-                    "edition' compares the article with Wikipedia, not this year with the last.",
-                    paragraph.text,
                 )
 
     @staticmethod

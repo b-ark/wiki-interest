@@ -440,7 +440,6 @@ class TestRejections:
             ("Это 1 из 26 000 просмотров.", [VS_UK], "1 in N"),
             ("Учитывайте 季节性 интереса.", [VS_UK], "'季节性' is in another script"),
             ("Уровень пяти лет назад был выше.", [VS_UK], "not counted back from today"),
-            ("За последний год спад ускорился.", [VS_UK], "says the change speeds up"),
             ("Україна Wikipedia читає менше.", [VS_UK], "not a country"),
             (
                 "Доля +20 %, просмотры +20 %, раздел +0 %, снова +20 %, и +20 %.",
@@ -468,18 +467,14 @@ class TestRejections:
         english = narrative.model_copy(update={"topic": "Астрономия — natural science (Q333)."})
         assert not any(m.startswith("topic:") for m in _messages(facts, english))
 
-    def test_a_rise_that_speeds_up_may_be_said_to(self, ru: tuple[Facts, Narrative]) -> None:
+    def test_a_change_said_to_speed_up_is_the_judges_to_weigh(
+        self, ru: tuple[Facts, Narrative]
+    ) -> None:
+        """A meaning is judged in the evals, not rejected here: a regex for "speeds up" sent 3
+        of 4 texts to the template in stage15 (the user's decision of 2026-09-26)."""
         facts, narrative = ru
-        faster = " In the last months the rise speeds up."
-        observations = [
-            o.model_copy(update={"statement": o.statement + faster}) if o.id == VS_UK else o
-            for o in facts.observations
-        ]
-        speeding = facts.model_copy(update={"observations": observations})
-        text = "В последние месяцы рост ускорился."
-        told = _add_to_story(narrative, text, [VS_UK])
-        assert not any("speeds up" in m for m in _messages(speeding, told))
-        assert any("speeds up" in m for m in _messages(facts, told))
+        told = _add_to_story(narrative, "За последний год спад ускорился.", [VS_UK])
+        assert _messages(facts, told) == []
 
     def test_a_number_passes_once_its_observation_is_cited(
         self, ru: tuple[Facts, Narrative]
@@ -589,6 +584,9 @@ class TestRejections:
         assert any("Write in 'ru'" in m for m in messages)
         long = narrative.model_copy(update={"limits": "очень " * 60})
         assert any("Shorten to 250" in m for m in _messages(facts, long))
+        # A few characters over is let through: 506 of 500 cost a whole analysis (stage15).
+        near = narrative.model_copy(update={"limits": "очень " * 45})  # 270 of 250
+        assert not any("Shorten" in m for m in _messages(facts, near))
 
     def test_interface_labels_keep_their_placeholders(self, tmp_path: Path) -> None:
         _, run_dir = _run(tmp_path, "de")
