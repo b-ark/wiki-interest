@@ -382,7 +382,6 @@ MESSAGES: dict[str, str] = {
     "robustness.reason.no_recent": "there is no comparison with the same months a year earlier",
     "robustness.reason.no_trend": "the period is too short for a trend",
     "report.robustness": "How robust is this conclusion?",
-    "report.recent_basis": "last {months} months vs the same months a year earlier",
     "report.data_line": "Data: {items}.",
     "report.data_concerns": "{label}: {items}.",
     "evidence.spikes_ok": "bursts do not drive the result",
@@ -492,12 +491,6 @@ MESSAGES: dict[str, str] = {
         "Signs of seasonality in article views in {count} editions ({items}, against the usual "
         "level); a longer history is needed to be sure."
     ),
-    "card.size": "Attention share, per 1 million edition views",
-    "card.size_absolute": "Article views per month",
-    "card.views_note": "article views per month: {items}",
-    "card.momentum": "Attention share: change",
-    "card.momentum_absolute": "Article views: change",
-    "card.robustness": "Do recent months confirm the trend?",
     "edition.gaining": (
         "{label}: article views {article}, edition traffic {edition} → the attention share rises"
     ),

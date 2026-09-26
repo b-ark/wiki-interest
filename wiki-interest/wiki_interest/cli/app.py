@@ -29,7 +29,7 @@ from wiki_interest.contracts.narrative import Narrative
 from wiki_interest.contracts.request import AnalysisRequest, TopicSpec
 from wiki_interest.errors import RequestValidationError, WikiInterestError
 
-__all__ = ["app", "main"]
+__all__ = ["app"]
 
 app = typer.Typer(
     add_completion=False,
@@ -297,8 +297,3 @@ def doctor(
         report = run_doctor(container, online=not offline)
         _emit(report.to_dict())
         raise typer.Exit(code=0 if report.ok else EXIT_PROBLEMS_FOUND)
-
-
-def main() -> None:
-    """Entry point used by ``scripts/*.py`` and the console script."""
-    app()

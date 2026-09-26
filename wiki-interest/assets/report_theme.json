@@ -43,7 +43,6 @@
     "rule_color": "#CCCCCC",
     "chart_max_height_mm": 82,
     "chart_gap_mm": 3,
-    "table_fill": "#F2F4F7",
     "chart_min_height_mm": 52
   }
 }

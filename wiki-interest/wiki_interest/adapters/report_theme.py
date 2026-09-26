@@ -64,7 +64,6 @@ class PdfTheme(_Frozen):
     small_pt: float = Field(ge=MIN_TEXT_PT)
     line_height: float = Field(gt=0)
     section_gap_mm: float = Field(ge=0)
-    table_fill: str
     rule_color: str
     chart_max_height_mm: float = Field(gt=0)
     chart_min_height_mm: float = Field(gt=0)

@@ -10,23 +10,18 @@ cannot drift apart.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
 
 from wiki_interest.contracts.summary import AnalysisSummary, AssessmentOut
 from wiki_interest.i18n import Translator
 
 __all__ = [
     "GENERATED_AT_FORMAT",
-    "Card",
-    "cards",
     "decision_lines",
     "edition_basis",
     "edition_lines",
     "kpi_table",
     "markdown_table",
-    "momentum_text",
     "ordered_assessments",
-    "per_million_text",
     "period_text",
     "project_label",
     "question_line",
@@ -34,30 +29,14 @@ __all__ = [
     "report_title",
     "robustness_lines",
     "robustness_value",
-    "short_label",
 ]
 
-PER_MILLION_DECIMALS = 1
 PERCENT_DECIMALS = 0
-ARROWS = {"growing": "↑", "declining": "↓", "flat": "→"}
-"""Direction marks next to a change; ``→`` is "no clear trend", whatever the sign."""
-MAX_CARD_ROWS = 3
-SHORT_LABEL_MAX_CHARS = 14
-ELLIPSIS = "…"
 SCORE_DECIMALS = 2
 RANGE_DASH = " – "
 GENERATED_AT_FORMAT = "%Y-%m-%d %H:%M UTC"
 MAX_TITLE_DESCRIPTION = 60
 """Longer Wikidata descriptions stay in the "Topic:" line and out of the title."""
-
-
-@dataclass(frozen=True, slots=True)
-class Card:
-    """One key-number card: a label, one line per audience, and an optional small note."""
-
-    label: str
-    rows: list[str]
-    note: str | None = None
 
 
 def ordered_assessments(summary: AnalysisSummary) -> list[AssessmentOut]:
@@ -67,86 +46,6 @@ def ordered_assessments(summary: AnalysisSummary) -> list[AssessmentOut]:
         rank = {(r.topic_id, r.project): r.rank for r in summary.ranking}
         items.sort(key=lambda a: rank.get((a.topic_id, a.project), len(rank) + 1))
     return items
-
-
-def short_label(summary: AnalysisSummary, item: AssessmentOut) -> str:
-    """``ru`` for ``ru.wikipedia``; with several topics ``ru Yoga``; substitutes keep their title.
-
-    The assessment label already names a substitute (``pl.wikipedia (Post)``), so the short
-    form is derived from it rather than from the bare edition.
-    """
-    code = item.label.split(" · ")[-1].replace(".wikipedia", "")
-    topics = {a.topic_id for a in summary.assessments}
-    if len(topics) <= 1:
-        return code
-    topic = next(
-        (t.label or t.query for t in summary.resolution if t.topic_id == item.topic_id),
-        item.topic_id,
-    )
-    return f"{code} {_shorten(topic)}"
-
-
-def per_million_text(value: float | None, t: Translator) -> str:
-    """``39.3 per million``: views of the topic per million views of the whole edition."""
-    if value is None:
-        return t.t("value.na")
-    return t.t("value.per_million", value=t.number(value, PER_MILLION_DECIMALS))
-
-
-def momentum_text(item: AssessmentOut, t: Translator) -> str:
-    """The change with its direction mark: ``-17 % ↓``; ``→`` marks no clear trend."""
-    if item.change is None:
-        return t.t("value.na")
-    arrow = ARROWS.get(str(item.momentum), "")
-    change = t.percent(item.change, PERCENT_DECIMALS, signed=True)
-    return f"{change} {arrow}".strip()
-
-
-def cards(summary: AnalysisSummary, t: Translator) -> list[Card]:
-    """Size of interest, its change and whether recent months confirm it, for up to three."""
-    items = ordered_assessments(summary)[:MAX_CARD_ROWS]
-    if not items:
-        return []
-    normalised = summary.request.normalization == "per_million"
-    keys = [short_label(summary, item) for item in items]
-    measured = [(k, a) for k, a in zip(keys, items, strict=True) if a.measured]
-    no_article = t.t("card.no_article")
-
-    def row(key: str, item: AssessmentOut, value: str) -> str:
-        return f"{key}: {value if item.measured else no_article}"
-
-    if normalised:
-        size = Card(
-            t.t("card.size"),
-            [
-                row(k, a, per_million_text(a.per_million, t))
-                for k, a in zip(keys, items, strict=True)
-            ],
-            t.t(
-                "card.views_note",
-                items="; ".join(f"{k} {t.number(a.views_avg)}" for k, a in measured),
-            )
-            if measured
-            else None,
-        )
-    else:
-        size = Card(
-            t.t("card.size_absolute"),
-            [row(k, a, t.number(a.views_avg)) for k, a in zip(keys, items, strict=True)],
-        )
-    bases = {a.basis for _, a in measured if a.basis}
-    change = Card(
-        t.t("card.momentum" if normalised else "card.momentum_absolute"),
-        [row(k, a, momentum_text(a, t)) for k, a in zip(keys, items, strict=True)],
-        t.t(f"basis.{bases.pop()}") if len(bases) == 1 else None,
-    )
-    windows = {a.recent_months for _, a in measured if a.recent_months}
-    recent = Card(
-        t.t("card.robustness"),
-        [row(k, a, robustness_value(a, t)) for k, a in zip(keys, items, strict=True)],
-        t.t("report.recent_basis", months=windows.pop()) if len(windows) == 1 else None,
-    )
-    return [size, change, recent]
 
 
 def robustness_value(item: AssessmentOut, t: Translator) -> str:
@@ -224,12 +123,6 @@ def decision_lines(summary: AnalysisSummary) -> list[str]:
         return []
     first = [decision.summary] if decision.summary else []
     return [*first, *decision.lines, decision.next_step]
-
-
-def _shorten(text: str) -> str:
-    if len(text) <= SHORT_LABEL_MAX_CHARS:
-        return text
-    return text[: SHORT_LABEL_MAX_CHARS - 1].rstrip() + ELLIPSIS
 
 
 # -- labels and tables shared by summary.md and the PDF ------------------------------

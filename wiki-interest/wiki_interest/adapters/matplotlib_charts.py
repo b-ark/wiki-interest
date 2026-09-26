@@ -148,7 +148,6 @@ MOVE_SYMBOL_GROWTH = 1.5
 """A symbol alone is set this many points over the small size, to be read at a glance."""
 Y_LABEL_CHARS = 24
 """Longest line of the main chart's value-axis label; longer ones wrap."""
-"""A symbol alone is set this many points over the small size, to be read at a glance."""
 MINUS = "\u2212"
 NARROW_NO_BREAK_SPACE = "\u202f"
 

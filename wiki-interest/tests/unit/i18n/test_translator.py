@@ -90,7 +90,6 @@ SECTION_KEYS = [
     "report.decision",
     "summary.decision",
     "report.robustness",
-    "card.robustness",
     "value.per_million",
 ]
 

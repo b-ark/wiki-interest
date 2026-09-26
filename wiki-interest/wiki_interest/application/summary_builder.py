@@ -115,10 +115,8 @@ _SIGNED_PERCENT_PARAMS = frozenset({"change", "edition_change", "peak", "trough"
 _MULTIPLE_PARAMS = frozenset({"multiple"})
 _COUNT_PARAMS = frozenset({"peak_views", "baseline"})
 """Views are whole numbers whatever their size; a baseline of "83,0" views reads oddly."""
-_MAX_ANSWER_ITEMS = 5
 _INFERENCE_CHECKS = frozenset({"trend"})
 """Reliability checks that judge the conclusion, not the data."""
-"""Audiences named in one answer sentence; the table lists all of them."""
 _SENTENCE_END = (".", "!", "?", "…")
 _GROWTH_CONCLUSIONS = frozenset({"strong", "emerging", "single_growing"})
 _DEMAND_CONCLUSIONS = frozenset(

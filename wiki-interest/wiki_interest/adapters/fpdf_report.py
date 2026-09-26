@@ -327,11 +327,6 @@ class _Page:
             self._t.t(key), self._style.heading_pt, bold=True, color=self._theme.accent_color
         )
 
-    def _bullets(self, items: Sequence[str]) -> None:
-        for item in items:
-            if not self._paragraph(f"{BULLET}{item}", self._style.body_pt):
-                return
-
     def _paragraphs(self, items: Sequence[str]) -> None:
         for item in items:
             if item and not self._paragraph(item, self._style.body_pt):
