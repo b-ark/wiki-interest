@@ -170,6 +170,11 @@ def seasonal_strength(values: Sequence[float | None], period: int = 12) -> float
     meaningless. A series with zero residual variance (a perfect line) has no seasonality to
     measure and yields ``None`` rather than ``0/0``.
 
+    A positive series is measured on its logarithm: a season is a share of the level (+60 % in
+    September), as the seasonal profile reads it. On the values themselves a season of fixed
+    share grows with a rising series and the line fits it badly, so a perfect season in a
+    series growing 3 % a month measured 0.23, weak (audit of 2026-09-26).
+
     Args:
         values: Observations in chronological order, gaps as ``None``.
         period: Length of one cycle in steps; 12 for months.
@@ -183,6 +188,9 @@ def seasonal_strength(values: Sequence[float | None], period: int = 12) -> float
     if period < _MIN_SLOPE_VALUES:
         msg = f"seasonal period must be at least 2, got {period}"
         raise ValueError(msg)
+    observed = [v for v in values if v is not None]
+    if observed and all(v > 0 for v in observed):
+        values = [None if v is None else math.log(v) for v in values]
     residuals = [(i % period, r) for i, r in enumerate(detrend(values)) if r is not None]
     counts = Counter(position for position, _ in residuals)
     if len(counts) < period or min(counts.values()) < _MIN_OBSERVATIONS_PER_POSITION:

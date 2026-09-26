@@ -151,3 +151,13 @@ class TestSeasonalStrength:
     def test_is_within_unit_interval_when_computable(self, values: list[float]) -> None:
         strength = seasonal_strength(values)
         assert strength is None or 0.0 <= strength <= 1.0
+
+
+@pytest.mark.parametrize("monthly_growth", [0.0, 0.01, 0.03])
+def test_a_season_of_fixed_share_is_as_strong_in_a_rising_series(monthly_growth: float) -> None:
+    """September +60 %, July -30 % every year: growth once took it from 1.0 to 0.23."""
+    season = {8: 1.6, 6: 0.7}
+    values = [1_000.0 * (1 + monthly_growth) ** i * season.get(i % 12, 1.0) for i in range(96)]
+    strength = seasonal_strength(values)
+    assert strength is not None
+    assert strength > 0.9
