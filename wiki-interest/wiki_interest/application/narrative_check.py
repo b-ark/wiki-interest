@@ -199,7 +199,7 @@ class _Checker:
                 "and explain it, do not retell every observation.",
             )
         self.length("meaning", n.meaning.text, required=True)
-        self.length("check", n.check, required=True)
+        self.length("check", n.check)
         self.length("limits", n.limits, required=True)
 
     def length(self, block: str, text: str, *, required: bool = False) -> None:
@@ -285,6 +285,23 @@ class _Checker:
                 f"{', '.join(repr(o.id) for o in comparisons)} and cite it, for example "
                 f"'{first.id}': {first.statement}",
             )
+        recommendations = [o.id for o in self.facts.observations if o.kind == "recommendation"]
+        if recommendations and not set(n.meaning.uses) & set(recommendations):
+            self.add(
+                "meaning",
+                "Explain the code's recommendation: cite "
+                f"{', '.join(repr(i) for i in recommendations)} in 'uses'.",
+            )
+        names = self.facts.choice_names
+        if names and n.meaning.text.strip():
+            text = n.meaning.text.lower()
+            if not any(name.lower() in text for name in names):
+                self.add(
+                    "meaning",
+                    "Name the recommendation's choice in the meaning (the edition or topic "
+                    "the recommendation observation chooses).",
+                    n.meaning.text,
+                )
         trade_offs = [o.id for o in self.facts.observations if o.id.startswith(_TRADE_OFFS)]
         if trade_offs and not set(n.meaning.uses) & set(trade_offs):
             self.add(

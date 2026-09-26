@@ -8,7 +8,7 @@ receives from the composition root, so the whole thing runs against in-memory fa
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -38,9 +38,12 @@ from wiki_interest.application.observations import (
     run_observations,
 )
 from wiki_interest.application.question import compose_question, label_problems
-from wiki_interest.application.resolution import TopicResolver
+from wiki_interest.application.recommend import recommendation_lines
+from wiki_interest.application.related import RelatedTopics
+from wiki_interest.application.resolution import ResolvedTopic, TopicResolver
 from wiki_interest.application.runs import ATTEMPTS_FILENAME, CHAT_BRIEF_FILENAME, previous_run
 from wiki_interest.application.summary_builder import (
+    NextChecks,
     ProvenanceInput,
     RunContext,
     SummaryBuilder,
@@ -123,6 +126,8 @@ class RunServices:
     """The editions' control baskets; without them the trust says it has none."""
     renames: RenameLog | None = None
     """The move log of the articles; without it no step is put down to a rename."""
+    related: RelatedTopics | None = None
+    """Neighbouring articles and further editions: the next check the skill can run."""
     stop_after_resolve: bool = False
     """End the run after the topic stage (see ``Settings.stop_after``)."""
 
@@ -374,6 +379,7 @@ class Pipeline:
             trends=reading.trends,
             trust=reading.trust,
             history_range=context_range(period, observe_from),
+            next_checks=_next_checks(services.related, resolved, request),
         )
         # The report shows the code's own text until the agent's is accepted: the same
         # blocks, so the PDF has one layout whoever wrote it.
@@ -547,6 +553,9 @@ def _with_verdict_text(summary: AnalysisSummary, translator: Translator) -> Anal
     if not summary.verdicts:
         return summary
     verdicts = [with_lines(v, translator) for v in summary.verdicts]
+    recommendations = [
+        recommendation_lines(r, verdicts, translator) for r in summary.recommendations
+    ]
     labels = {r.topic_id: r.label or r.query for r in summary.resolution}
     by_topic: dict[str, list[TrendOut]] = {}
     for item in verdicts:
@@ -559,7 +568,41 @@ def _with_verdict_text(summary: AnalysisSummary, translator: Translator) -> Anal
     verdict = summary.verdict
     if lines:
         verdict = verdict.model_copy(update={"headline": " ".join(lines)})
-    return summary.model_copy(update={"verdicts": verdicts, "verdict": verdict})
+    decision = summary.decision
+    if decision is not None and recommendations:
+        decision = decision.model_copy(
+            update={
+                "lines": [r.line for r in recommendations if r.line],
+                "next_step": " ".join(r.next_line for r in recommendations if r.next_line)
+                or decision.next_step,
+            }
+        )
+    return summary.model_copy(
+        update={
+            "verdicts": verdicts,
+            "verdict": verdict,
+            "recommendations": recommendations,
+            "decision": decision,
+        }
+    )
+
+
+def _next_checks(
+    related: RelatedTopics | None, resolved: Sequence[ResolvedTopic], request: AnalysisRequest
+) -> dict[str, NextChecks]:
+    """For each topic, its neighbouring articles and further editions (outside checks)."""
+    if related is None:
+        return {}
+    out: dict[str, NextChecks] = {}
+    for topic in resolved:
+        if topic.qid is None:
+            continue
+        projects = [b.project for b in topic.bundles]
+        out[topic.topic_id] = NextChecks(
+            related=tuple(related.neighbours(topic.qid, projects, request.report.language)),
+            editions=tuple(related.more_editions(topic.qid, projects)),
+        )
+    return out
 
 
 def load_run_summary(run_dir: Path) -> AnalysisSummary:

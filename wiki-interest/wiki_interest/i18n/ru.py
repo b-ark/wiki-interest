@@ -152,6 +152,25 @@ LABELS: Mapping[str, str] = {
     "substitute.broader": "более широкую статью «{title}»",
     "substitute.mention": "статью «{title}», которая упоминает тему",
     "note.substitute": "статьи нет; измерено через {what}",
+    # -- v0.2: the recommendation
+    "rec.line": "Рекомендация: {text}",
+    "rec.why": "{parts}.",
+    "rec.why_part": "{label}: {verdict} ({start} → {end}, {slope}/год)",
+    "rec.why_part_none": "{label}: {verdict}",
+    "rec.none_growing": "Ни один языковой раздел не показывает роста.",
+    "rec.none_growing_topics": "Ни одна тема не показывает роста.",
+    "rec.pick": "Если выбирать — {choice}.",
+    "rec.confidence": "Доверие к выбору: {level}.",
+    "rec.next.related": (
+        "Следующая проверка: смежные статьи — {items}; я могу добавить их в этот анализ."
+    ),
+    "rec.next.editions": (
+        "Следующая проверка: та же статья в других языковых разделах ({items}); я могу их добавить."
+    ),
+    "rec.next.external": (
+        "Следующая проверка: вне Википедии — Google Trends или небольшой рекламный тест."
+    ),
+    "chat.follow_up.related_topics": "Я могу добавить в анализ смежные статьи",
     # -- v0.2: the trust in each verdict
     "trust.line": "Доверие ({label}): {level} — {reasons}.",
     "trust.level.high": "высокое",

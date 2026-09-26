@@ -19,7 +19,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SKILL = HERE.parent.parent
-KEYS = ("analysis_window", "context_range", "verdicts", "recommendation")
+KEYS = ("analysis_window", "context_range", "verdicts", "recommendations")
 """Summary fields the changelog quotes; those a phase has not added yet are left out."""
 
 
@@ -51,7 +51,16 @@ def main(phase: str) -> int:
         fields["observations"] = {
             o["id"]: o["statement"]
             for o in facts["observations"]
-            if o["id"].split(":")[0] in ("headline", "trend", "vs_edition", "editions", "decision")
+            if o["id"].split(":")[0]
+            in (
+                "headline",
+                "trend",
+                "trust",
+                "vs_edition",
+                "editions",
+                "decision",
+                "recommendation",
+            )
         }
         (out / "key-fields.json").write_text(
             json.dumps(fields, ensure_ascii=False, indent=2) + "\n",

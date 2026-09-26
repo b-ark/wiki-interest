@@ -655,6 +655,21 @@ MESSAGES: dict[str, str] = {
         "Views show interest, not willingness to pay; a language edition is not a country."
     ),
     "report.footer_method": "How every number was computed: method.md",
+    # -- v0.2: the recommendation
+    "rec.line": "Recommendation: {text}",
+    "rec.why": "{parts}.",
+    "rec.why_part": "{label}: {verdict} ({start} → {end}, {slope} a year)",
+    "rec.why_part_none": "{label}: {verdict}",
+    "rec.none_growing": "No edition shows growth.",
+    "rec.none_growing_topics": "No topic shows growth.",
+    "rec.pick": "If you pick one: {choice}.",
+    "rec.confidence": "Trust in the choice: {level}.",
+    "rec.next.related": (
+        "Next check: the neighbouring articles {items}; I can add them to this analysis."
+    ),
+    "rec.next.editions": "Next check: the same article in more editions ({items}); I can add them.",
+    "rec.next.external": "Next check: outside Wikipedia, with Google Trends or a small ad test.",
+    "chat.follow_up.related_topics": "I can add the neighbouring articles to this analysis",
     # -- v0.2: the trust in each verdict
     "trust.line": "Trust ({label}): {level} — {reasons}.",
     "trust.level.high": "high",

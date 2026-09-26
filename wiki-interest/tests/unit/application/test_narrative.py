@@ -36,6 +36,7 @@ VS_UK = "vs_edition:astronomy/uk"
 EDITIONS = "editions:astronomy"
 VERDICT_UK = "decision:verdict:astronomy/uk"
 START_WITH = "decision:editions:astronomy"
+RECOMMENDATION = "recommendation:astronomy"
 
 
 def _run(
@@ -113,7 +114,7 @@ def _russian(facts: Facts) -> Narrative:
             ],
             meaning=Paragraph(
                 text="Википедия поддерживает идею; начинать логично с украинской аудитории.",
-                uses=[VERDICT_UK, START_WITH],
+                uses=[RECOMMENDATION, VERDICT_UK, START_WITH],
             ),
             check="Проверьте, как часто ищут курсы астрономии, и запустите небольшой тест.",
             limits="Просмотры показывают любопытство, а не готовность платить; раздел — это "
@@ -394,6 +395,27 @@ class TestComparison:
         assert any("Compare, do not tell each edition apart" in m for m in messages)
         assert any(EDITIONS in m for m in messages)
 
+    def test_the_meaning_explains_the_codes_recommendation(
+        self, ru: tuple[Facts, Narrative]
+    ) -> None:
+        facts, narrative = ru
+        assert "украинск" in facts.choice_names  # uk grows: the recommendation picks it
+        uncited = narrative.model_copy(
+            update={
+                "meaning": narrative.meaning.model_copy(update={"uses": [VERDICT_UK, START_WITH]})
+            }
+        )
+        assert any(RECOMMENDATION in m for m in _messages(facts, uncited))
+        other = narrative.model_copy(
+            update={
+                "meaning": Paragraph(
+                    text="Начинать логично с чешской аудитории.",
+                    uses=[RECOMMENDATION, START_WITH],
+                )
+            }
+        )
+        assert any("Name the recommendation's choice" in m for m in _messages(facts, other))
+
     def test_a_meaning_without_the_trade_off_is_rejected(self, ru: tuple[Facts, Narrative]) -> None:
         facts, narrative = ru
         meaning = narrative.meaning.model_copy(update={"uses": [VERDICT_UK]})
@@ -583,7 +605,7 @@ class TestRejections:
         )
         messages = _messages(facts, broken)
         assert any("At most 4 paragraphs" in m for m in messages)
-        assert any("'check' is empty" in m for m in messages)
+        assert not any("'check'" in m for m in messages)  # the code writes the next check
         assert any("Write in 'ru'" in m for m in messages)
         long = narrative.model_copy(update={"limits": "очень " * 60})
         assert any("Shorten to 250" in m for m in _messages(facts, long))
@@ -643,7 +665,10 @@ class TestNarrate:
         assert "в украинской Википедии интерес растёт" in brief
         assert "около 4 200 раз в месяц" in brief
         assert narrative.meaning.text in brief
-        assert narrative.check in brief
+        # The code's recommendation and next check, not the agent's own check.
+        assert "Рекомендация: " in brief
+        assert "Следующая проверка: " in brief
+        assert narrative.check not in brief
         assert narrative.limits in brief
         assert "(мгновенно: данные уже загружены)" in brief
         assert brief.endswith("report.pdf")
@@ -664,6 +689,7 @@ class TestNarrate:
             "size:astronomy/uk",
             VS_UK,
             EDITIONS,
+            RECOMMENDATION,
             VERDICT_UK,
             START_WITH,
         ]

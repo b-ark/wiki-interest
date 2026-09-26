@@ -155,6 +155,25 @@ LABELS: Mapping[str, str] = {
     "substitute.broader": "ширшу статтю «{title}»",
     "substitute.mention": "статтю «{title}», яка згадує тему",
     "note.substitute": "статті немає; виміряно через {what}",
+    # -- v0.2: the recommendation
+    "rec.line": "Рекомендація: {text}",
+    "rec.why": "{parts}.",
+    "rec.why_part": "{label}: {verdict} ({start} → {end}, {slope}/рік)",
+    "rec.why_part_none": "{label}: {verdict}",
+    "rec.none_growing": "Жоден мовний розділ не показує зростання.",
+    "rec.none_growing_topics": "Жодна тема не показує зростання.",
+    "rec.pick": "Якщо обирати — {choice}.",
+    "rec.confidence": "Довіра до вибору: {level}.",
+    "rec.next.related": (
+        "Наступна перевірка: суміжні статті — {items}; я можу додати їх до цього аналізу."
+    ),
+    "rec.next.editions": (
+        "Наступна перевірка: та сама стаття в інших мовних розділах ({items}); я можу їх додати."
+    ),
+    "rec.next.external": (
+        "Наступна перевірка: поза Вікіпедією — Google Trends або невеликий рекламний тест."
+    ),
+    "chat.follow_up.related_topics": "Я можу додати до аналізу суміжні статті",
     # -- v0.2: the trust in each verdict
     "trust.line": "Довіра ({label}): {level} — {reasons}.",
     "trust.level.high": "висока",

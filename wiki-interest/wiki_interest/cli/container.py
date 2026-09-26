@@ -29,6 +29,7 @@ from wiki_interest.application.control import ControlBaskets, RenameLog
 from wiki_interest.application.coverage import CoverageAdvisor
 from wiki_interest.application.loading import LoadSettings, SeriesLoader
 from wiki_interest.application.pipeline import Pipeline, Renderers, RunServices
+from wiki_interest.application.related import RelatedTopics
 from wiki_interest.application.resolution import TopicResolver
 from wiki_interest.application.summary_builder import ProvenanceInput
 from wiki_interest.config import Settings
@@ -169,6 +170,7 @@ class Container:
                 max_workers=self.settings.max_concurrency,
             ),
             renames=RenameLog(self.mediawiki),
+            related=RelatedTopics(self.wikidata),
             stop_after_resolve=self.settings.stop_after == "resolve",
         )
 

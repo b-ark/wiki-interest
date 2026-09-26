@@ -71,7 +71,8 @@ class Narrative(_Model):
             observations it relies on.
         meaning: What it means for the user's decision, built on the ``decision``
             observations that fit the question.
-        check: One concrete way to check the conclusion outside Wikipedia.
+        check: Not used: the code writes the next check (v0.2). Kept so an older text
+            still reads.
         limits: One line: what page views can and cannot say.
         ui: Interface labels of the report: ``facts.ui`` lists them in English to translate.
     """
@@ -81,7 +82,7 @@ class Narrative(_Model):
     headline: str = ""
     story: list[Paragraph]
     meaning: Paragraph
-    check: str
+    check: str = ""
     limits: str
     ui: dict[str, str] = Field(default_factory=dict)
 
@@ -106,6 +107,8 @@ class Facts(_Model):
             answers them in its own ``ui``. Empty when the language has a catalog or the
             session translated them already.
         report_pdf: Where the PDF is; the chat answer names it.
+        choice_names: How the meaning may name the recommendation's choice (an edition's
+            language adjective in each catalog language, its code, or a topic's label).
 
     The code's own text (the fallback) is not here: the agent wrote from it when it was, and
     retold the observations instead of explaining them (verified 2026-09-25 on six topics).
@@ -123,6 +126,7 @@ class Facts(_Model):
     example: dict[str, Any] = Field(default_factory=dict)
     ui: dict[str, str] = Field(default_factory=dict)
     report_pdf: str | None = None
+    choice_names: list[str] = Field(default_factory=list)
 
 
 class NarrativeProblem(_Model):

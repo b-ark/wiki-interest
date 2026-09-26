@@ -118,12 +118,15 @@ def edition_basis(summary: AnalysisSummary, t: Translator) -> str | None:
 
 
 def decision_lines(summary: AnalysisSummary) -> list[str]:
-    """The conclusion, one line per outcome when there is a choice to make, the next step."""
+    """The code's recommendation, the text that explains it, and the next check.
+
+    The recommendation comes first so a page tightened to one line keeps it.
+    """
     decision = summary.decision
     if decision is None:
         return []
-    first = [decision.summary] if decision.summary else []
-    return [*first, *decision.lines, decision.next_step]
+    meaning = [decision.summary] if decision.summary else []
+    return [*decision.lines, *meaning, decision.next_step]
 
 
 # -- labels and tables shared by summary.md and the PDF ------------------------------

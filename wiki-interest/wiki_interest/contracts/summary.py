@@ -46,12 +46,15 @@ __all__ = [
     "FindingOut",
     "MetricsOut",
     "MonthOut",
+    "NextCheckOut",
+    "NextItemOut",
     "ObservationOut",
     "PointOut",
     "Provenance",
     "QuotedNumber",
     "RankedRow",
     "ReasonOut",
+    "RecommendationOut",
     "ReliabilityOut",
     "SeasonOut",
     "SeriesOut",
@@ -339,6 +342,61 @@ class TrendOut(_Model):
     line: str = ""
     substitute: bool = False
     trust: TrustOut | None = None
+
+
+class NextItemOut(_Model):
+    """One thing the next check adds: a neighbouring article (``qid``) or an edition."""
+
+    label: str
+    qid: str | None = None
+    project: str | None = None
+
+
+class NextCheckOut(_Model):
+    """The next check the skill can run itself.
+
+    Attributes:
+        kind: ``related`` (neighbouring articles), ``editions`` (more language editions) or
+            ``external`` (outside Wikipedia: only when neither is left).
+        items: What it adds.
+        change: What changes in ``request.json`` to run it.
+    """
+
+    kind: Literal["related", "editions", "external"]
+    items: list[NextItemOut] = Field(default_factory=list)
+    change: str = ""
+
+
+class RecommendationOut(_Model):
+    """The recommendation, every field computed from the window's verdicts.
+
+    Attributes:
+        topic_id: The topic it is about (the edition when ``by_topic``).
+        choice: ``<topic>/<language>`` of the chosen candidate.
+        choice_project: Its edition.
+        choice_label: How the charts name it.
+        by_topic: The candidates are topics of one edition.
+        single: One candidate only: the line gives its verdict, not a choice.
+        none_growing: No candidate grows: the choice is the least bad one.
+        why: The candidates whose verdicts the line quotes, ``<topic>/<language>``.
+        confidence: The trust in the chosen verdict.
+        next_check: What the skill can check next on its own.
+        line: The recommendation line in the report's language.
+        next_line: The next-check line in the report's language.
+    """
+
+    topic_id: str
+    choice: str | None = None
+    choice_project: str | None = None
+    choice_label: str = ""
+    by_topic: bool = False
+    single: bool = False
+    none_growing: bool = False
+    why: list[str] = Field(default_factory=list)
+    confidence: Literal["high", "medium", "low"] | None = None
+    next_check: NextCheckOut | None = None
+    line: str = ""
+    next_line: str = ""
 
 
 class Verdict(_Model):
@@ -697,6 +755,8 @@ class AnalysisSummary(_Model):
     """The months the charts show: the history before the window is context."""
     verdicts: list[TrendOut] = Field(default_factory=list)
     """The window's verdict of each (topic, edition) with data, in request order."""
+    recommendations: list[RecommendationOut] = Field(default_factory=list)
+    """One per topic (per edition when topics are compared in one edition)."""
     resolution: list[TopicResolutionOut] = Field(default_factory=list)
     series: list[SeriesOut] = Field(default_factory=list)
     metrics: list[MetricsOut] = Field(default_factory=list)

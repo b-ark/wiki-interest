@@ -46,6 +46,12 @@ from wiki_interest.application.insights import (
 )
 from wiki_interest.application.observations import outcome_cautions, to_out
 from wiki_interest.application.question import option_text
+from wiki_interest.application.recommend import (
+    recommend,
+    recommendation_lines,
+    recommendation_observation,
+)
+from wiki_interest.application.related import Related
 from wiki_interest.application.resolution import ResolvedTopic
 from wiki_interest.application.window import headline, trend_outs
 from wiki_interest.contracts.charts import ChartSpec
@@ -76,6 +82,7 @@ from wiki_interest.contracts.summary import (
     PointOut,
     Provenance,
     RankedRow,
+    RecommendationOut,
     ReliabilityOut,
     SeasonOut,
     SeriesOut,
@@ -161,6 +168,33 @@ class ProvenanceInput:
     thresholds: Mapping[str, float | int | bool] | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class NextChecks:
+    """What the skill can check next for one topic: its neighbours and further editions."""
+
+    related: tuple[Related, ...] = ()
+    editions: tuple[str, ...] = ()
+
+
+def _recommendations(
+    verdicts: Sequence[TrendOut], next_checks: Mapping[str, NextChecks], t: Translator
+) -> list[RecommendationOut]:
+    """One recommendation per topic; for several topics in one edition, one for the edition."""
+    topics = list(dict.fromkeys(v.topic_id for v in verdicts))
+    projects = list(dict.fromkeys(v.project for v in verdicts))
+    out: list[RecommendationOut] = []
+    if len(topics) > 1 and len(projects) == 1:
+        rec = recommend(projects[0], verdicts, by_topic=True)
+        return [recommendation_lines(rec, verdicts, t)] if rec else []
+    for topic_id in topics:
+        mine = [v for v in verdicts if v.topic_id == topic_id]
+        checks = next_checks.get(topic_id, NextChecks())
+        rec = recommend(topic_id, mine, related=checks.related, more_editions=checks.editions)
+        if rec is not None:
+            out.append(recommendation_lines(rec, mine, t))
+    return out
+
+
 class SummaryBuilder:
     """Builds :class:`AnalysisSummary` documents in one report language."""
 
@@ -192,6 +226,7 @@ class SummaryBuilder:
         trends: Mapping[str, WindowTrend] | None = None,
         trust: Mapping[str, Trust] | None = None,
         history_range: Period | None = None,
+        next_checks: Mapping[str, NextChecks] | None = None,
     ) -> AnalysisSummary:
         """Compose the full summary of a successful run.
 
@@ -206,6 +241,8 @@ class SummaryBuilder:
             trends: The window's verdict of each pair (``read_trends``): the headline and
                 the verdict lines read it.
             trust: The trust in each verdict (``read_trust``).
+            next_checks: Per topic, the neighbouring articles and further editions the
+                recommendation's next check can offer.
             history_range: The months the charts show (``context_range``); the window
                 when ``None``.
         """
@@ -240,6 +277,11 @@ class SummaryBuilder:
         }
         substitutes = {h.pair for h in histories if h.substitute}
         verdicts = trend_outs(verdicts_in, pair_labels, self._t, substitutes, trust)
+        recommendations = _recommendations(verdicts, next_checks or {}, self._t)
+        recommended = [
+            recommendation_observation(r, verdicts, topic_labels.get(r.topic_id, r.topic_id))
+            for r in recommendations
+        ]
         insights = select_insights(
             analysis, self._insight_settings, season_requested=season_requested
         )
@@ -266,6 +308,7 @@ class SummaryBuilder:
             analysis_window=period,
             context_range=shown,
             verdicts=verdicts,
+            recommendations=recommendations,
             resolution=[self._resolution_out(topic) for topic in resolved],
             series=self._series_out(analysis),
             metrics=self._metrics_out(analysis),
@@ -291,7 +334,7 @@ class SummaryBuilder:
             decision=self._decision_out(conclusion, assessments, labels),
             data_note=self._data_note(analysis, assessments, labels),
             findings=findings,
-            observations=to_out([*cautions, *observations]),
+            observations=to_out([*cautions, *observations, *recommended]),
             limitations=self._limitations(request, period, resolved, labels),
             general_limitations=self._general_limitations(),
             next_steps=self._next_steps(request, period, resolved, analysis, labels),

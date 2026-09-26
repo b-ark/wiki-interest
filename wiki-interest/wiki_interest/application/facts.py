@@ -19,6 +19,9 @@ from wiki_interest.contracts.narrative import Facts, FollowUpFact, Narrative, Pa
 from wiki_interest.contracts.summary import AnalysisSummary, ObservationOut
 from wiki_interest.domain.observations import edition_name, views_direction
 from wiki_interest.i18n import Translator
+from wiki_interest.i18n.editions import EN as EDITIONS_EN
+from wiki_interest.i18n.editions import RU as EDITIONS_RU
+from wiki_interest.i18n.editions import UK as EDITIONS_UK
 
 __all__ = [
     "EXAMPLE",
@@ -93,13 +96,15 @@ RULES: tuple[str, ...] = (
     "an edition's exception (a one-off burst, a step, a partial-year caution) takes one "
     "sentence. Editions move in opposite directions only when one rises and the other falls; "
     "when both fall, say both fall and where more sharply.",
-    f"meaning: what it means for the next step (at most {LIMITS['meaning']} characters), "
-    "built from the decision observations that fit the question; cite them in 'uses'. With "
-    "several editions, the trade-off: a larger audience against a growing one. Wikipedia is "
-    "a signal to check further, never a reason to invest or not to.",
-    f"check: one concrete way to check the conclusion outside Wikipedia, naming a source "
-    f"(Google Trends, search volume, a small ad test), one sentence (at most "
-    f"{LIMITS['check']} characters).",
+    f"meaning: what it means for the next step (at most {LIMITS['meaning']} characters). "
+    "The code has made the recommendation (recommendation:...): which edition or topic to "
+    "choose, why, how far to trust it, and the next check; it prints them word for word. "
+    "Explain that choice in the user's words, name the chosen edition or topic, cite the "
+    "recommendation and the decision observations you use, and never pick another. With "
+    "several editions, the trade-off: a larger audience against a stronger verdict. "
+    "Wikipedia is a signal to check further, never a reason to invest or not to.",
+    "check: leave it empty; the code writes the next check (the recommendation's), which the "
+    "skill can run itself.",
     f"limits: one line (at most {LIMITS['limits']} characters): page views show interest, "
     "not willingness to pay; an edition is a language, not a country.",
     "Numbers: only those of the observations a paragraph cites (rounding is fine); never "
@@ -182,6 +187,16 @@ EXAMPLE: Mapping[str, object] = {
             "anything launched or promoted should be ready by March.",
         },
         {
+            "id": "recommendation:beekeeping",
+            "weight": "decision",
+            "statement": "The code's recommendation on beekeeping: Recommendation: nl: interest "
+            "grows (4.3 → 5.4, +12% a year); pl: interest keeps declining (2.8 → 2.3, −15% a "
+            "year). If you pick one: the Dutch Wikipedia. Trust in the choice: high. Next check: "
+            "the neighbouring articles honey bee, pollination; I can add them to this analysis. "
+            "The meaning explains why the Dutch Wikipedia is the choice and names it; it never "
+            "picks another.",
+        },
+        {
             "id": "decision:editions:beekeeping",
             "weight": "decision",
             "statement": "The Dutch Wikipedia is the larger audience for beekeeping and its "
@@ -219,10 +234,13 @@ EXAMPLE: Mapping[str, object] = {
             "audience, and a growing one. Polish interest is shrinking and gives no growth "
             "signal. If you test the Dutch audience, do it before April, when the article is "
             "read most every year.",
-            "uses": ["decision:editions:beekeeping", "decision:timing:beekeeping/nl"],
+            "uses": [
+                "recommendation:beekeeping",
+                "decision:editions:beekeeping",
+                "decision:timing:beekeeping/nl",
+            ],
         },
-        "check": "Compare Google Trends or search volume for beekeeping courses in Dutch and "
-        "in Polish over the last two years, or run a small ad test in both languages.",
+        "check": "",
         "limits": "Page views show interest, not willingness to pay; each Wikipedia is a "
         "language, not a country.",
         "ui": {
@@ -254,6 +272,7 @@ def build_facts(summary: AnalysisSummary, *, ui: Mapping[str, str]) -> Facts:
         ],
         observations=list(summary.observations),
         follow_ups=_follow_ups(summary),
+        choice_names=choice_names(summary),
         rules=list(RULES),
         example=dict(EXAMPLE),
         ui=dict(ui),
@@ -303,8 +322,10 @@ def template_narrative(
             room -= len(paragraph.text)
         if len(story) == _TEMPLATE_PARAGRAPHS:
             break
+    # The recommendation's own statement is the code's line, printed as it is: the
+    # template's meaning explains it from the decisions, as the agent's does.
     decisions = sorted(
-        (o for o in observations if o.weight == "decision"),
+        (o for o in observations if o.weight == "decision" and o.kind != "recommendation"),
         key=lambda o: not o.id.startswith(_TRADE_OFFS),
     )
     meaning = _fitting(decisions[:_TEMPLATE_DECISIONS], LIMITS["meaning"])
@@ -315,11 +336,42 @@ def template_narrative(
         topic=" ".join(_topic_lines(summary, translator)),
         headline=summary.verdict.headline,
         story=story or [Paragraph(text=line) for line in summary.happening],
-        meaning=meaning if meaning.text else Paragraph(text=fallback_meaning),
+        meaning=_with_recommendation(
+            meaning if meaning.text else Paragraph(text=fallback_meaning), observations
+        ),
         check=_next_check(summary, translator) or (decision.next_step if decision else ""),
         limits=template_limits(translator),
         ui=dict(ui or {}),
     )
+
+
+def _with_recommendation(meaning: Paragraph, observations: Sequence[ObservationOut]) -> Paragraph:
+    """The template's meaning citing the recommendation, as the agent's must."""
+    ids = [o.id for o in observations if o.kind == "recommendation"]
+    return meaning.model_copy(update={"uses": [*meaning.uses, *ids]}) if ids else meaning
+
+
+def choice_names(summary: AnalysisSummary) -> list[str]:
+    """How a text may name each recommendation's choice, in any of the catalog languages.
+
+    The edition's language adjective as each catalog writes it ("Russian", "російськ",
+    "русск") and its code, or the topic's label: the meaning must name one.
+    """
+    names: list[str] = []
+    for rec in summary.recommendations:
+        if rec.single or rec.choice is None:
+            continue
+        if rec.by_topic:
+            names.append(rec.choice_label)
+            continue
+        code = (rec.choice_project or "").split(".")[0]
+        names.append(code)
+        for catalog in (EDITIONS_EN, EDITIONS_UK, EDITIONS_RU):
+            name = catalog.get(f"edition.name.{code}")
+            if name:
+                word = name.removeprefix("the ").split()[0]
+                names.append(word.rstrip("аяій") if word[:1].isalpha() else word)
+    return list(dict.fromkeys(n for n in names if n))
 
 
 def _next_check(summary: AnalysisSummary, t: Translator) -> str | None:
@@ -433,6 +485,7 @@ def compose_chat(
         *_change_lines(summary, previous, t),
         "",
         *(line for paragraph in summary.happening for line in (paragraph, "")),
+        *(decision.lines if decision else []),
         meaning,
         decision.next_step if decision else "",
         "",
@@ -451,6 +504,19 @@ def _follow_ups(summary: AnalysisSummary) -> list[FollowUpFact]:
     """Refinements the user may want next; ``cached`` ones reuse the fetched data."""
     request = summary.request
     out: list[FollowUpFact] = []
+    for rec in summary.recommendations:
+        check = rec.next_check
+        if check is not None and check.kind == "related":
+            out.append(
+                FollowUpFact(
+                    id="related_topics",
+                    what="the neighbouring articles "
+                    + ", ".join(f"{i.label} ({i.qid})" for i in check.items),
+                    change=check.change,
+                    cached=False,
+                )
+            )
+            break
     if request.report.seasonality != "show":
         out.append(
             FollowUpFact(
