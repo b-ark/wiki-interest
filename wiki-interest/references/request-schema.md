@@ -48,7 +48,7 @@ Unknown keys are rejected on purpose: a misspelled field would otherwise be sile
 | `meaning` | string | none | What the user means, in a few English words ("the chemical element Hg"), decided from the conversation. Not interpreted by the code; recorded so the analysed entity can be checked against it. |
 | `article_url` | `https://pl.wikipedia.org/wiki/…` | none | A Wikipedia article about the topic, given by the user after `topic_not_found`. Its Wikidata item replaces the search; an article without an item is analysed on its own in its edition. |
 | `local_terms` | `{"pl.wikipedia": "post przerywany"}` | `{}` | How the topic is called in an edition's language. Optional; used only for editions without an article, to find a redirect or articles that mention the topic. Add it when the output says the local name is unknown. |
-| `substitutes` | `{"pl.wikipedia": {"title": "Post", "kind": "broader"}}` or `{"pl.wikipedia": "skip"}` | `{}` | The user's decision for an edition without an article, copied from the `choose` value of the option they picked (exit code 3, `missing_article`). `kind` is `redirect`, `broader` or `mention`; `"skip"` leaves the edition out. |
+| `substitutes` | `{"pl.wikipedia": {"title": "Post", "kind": "broader"}}` or `{"pl.wikipedia": "skip"}` | `{}` | The user's decision for an edition without an article, copied from the `choose` value of the option they picked (exit code 3, `missing_article`). `kind` is `redirect`, `broader` or `mention`; `"skip"` leaves the edition out of the measurement; keep it in `projects` so the report says it has no article (an answer like "skip Polish" means `"skip"`, not removing the edition). |
 
 ## report
 
