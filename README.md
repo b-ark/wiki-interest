@@ -34,6 +34,23 @@ the `wiki-interest/` directory where your agent loads skills (for Claude Code:
 
 See [`wiki-interest/README.md`](wiki-interest/README.md) for usage and the architecture overview.
 
+## Languages
+
+The report is written in the language the user writes in, and its quality differs by language:
+
+- **English** is the primary language: the interface, the rules the model follows and the
+  worked example are written in it, and the evals are graded on it first.
+- **Russian and Ukrainian** have the report's interface written in code
+  ([`i18n/ru.py`](wiki-interest/wiki_interest/i18n/ru.py),
+  [`i18n/uk.py`](wiki-interest/wiki_interest/i18n/uk.py)): chart titles and legends, the PDF's
+  headings and footer, the chat answer's fixed lines and the question about a missing
+  article. The analysis text is the model's own, checked for its numbers and script but not
+  for style, so it can read unevenly.
+- **Any other language** gets the interface translated by the model in each session, and
+  the analysis text as the model writes it.
+
+Improving the model's wording outside English is open work.
+
 ## Development
 
 Quality gates run locally via pre-commit and in CI on Ubuntu and Windows, Python 3.12 and 3.14:
@@ -59,7 +76,7 @@ problems:
    renderers and the evaluation harness in isolated git worktrees against those frozen
    contracts; each report was read and every branch was merged only with all gates green.
 2. **Mechanical gates on every commit:** ruff (including docstring rules), mypy `--strict`,
-   import-linter for the layer boundaries, pytest with coverage (about 98 %), and the Agent
+   import-linter for the layer boundaries, pytest with coverage (about 95 %), and the Agent
    Skills validator. They run in pre-commit and in CI on Ubuntu and Windows.
 3. **Independent references for numerical code.** The Mann-Kendall test and Theil-Sen slope
    are implemented without dependencies and checked in tests against `pymannkendall` and
