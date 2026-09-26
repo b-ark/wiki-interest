@@ -25,6 +25,7 @@ from wiki_interest.domain.trust import (
     Trust,
     TrustSettings,
     WindowTrend,
+    assess_trust,
     breakpoint_verdict,
     control_step,
     control_trend,
@@ -308,3 +309,30 @@ def test_control_step_and_trend_read_the_median_article() -> None:
     trend, count = control_trend([[10.0 * 0.9 ** (k / 12) for k in range(24)]] * 3, 0, 24)
     assert trend == pytest.approx(-10, abs=0.5)
     assert count == 3
+
+
+def test_a_slope_most_months_contradict_is_low_trust() -> None:
+    """A trend over one season read a rise; the months, year on year, fell: trust is low."""
+    points = tuple((float(k), math.log(5.0 + 0.3 * (k - 60))) for k in range(60, 72))
+    trend = WindowTrend(
+        pair="topic/uk",
+        verdict=TrendVerdict.GROWING,
+        window_start=date(2024, 9, 1),
+        window_end=date(2026, 8, 1),
+        segment_start=date(2025, 9, 1),
+        slope_pct_per_year=60.0,
+        level_start=5.0,
+        level_end=8.3,
+        views_avg=2_000.0,
+        months=12,
+        intercept=0.0,
+        slope_log=math.log(1.6) / 12,
+        segment_index=60,
+        end_index=71,
+        points=points,
+        window_index=48,
+    )
+    shares = [10.0] * 60 + [6.0] * 12  # every month under the same month a year earlier
+    trust = assess_trust(trend, shares=shares, breakpoints=())
+    assert trust.confidence is Confidence.LOW
+    assert trust.reasons[0].code == "yoy_against"

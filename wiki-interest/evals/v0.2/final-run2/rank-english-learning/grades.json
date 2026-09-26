@@ -1,0 +1,138 @@
+[
+  {
+    "id": "a0",
+    "kind": "deterministic",
+    "type": "tool_called",
+    "text": "tool_called(pattern='run\\\\.py')",
+    "passed": true,
+    "evidence": "1 matching call(s); first: PowerShell cd \"X:\\personal_projects\\wiki-interest\\tools\\skill-evals\\runs\\v02-final2\\sandboxes\\rank-english-learning-rep-1\"; uv run --project \".\\.claude\\skills\\w"
+  },
+  {
+    "id": "a1",
+    "kind": "deterministic",
+    "type": "no_tool_called",
+    "text": "no_tool_called(pattern='wikimedia\\\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\\\.get|urllib\\\\.request')",
+    "passed": true,
+    "evidence": "0 matching call(s); first: -"
+  },
+  {
+    "id": "a2",
+    "kind": "deterministic",
+    "type": "file_exists",
+    "text": "file_exists(glob='**/report.pdf', min_count=1)",
+    "passed": true,
+    "evidence": "1 file(s) match: wiki-interest-runs\\english-learning-rank-1\\20260926-180234-0b39\\report.pdf"
+  },
+  {
+    "id": "a3",
+    "kind": "deterministic",
+    "type": "pdf_pages",
+    "text": "pdf_pages(glob='**/report.pdf', max_pages=1)",
+    "passed": true,
+    "evidence": "report.pdf: 1 page(s)"
+  },
+  {
+    "id": "a4",
+    "kind": "deterministic",
+    "type": "numbers_grounded",
+    "text": "numbers_grounded(summary_glob='**/summary.json', tolerance_rel=0.02, tolerance_abs=0.5, ignore_below=10)",
+    "passed": true,
+    "evidence": "70 number(s) checked against 1 summary file(s)"
+  },
+  {
+    "id": "a5",
+    "kind": "deterministic",
+    "type": "caveats_relayed",
+    "text": "caveats_relayed(summary_glob='**/summary.json', min_reasons=1)",
+    "passed": true,
+    "evidence": "reliability is high everywhere; nothing to relay"
+  },
+  {
+    "id": "a6",
+    "kind": "deterministic",
+    "type": "summary_field",
+    "text": "summary_field(summary_glob='**/summary.json', path='status', equals='ok', regex=None)",
+    "passed": true,
+    "evidence": "status = \"ok\""
+  },
+  {
+    "id": "a7",
+    "kind": "deterministic",
+    "type": "max_turns",
+    "text": "max_turns(n=25)",
+    "passed": true,
+    "evidence": "10 turn(s), budget 25"
+  },
+  {
+    "id": "a8",
+    "kind": "deterministic",
+    "type": "summary_field",
+    "text": "summary_field(summary_glob='**/summary.json', path='request.projects.4', equals=None, regex='wikipedia')",
+    "passed": true,
+    "evidence": "request.projects.4 = \"hu.wikipedia\""
+  },
+  {
+    "id": "a9",
+    "kind": "deterministic",
+    "type": "narrative_accepted",
+    "text": "narrative_accepted(pattern='render\\\\.py')",
+    "passed": true,
+    "evidence": "1/1 rendered run(s) accepted"
+  },
+  {
+    "id": "a10",
+    "kind": "deterministic",
+    "type": "chat_answer_relayed",
+    "text": "chat_answer_relayed(min_overlap=0.9)",
+    "passed": true,
+    "evidence": "answer carries 100% of the accepted text; 100% of it comes from there"
+  },
+  {
+    "id": "a11",
+    "kind": "deterministic",
+    "type": "question_relayed",
+    "text": "question_relayed(min_overlap=0.9)",
+    "passed": true,
+    "evidence": "no composed question"
+  },
+  {
+    "id": "recommends-audiences",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer names which language audiences to research next and gives a data-based reason for each (growth, volume, trust).",
+    "passed": false,
+    "evidence": "The candidate names only one audience to pursue further (\"Якщо обирати — польська Вікіпедія... Довіра до вибору: середня\") and then proposes checking adjacent *topics* rather than additional language audiences: \"Варто перевірити сусідні теми — американську та британську англійську... Наступна перевірка: суміжні статті — Американська англійська, Британська англійська.\" It never singles out, say, uk.wikipedia or cs.wikipedia as audiences worth researching next with individual growth/volume/trust reasoning, unlike the reference's 'Research next: pl.wikipedia / uk.wikipedia / cs.wikipedia' list with per-audience justification. So the answer does not name multiple language audiences to research next with a distinct data-based reason (growth, volume, trust) for each — it gives one overall pick (pl) and otherwise redirects to related articles, not other language editions.\""
+  },
+  {
+    "id": "honest-about-decline",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "If interest is falling in the recommended editions, the answer says so rather than calling them growing markets.",
+    "passed": true,
+    "evidence": "The answer explicitly labels each edition's trend correctly: \"uk: інтерес спадає... pl: інтерес стабільний... cs: інтерес стабільний... ro: інтерес спадає... hu: інтерес спадає.\" It never calls any of them growing; it explicitly states the opposite: \"Жоден мовний розділ не показує зростання\" (no language edition shows growth) and \"Жодна мовна Вікіпедія не показує зростання, тому сигнал про майбутній попит слабий.\" Even for the recommended Polish edition, it says only \"інтерес стабільний\" and \"Вона не падає так різко, як інші\" (it doesn't fall as sharply as others), never framing it as a growing market. This matches the reference facts (uk/ro/hu declining, pl/cs stable, no edition growing).\""
+  },
+  {
+    "id": "limitations-stated",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently.",
+    "passed": true,
+    "evidence": "The answer explicitly states: \"Переглядність показує інтерес, а не готовність платити. Кожна мовна Вікіпедія — це мовна аудиторія, не територіальна.\" This directly states the limitation that Wikipedia readership measures interest/curiosity rather than willingness to pay (and that a language edition is not a territorial/national audience), matching the example limitation given in the criterion."
+  },
+  {
+    "id": "user-language",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer is written in Ukrainian, the language the user wrote in.",
+    "passed": true,
+    "evidence": "The full answer is written in Ukrainian throughout, e.g. \"Англійська мова: в українській Вікіпедії інтерес спадає; у польській Вікіпедії інтерес стабільний...\", \"Найбільша аудиторія — українська Вікіпедія...\", \"Що це означає для вас:\", \"Що ще я можу зробити:\" — matching the user's Ukrainian-language request."
+  },
+  {
+    "id": "faithful",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine.",
+    "passed": true,
+    "evidence": "The candidate's directions match facts.json exactly for all five editions: uk \"інтерес спадає\" (150.0→109.0, −16%) matches trend:en-lang/uk; pl and cs \"інтерес стабільний\" (49.2→42.8, −7%; 57.2→48.4, −8%) match trend:en-lang/pl and trend:en-lang/cs (both officially 'stable' despite negative numbers, as the observations specify); ro and hu \"інтерес спадає\" (109.0→73.7, −19%; 46.9→27.6, −24%) match trend:en-lang/ro and trend:en-lang/hu. No edition is claimed to grow, speed up, or reverse beyond what the trend/trust observations state (e.g., trust figures '−16 %/рік [−19; −9]; контрольні статті +3 %/рік' for uk are copied verbatim from trust:en-lang/uk). Size figures (uk 6,800/120; ro 76.9) match size:en-lang/uk and size:en-lang/ro. The 'жоден розділ не показує зростання' claim matches the decision observations, which all state no growth signal. The recommendation and its 'Довіра до вибору: середня' match recommendation:en-lang verbatim, and the tentative follow-up ('чи людей відштовхує сама мова чи окремі варіанти') is framed as an open question to check, not asserted as fact, consistent with the observation's own phrasing about checking neighbouring articles. The historical claims ('втратила близько трьох чвертей' for uk, 'близько двох третин' for hu) correctly invert the long_term observations' 'about a quarter'/'about a third' remaining shares. The pl/cs 'втрачають переглядів швидше... специфічний спад інтересу до теми' framing mirrors the vs_edition observations' own language ('the article lost more than its Wikipedia: only part of the fall is Wikipedia losing readers') and is identical to the supplied reference material's compliant phrasing, so it is not an invented addition beyond what the given material supports. No 'both vs one of them' conflation appears, and no unhedged causal claims exceed what the observations provide.</evidence>\n</invoke>\n"
+  }
+]

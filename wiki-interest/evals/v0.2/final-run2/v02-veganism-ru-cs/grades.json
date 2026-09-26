@@ -1,0 +1,146 @@
+[
+  {
+    "id": "a0",
+    "kind": "deterministic",
+    "type": "tool_called",
+    "text": "tool_called(pattern='run\\\\.py')",
+    "passed": true,
+    "evidence": "1 matching call(s); first: PowerShell cd 'X:\\personal_projects\\wiki-interest\\tools\\skill-evals\\runs\\v02-final2\\sandboxes\\v02-veganism-ru-cs-rep-1'; uv run --project \".\\.claude\\skills\\wiki"
+  },
+  {
+    "id": "a1",
+    "kind": "deterministic",
+    "type": "no_tool_called",
+    "text": "no_tool_called(pattern='wikimedia\\\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\\\.get|urllib\\\\.request')",
+    "passed": true,
+    "evidence": "0 matching call(s); first: -"
+  },
+  {
+    "id": "a2",
+    "kind": "deterministic",
+    "type": "file_exists",
+    "text": "file_exists(glob='**/report.pdf', min_count=1)",
+    "passed": true,
+    "evidence": "1 file(s) match: wiki-interest-runs\\default\\20260926-180234-3268\\report.pdf"
+  },
+  {
+    "id": "a3",
+    "kind": "deterministic",
+    "type": "pdf_pages",
+    "text": "pdf_pages(glob='**/report.pdf', max_pages=1)",
+    "passed": true,
+    "evidence": "report.pdf: 1 page(s)"
+  },
+  {
+    "id": "a4",
+    "kind": "deterministic",
+    "type": "numbers_grounded",
+    "text": "numbers_grounded(summary_glob='**/summary.json', tolerance_rel=0.02, tolerance_abs=0.5, ignore_below=10)",
+    "passed": true,
+    "evidence": "32 number(s) checked against 1 summary file(s)"
+  },
+  {
+    "id": "a5",
+    "kind": "deterministic",
+    "type": "caveats_relayed",
+    "text": "caveats_relayed(summary_glob='**/summary.json', min_reasons=1)",
+    "passed": true,
+    "evidence": "reliability is high everywhere; nothing to relay"
+  },
+  {
+    "id": "a6",
+    "kind": "deterministic",
+    "type": "summary_field",
+    "text": "summary_field(summary_glob='**/summary.json', path='status', equals='ok', regex=None)",
+    "passed": true,
+    "evidence": "status = \"ok\""
+  },
+  {
+    "id": "a7",
+    "kind": "deterministic",
+    "type": "max_turns",
+    "text": "max_turns(n=25)",
+    "passed": true,
+    "evidence": "10 turn(s), budget 25"
+  },
+  {
+    "id": "a8",
+    "kind": "deterministic",
+    "type": "narrative_accepted",
+    "text": "narrative_accepted(pattern='render\\\\.py')",
+    "passed": true,
+    "evidence": "1/1 rendered run(s) accepted"
+  },
+  {
+    "id": "a9",
+    "kind": "deterministic",
+    "type": "chat_answer_relayed",
+    "text": "chat_answer_relayed(min_overlap=0.9)",
+    "passed": true,
+    "evidence": "answer carries 100% of the accepted text; 100% of it comes from there"
+  },
+  {
+    "id": "a10",
+    "kind": "deterministic",
+    "type": "summary_field",
+    "text": "summary_field(summary_glob='**/summary.json', path='request.period.start', equals=None, regex='2024-09')",
+    "passed": true,
+    "evidence": "request.period.start = \"2024-09\""
+  },
+  {
+    "id": "a11",
+    "kind": "deterministic",
+    "type": "summary_field",
+    "text": "summary_field(summary_glob='**/summary.json', path='verdicts.0.verdict', equals=None, regex='stable')",
+    "passed": true,
+    "evidence": "verdicts.0.verdict = \"stable\""
+  },
+  {
+    "id": "a12",
+    "kind": "deterministic",
+    "type": "summary_field",
+    "text": "summary_field(summary_glob='**/summary.json', path='verdicts.1.verdict', equals=None, regex='declining')",
+    "passed": true,
+    "evidence": "verdicts.1.verdict = \"declining\""
+  },
+  {
+    "id": "verdicts-kept",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer says interest in the Russian Wikipedia is stable (stabilised after a drop) and in the Czech Wikipedia is falling over the requested period, and never says it is falling in both.",
+    "passed": true,
+    "evidence": "The answer states 'ru: інтерес стабілізувався після спаду' (RU: interest has stabilised after a drop) with '8,9 → 8,2 на 1 млн переглядів, −5 % за рік' and 'cs: інтерес продовжує падати' (CS: interest keeps falling) with '12,0 → 7,7 на 1 млн переглядів, −30 % за рік'. It further reiterates 'У російській Вікіпедії інтерес стабілізувався після спаду... У чеській Вікіпедії інтерес продовжує падати стрімко'. The phrase 'Жоден мовний розділ не показує зростання' only says neither shows growth (consistent with RU being stable, not falling), and nowhere does the answer state that interest is falling in both editions. This matches the reference material's verdict (trend:veganism/ru = stabilised, trend:veganism/cs = declining).</evidence>\n</invoke>\n"
+  },
+  {
+    "id": "trust-explained",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer says how far the verdicts can be trusted (the trust level) with at least one concrete reason from the analysis.",
+    "passed": true,
+    "evidence": "The answer explicitly states trust levels with concrete reasons: 'Довіра (ru): середня — −5 %/рік [−11; +4]; р/р нижче у 9, вище у 3 з 12 міс.; тренд понад ±10 %/рік не виключений; контрольні статті +5 %/рік; перейменувань немає.' and 'Довіра (cs): середня — спад у 12 з 12 міс. р/р; −30 %/рік [−38; −18]; зміна в межах шуму (сигнал/шум 1,9); контрольні статті +5 %/рік; перейменувань немає.' It also gives an overall 'Довіра до вибору: середня' / 'Довіра до цього висновку: середня' for the final recommendation. These match the reference material's trust observations (confidence intervals, signal/noise ratio, control articles data) verbatim, providing concrete grounded reasons rather than vague statements.</evidence>\n</invoke>\n"
+  },
+  {
+    "id": "recommends",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer recommends the Russian Wikipedia if one must be chosen, says neither grows, and names a next check the skill can run itself (neighbouring articles such as vegetarianism).",
+    "passed": true,
+    "evidence": "The answer states: \"Якщо обирати — російська Вікіпедія\" (recommends Russian Wikipedia if one must be chosen); \"Жоден мовний розділ не показує зростання\" (says neither grows); and \"Наступна перевірка: суміжні статті — вегетаріанство, рослинна дієта; я можу додати їх до цього аналізу\" (names a self-runnable next check on neighbouring articles, matching the reference's вегетаріанство/рослинна дієта). All three required elements are present and match the reference material.</evidence>\n</invoke>\n"
+  },
+  {
+    "id": "user-language",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer is written in Ukrainian, the language the user wrote in.",
+    "passed": true,
+    "evidence": "The entire answer is written in Ukrainian, matching the user's Ukrainian question. E.g., \\\"Веганство: у російській Вікіпедії інтерес стабілізувався після спаду; у чеській Вікіпедії інтерес продовжує падати.\\\", \\\"Довіра (ru): середня\\\", \\\"Що це означає для вас:\\\", \\\"Наступна перевірка: суміжні статті — вегетаріанство, рослинна дієта\\\" — all text, headers, and labels are in Ukrainian with no other language used."
+  },
+  {
+    "id": "faithful",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine.",
+    "passed": true,
+    "evidence": "The candidate answer's directional claims map exactly onto facts.json observations without overstatement: 'ru: інтерес стабілізувався після спаду... −5 % за рік' matches trend:veganism/ru ('has stabilised... −5% a year'); 'cs: інтерес продовжує падати... −30 % за рік' matches trend:veganism/cs ('keeps declining... −30% a year'); trust wording 'середня' with the exact CI bounds [−11;+4] and [−38;−18], the 9/3-of-12 and 12/12-of-12 month counts, and 'тренд понад ±10 %/рік не виключений' / 'сигнал/шум 1,9' reproduce trust:veganism/ru and trust:veganism/cs verbatim, keeping the guess-worded caveat intact. Size figures (5500 vs 560; 8,5 vs 9,4) match size:veganism/ru, size:veganism/cs and editions:veganism, and the causal claim 'Більша аудиторія... походить просто від її розміру' is directly licensed by editions:veganism's 'comes from its larger Wikipedia'. The recent-quarter claim ('чеський... впав..., а російський трохи зріс') correctly reflects recent:veganism/cs (−32%) and recent:veganism/ru (+2%) without inventing numbers. The recommendation block ('Жоден мовний розділ не показує зростання... Довіра до вибору: середня') reproduces recommendation:veganism and decision:editions:veganism without picking a stronger verdict than 'medium' trust or claiming growth for either edition. No new cause, acceleration, or turn is asserted beyond what the observations state, and 'both'/'one of them' distinctions (e.g., 'обидва читають менше' style claims) are not conflated. The wording is essentially the same as the provided reference-material report, which is itself derived from these exact facts."
+  }
+]
