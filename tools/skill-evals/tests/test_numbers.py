@@ -129,3 +129,13 @@ def test_unsigned_magnitude_matches_a_negative_leaf() -> None:
 def test_explicit_sign_must_match() -> None:
     assert ground_numbers("growth of +45 %", [-0.4497]).ungrounded
     assert ground_numbers("growth of -45 %", [-0.4497]).passed
+
+
+def test_each_reading_keeps_its_own_rounding() -> None:
+    """A reading keeps its own rounding: "1,234" as 1.234 is not rounded to 0.5.
+
+    The grader's absolute tolerance is set to 0 here so only the rounding is tested.
+    """
+    assert ground_numbers("1,234", [1.234], tolerance_abs=0).passed
+    assert ground_numbers("1,234", [1234.0], tolerance_abs=0).passed
+    assert not ground_numbers("1,234", [1.3], tolerance_abs=0).passed

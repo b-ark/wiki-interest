@@ -76,16 +76,21 @@ class ExtractedNumber:
         text: The matched text.
         values: Candidate values after separators and suffixes are applied.
         is_percent: Whether the token was written as a percentage.
-        precision: Half a unit of the last written digit (times any suffix), the rounding
-            slack the author implied.
+        precisions: For each reading, half a unit of its last digit (times any suffix), the
+            rounding slack the author implied; "1,234" read as 1.234 is exact to 0.0005.
         signed: Whether the author wrote an explicit ``+``/``-`` sign.
     """
 
     text: str
     values: tuple[float, ...]
     is_percent: bool
-    precision: float
+    precisions: tuple[float, ...]
     signed: bool = False
+
+    @property
+    def precision(self) -> float:
+        """The coarsest rounding among the readings."""
+        return max(self.precisions)
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,13 +134,11 @@ def _to_number(match: re.Match[str]) -> ExtractedNumber | None:
         return None
     sign = -1.0 if negative else 1.0
     values = tuple(sign * value * multiplier for value, _ in readings)
-    decimals = min(d for _, d in readings)
-    precision = 0.5 * multiplier / (10**decimals)
     return ExtractedNumber(
         text=match.group(0).strip(),
         values=values,
         is_percent=match.group("percent") is not None,
-        precision=precision,
+        precisions=tuple(0.5 * multiplier / (10**decimals) for _, decimals in readings),
         signed=match.group("sign") is not None,
     )
 
@@ -230,11 +233,11 @@ def ground_numbers(
 
 
 def _grounded(number: ExtractedNumber, pool: list[float], rel: float, abs_tol: float) -> bool:
-    targets = [(v, False) for v in number.values]
+    readings = list(zip(number.values, number.precisions, strict=True))
+    targets = [(v, p, False) for v, p in readings]
     if number.is_percent:
-        targets += [(v / 100.0, True) for v in number.values]
-    for value, scaled in targets:
-        precision = number.precision / 100.0 if scaled else number.precision
+        targets += [(v / 100.0, p / 100.0, True) for v, p in readings]
+    for value, precision, scaled in targets:
         for leaf in pool:
             slack = max(abs_tol if not scaled else abs_tol / 100.0, rel * abs(leaf), precision)
             candidate = leaf if number.signed else abs(leaf)

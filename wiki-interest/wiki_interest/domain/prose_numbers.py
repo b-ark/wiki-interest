@@ -60,15 +60,22 @@ class ProseNumber:
         text: The matched text.
         values: Candidate values; a percentage is kept as written (``12.5`` for ``12,5 %``).
         is_percent: Whether the token was written as a percentage.
-        precision: Half a unit of the last written digit: the rounding the author implied.
+        precisions: For each reading, half a unit of its last digit: the rounding the author
+            implied. Each reading keeps its own: "1,234" read as 1.234 is exact to 0.0005, not
+            to the 0.5 of its reading as 1234, which let it match anything from 0.73 to 1.73.
         signed: Whether the author wrote an explicit sign; unsigned numbers are magnitudes.
     """
 
     text: str
     values: tuple[float, ...]
     is_percent: bool
-    precision: float
+    precisions: tuple[float, ...]
     signed: bool = False
+
+    @property
+    def precision(self) -> float:
+        """The coarsest rounding among the readings."""
+        return max(self.precisions)
 
 
 def extract_numbers(text: str, *, ignore_below: int = 10) -> list[ProseNumber]:
@@ -103,8 +110,10 @@ def matches(
     if number.is_percent != percent:
         return False
     target = value if number.signed else abs(value)
-    slack = max(number.precision, tolerance_rel * abs(target))
-    return any(abs(reading - target) <= slack for reading in number.values)
+    return any(
+        abs(reading - target) <= max(precision, tolerance_rel * abs(target))
+        for reading, precision in zip(number.values, number.precisions, strict=True)
+    )
 
 
 def _to_number(match: re.Match[str]) -> ProseNumber | None:
@@ -116,12 +125,11 @@ def _to_number(match: re.Match[str]) -> ProseNumber | None:
     if match.group("thousands"):
         multiplier *= _THOUSAND
     sign = -1.0 if match.group("sign") in {"-", "−"} else 1.0
-    decimals = min(d for _, d in readings)
     return ProseNumber(
         text=match.group(0).strip(),
         values=tuple(sign * value * multiplier for value, _ in readings),
         is_percent=match.group("percent") is not None,
-        precision=0.5 * multiplier / (10**decimals),
+        precisions=tuple(0.5 * multiplier / (10**decimals) for _, decimals in readings),
         signed=match.group("sign") is not None,
     )
 

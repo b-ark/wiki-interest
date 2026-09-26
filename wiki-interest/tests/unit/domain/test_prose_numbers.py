@@ -79,3 +79,13 @@ class TestMatches:
     def test_a_percentage_never_matches_a_plain_value(self) -> None:
         (number,) = extract_numbers("37,9 %")
         assert not matches(number, 37.9, percent=False)
+
+
+def test_each_reading_keeps_its_own_rounding() -> None:
+    """A reading keeps its own rounding: "1,234" as 1.234 matched anything from 0.73 to 1.73."""
+    (comma,) = extract_numbers("1,234")
+    assert matches(comma, 1.234, percent=False)
+    assert matches(comma, 1234.0, percent=False)
+    assert not matches(comma, 1.7, percent=False)
+    (dot,) = extract_numbers("1.234")
+    assert not matches(dot, 0.8, percent=False)
