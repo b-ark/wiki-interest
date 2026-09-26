@@ -461,6 +461,13 @@ class TestRejections:
         messages = _messages(facts, broken)
         assert any(expected in m for m in messages), messages
 
+    def test_the_topic_line_keeps_to_the_report_script(self, ru: tuple[Facts, Narrative]) -> None:
+        facts, narrative = ru
+        chinese = narrative.model_copy(update={"topic": "Астрономия, 天文學 (Q333)."})
+        assert any("topic: '天文學' is in another script" in m for m in _messages(facts, chinese))
+        english = narrative.model_copy(update={"topic": "Астрономия — natural science (Q333)."})
+        assert not any(m.startswith("topic:") for m in _messages(facts, english))
+
     def test_a_rise_that_speeds_up_may_be_said_to(self, ru: tuple[Facts, Narrative]) -> None:
         facts, narrative = ru
         faster = " In the last months the rise speeds up."

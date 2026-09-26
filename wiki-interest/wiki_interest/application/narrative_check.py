@@ -177,6 +177,15 @@ class _Checker:
             )
         if n.topic.strip():
             self.length("topic", n.topic)
+            # The topic line opens the chat answer; a uk one once carried the item's
+            # description in Chinese (stage15).
+            if (odd := self._foreign_script(n.topic)) is not None:
+                self.add(
+                    "topic",
+                    f"'{odd}' is in another script: write the topic line in the report "
+                    "language, its description as facts.topics gives it.",
+                    n.topic,
+                )
         self.length("headline", n.headline, required=True)
         if extract_numbers(n.headline):
             self.add("headline", "The headline has no numbers; they go in the story.", n.headline)
