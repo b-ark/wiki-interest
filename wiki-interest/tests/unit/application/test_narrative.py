@@ -449,6 +449,19 @@ class TestRejections:
         messages = _messages(facts, broken)
         assert any(expected in m for m in messages), messages
 
+    def test_a_rise_that_speeds_up_may_be_said_to(self, ru: tuple[Facts, Narrative]) -> None:
+        facts, narrative = ru
+        faster = " In the last months the rise speeds up."
+        observations = [
+            o.model_copy(update={"statement": o.statement + faster}) if o.id == VS_UK else o
+            for o in facts.observations
+        ]
+        speeding = facts.model_copy(update={"observations": observations})
+        text = "В последние месяцы рост ускорился."
+        told = _add_to_story(narrative, text, [VS_UK])
+        assert not any("speeds up" in m for m in _messages(speeding, told))
+        assert any("speeds up" in m for m in _messages(facts, told))
+
     def test_a_number_passes_once_its_observation_is_cited(
         self, ru: tuple[Facts, Narrative]
     ) -> None:

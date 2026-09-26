@@ -909,23 +909,42 @@ class _Detector:
                 "itself is read less. (This compares the article with the edition over the "
                 "year; only the recent months tell whether the fall is quickening.)"
             )
-        elif e < -s.edition_moves and abs(sh) <= s.moves:
+        elif e < -s.edition_moves and abs(sh) <= s.moves and a < 0:
             text = (
                 f"{when} {topic} is read less ({w.pct(a)} views), but {ed} as a whole fell about "
                 f"as much ({w.pct(e)}); its attention share barely changed ({w.pct(sh)}). The "
                 "fall in views comes from Wikipedia losing readers, not from the topic."
             )
+        elif e < -s.edition_moves and abs(sh) <= s.moves:
+            # The share rose a little more than the edition fell: the views did not fall.
+            text = (
+                f"{when} {topic} held its views ({w.pct(a)}) while {ed} as a whole was read "
+                f"less ({w.pct(e)}); its attention share changed little ({w.pct(sh)})."
+            )
         elif e < -s.edition_moves:
-            held = "held up" if a > -s.edition_moves else "fell less"
+            held = (
+                "rose"
+                if a > s.edition_moves
+                else "held up"
+                if a > -s.edition_moves
+                else "fell less"
+            )
             text = (
                 f"{when} {ed} as a whole was read less ({w.pct(e)}), yet {topic} {held} "
                 f"({w.pct(a)} views): its attention share rose {w.pct(sh)}. The topic gains "
                 "attention against a shrinking Wikipedia."
             )
-        elif sh < -s.moves:
+        elif sh < -s.moves and a < 0:
             text = (
                 f"{when} {topic} is read less ({w.pct(a)} views) while {ed} as a whole changed "
                 f"{w.pct(e)}: the topic itself loses attention (attention share {w.pct(sh)})."
+            )
+        elif sh < -s.moves:
+            # A growing edition: the views rose, but less than the edition's.
+            text = (
+                f"{when} {topic} is read more ({w.pct(a)} views), but less than the growth of "
+                f"{ed} as a whole ({w.pct(e)}): the topic loses attention (attention share "
+                f"{w.pct(sh)})."
             )
         elif sh > s.moves:
             text = (
@@ -962,6 +981,8 @@ class _Detector:
             "limited evidence."
         )
         if prof[top] > s.school_peak and top in _SCHOOL_PEAKS and summer < s.school_summer:
+            # "Drops in summer" is shown with a summer month: the year's lowest may be January.
+            low = min(_SUMMER, key=lambda m: prof[m])
             if not firm:
                 self.add(
                     "season",
@@ -1024,14 +1045,43 @@ class _Detector:
         if not spikes:
             return
         k = max(spikes, key=lambda i: p.shares[i] or 0.0)
+        # The burst is the run of bursting months around the highest; what follows it is
+        # said only as the data show it (two bursting months in a row were once told "the
+        # next month it was back").
+        first, last = k, k
+        while first - 1 in p.spikes:
+            first -= 1
+        while last + 1 in p.spikes:
+            last += 1
+        months = p.history.months
+        after = last + 1 < p.n and p.shares[last + 1] is not None
+        if first == last:
+            when = f"In {_month(months[k])}"
+            usual = "that month usually brings"
+        else:
+            when = f"From {_month(months[first])} to {_month(months[last])}"
+            usual = "those months usually bring"
+        if not after:
+            end = (
+                "; it is the latest month of the data, so whether it lasts is not known yet. "
+                "One burst is not lasting interest."
+            )
+        elif first == last:
+            end = (
+                ", and the next month it was back: a one-off burst, possibly news. A burst "
+                "like this is not lasting interest."
+            )
+        else:
+            end = (
+                f" for {last - first + 1} months, then it was back: a short burst, possibly "
+                "news. A burst like this is not lasting interest."
+            )
         self.add(
             "spike",
             Weight.MEDIUM,
             _Words(),
-            f"In {_month(p.history.months[k])} {self.topic} was read several times as much as "
-            f"that month usually brings in {self.ed}, and the next month it was back: a one-off "
-            "burst, possibly news. A burst like this is not lasting interest.",
-            month=p.history.months[k],
+            f"{when} {self.topic} was read several times as much as {usual} in {self.ed}{end}",
+            month=months[k],
         )
 
     def step(self) -> None:
@@ -1112,19 +1162,29 @@ class _Detector:
                 )
                 weight = Weight.LOW
         elif sh > s.moves:
+            # The mirror of the fall: a rise of 2 % after 30 % had "continues, but more
+            # slowly", though under 10 % the code itself calls a share held.
             if r < -s.edition_moves:
                 text = (
                     f"In the last three months ({span}) the rise stopped: the share is lower "
-                    f"than a year earlier {figures}."
+                    f"than a year earlier {figures}. Three months are too few to call a turn."
                 )
                 weight = Weight.HIGH
+            elif r < s.moves:
+                text = f"In the last three months ({span}) the rise levelled off {figures}."
             elif r < sh - s.moves:
                 text = (
                     f"In the last three months ({span}) the rise continues, but more slowly "
-                    f"{figures}."
+                    f"than in {self.now_label} {figures}."
                 )
+            elif r > sh + s.moves:
+                text = f"In the last three months ({span}) the rise speeds up {figures}."
+                weight = Weight.HIGH
             else:
-                text = f"In the last three months ({span}) the rise continues {figures}."
+                text = (
+                    f"In the last three months ({span}) the rise continues at about the same "
+                    f"pace {figures}."
+                )
                 weight = Weight.LOW
         elif abs(r) > s.moves * 1.5:
             direction = "up" if r > 0 else "down"

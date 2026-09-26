@@ -93,6 +93,25 @@ class TestTrends:
         assert "was highest in" in long_term.statement
         assert "A wave that has passed" in long_term.statement
 
+    @pytest.mark.parametrize(
+        ("edition_yearly", "views_yearly", "says"),
+        [
+            (0.94, 1.03, "held its views (+3 %)"),  # the share rose 9.6 %, under the 10 % bar
+            (1.30, 1.144, "is read more (+14 %"),  # the share fell 12 % in a growing edition
+        ],
+    )
+    def test_the_views_verb_follows_the_views(
+        self, edition_yearly: float, views_yearly: float, says: str
+    ) -> None:
+        """A share and an edition moving apart once gave "read less (+3 % views)"."""
+        history = _history(
+            lambda _k, m: 5_000.0 * views_yearly ** (m.year - 2020),
+            edition=lambda k: EDITION * edition_yearly ** ((8 + k) // 12),
+        )
+        vs = _by_id(observe([history]))["vs_edition:astronomy/uk"].statement
+        assert says in vs
+        assert "read less (+" not in vs
+
     def test_views_that_fall_with_the_edition_are_not_the_topic(self) -> None:
         shrinking = _history(
             lambda k, _m: 5_000.0 * 0.8 ** (k / 12), edition=lambda k: EDITION * 0.8 ** (k / 12)
@@ -210,12 +229,36 @@ class TestCalendar:
         assert "no marked season" in season.statement
 
 
+def test_the_summer_drop_of_the_school_rhythm_names_a_summer_month() -> None:
+    """The year's lowest month was January, and the text said "drops in summer (January)"."""
+    level = {10: 1.8, 6: 0.8, 7: 0.8, 8: 0.8, 1: 0.6}
+    found = _by_id(observe([_history(lambda _k, m: 5_000.0 * level.get(m.month, 1.0))]))
+    season = found["season:astronomy/uk"].statement
+    assert "drops in summer (" in season
+    summer = season.split("drops in summer (", 1)[1]
+    assert summer.startswith(("June", "July", "August")), season
+
+
 class TestEvents:
     def test_one_month_far_above_its_calendar_month_is_a_spike(self) -> None:
         found = _by_id(observe([_history(lambda k, _m: 5_000.0 * (8 if k == 40 else 1))]))
         spike = found["spike:astronomy/uk"]
         assert "January 2024" in spike.statement
         assert "not lasting interest" in spike.statement
+
+    def test_two_bursting_months_in_a_row_are_not_back_the_next_month(self) -> None:
+        burst = {40: 5.0, 41: 4.5}
+        found = _by_id(observe([_history(lambda k, _m: 5_000.0 * burst.get(k, 1))]))
+        spike = found["spike:astronomy/uk"].statement
+        assert spike.startswith("From January 2024 to February 2024")
+        assert "for 2 months, then it was back" in spike
+        assert "the next month it was back" not in spike
+
+    def test_a_burst_in_the_latest_month_is_not_said_to_be_over(self) -> None:
+        found = _by_id(observe([_history(lambda k, _m: 5_000.0 * (8 if k == MONTHS - 1 else 1))]))
+        spike = found["spike:astronomy/uk"].statement
+        assert "whether it lasts is not known yet" in spike
+        assert "it was back" not in spike
 
     def test_a_flat_abrupt_plateau_looks_automated(self) -> None:
         found = _by_id(observe([_history(lambda k, _m: 5_000.0 * (5 if 20 <= k < 40 else 1))]))
@@ -268,6 +311,21 @@ class TestRecent:
     ) -> None:
         def shape(k: int, m: date) -> float:
             base = 10_000.0 * math.pow(0.6, k / 12)
+            return base * last_months if k >= MONTHS - 3 else base
+
+        assert expected in _by_id(observe([_history(shape)]))["recent:astronomy/uk"].statement
+
+    @pytest.mark.parametrize(
+        ("last_months", "expected"),
+        [
+            (0.5, "the rise stopped"),
+            (0.66, "the rise levelled off"),  # +6 % after about +40 %: held, not "slower"
+            (1.6, "the rise speeds up"),
+        ],
+    )
+    def test_a_rise_is_told_as_a_fall_is(self, last_months: float, expected: str) -> None:
+        def shape(k: int, m: date) -> float:
+            base = 10_000.0 * math.pow(1.6, k / 12)
             return base * last_months if k >= MONTHS - 3 else base
 
         assert expected in _by_id(observe([_history(shape)]))["recent:astronomy/uk"].statement

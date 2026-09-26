@@ -353,7 +353,7 @@ class _Checker:
             if match is None:
                 continue
             cited = [self.observations[i] for i in paragraph.uses if i in self.observations]
-            if not any("the fall speeds up" in o.statement for o in cited):
+            if not any("speeds up" in o.statement for o in cited):
                 self.add(
                     block,
                     f"'{match.group(0)}': none of the observations this paragraph cites says the "
