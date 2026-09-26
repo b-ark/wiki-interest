@@ -50,8 +50,11 @@ def localise_separators(text: str, style: NumberStyle) -> str:
 
 
 def format_number(value: float, style: NumberStyle, decimals: int = 0) -> str:
-    """Format a number with grouping and ``decimals`` fractional digits in ``style``."""
-    return localise_separators(f"{value:,.{decimals}f}", style)
+    """Format a number with grouping and ``decimals`` fractional digits in ``style``.
+
+    A value that rounds to zero is written without a sign: "-0" read as a fall.
+    """
+    return localise_separators(f"{_unsigned_zero(value, decimals):,.{decimals}f}", style)
 
 
 def format_percent(
@@ -62,7 +65,14 @@ def format_percent(
     A thin space precedes the percent sign in the Slavic styles, following their typographic
     convention; English keeps ``15%``.
     """
-    sign = "+" if signed and value > 0 else ""
-    body = localise_separators(f"{value * 100:,.{decimals}f}", style)
+    percent = _unsigned_zero(value * 100, decimals)
+    sign = "+" if signed and percent > 0 else ""
+    body = localise_separators(f"{percent:,.{decimals}f}", style)
     suffix = "%" if style.decimal_sep == "." else f"{NARROW_NO_BREAK_SPACE}%"
     return f"{sign}{body}{suffix}"
+
+
+def _unsigned_zero(value: float, decimals: int) -> float:
+    """``value`` rounded as it will be written, with no sign left on a zero ("-0 %", "+0 %")."""
+    rounded = round(value, decimals)
+    return 0.0 if rounded == 0 else rounded

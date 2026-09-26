@@ -233,6 +233,18 @@ class TestChatBrief:
         assert "uk.wikipedia: attention share 37.9 → 37.9 per million" in brief
         assert "Editions added: cs.wikipedia." in brief
 
+    def test_raw_views_after_the_share_do_not_set_two_measures_side_by_side(
+        self, tmp_path: Path
+    ) -> None:
+        """ "Its change +10 % -> -0 %" set the share's change next to the views' (stage15)."""
+        first, first_dir = _run(tmp_path, "en")
+        assert first.narrate(first_dir, _template(first_dir)).status == "accepted"
+        raw = {"normalization": "absolute"}
+        pipeline, run_dir = _run(tmp_path, "en", raw, run_id="r2")
+        assert pipeline.narrate(run_dir, _template(run_dir)).status == "accepted"
+        brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8")
+        assert "its change" not in brief
+
     def test_a_period_beyond_the_data_is_measured_where_they_exist_and_said(
         self, tmp_path: Path
     ) -> None:

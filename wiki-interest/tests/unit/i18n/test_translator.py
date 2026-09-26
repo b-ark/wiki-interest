@@ -368,3 +368,12 @@ def test_formatting_functions_are_locale_explicit() -> None:
     en = style_for("en")
     assert format_number(1234567.891, en, 2) == "1,234,567.89"
     assert format_percent(0.5, en) == "50%"
+
+
+def test_a_value_that_rounds_to_zero_has_no_sign() -> None:
+    """ "-0 %" read as a fall (stage15)."""
+    uk = Translator("uk")
+    zero = f"0{NARROW_NO_BREAK_SPACE}%"
+    assert uk.percent(-0.001, signed=True) == uk.percent(0.001, signed=True) == zero
+    assert uk.number(-0.04, 1) == "0,0"
+    assert uk.percent(0.006, signed=True) == f"+1{NARROW_NO_BREAK_SPACE}%"

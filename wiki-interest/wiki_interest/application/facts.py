@@ -540,10 +540,13 @@ def _change_lines(
 
     The agent sends the chat answer as it is and cannot add the comparison itself, so the
     code states it: the attention share and its change before and after, and the editions
-    the follow-up added. Nothing when the runs share no topic.
+    the follow-up added. Nothing when the runs share no topic. The changes are set side by side
+    only when both runs measure the same thing: after "show raw views" the change of the
+    attention share before stood next to the change of the views after, as if it had moved.
     """
     if previous is None:
         return []
+    same_measure = summary.request.normalization == previous.request.normalization
     if not {a.topic_id for a in summary.assessments} & {a.topic_id for a in previous.assessments}:
         return []
     before = {(a.topic_id, a.project): a for a in previous.assessments}
@@ -561,7 +564,7 @@ def _change_lines(
                     after=t.number(now.per_million, 1),
                 )
             )
-        if now.change is not None and then.change is not None:
+        if same_measure and now.change is not None and then.change is not None:
             parts.append(
                 t.t(
                     "chat.previous_change",
