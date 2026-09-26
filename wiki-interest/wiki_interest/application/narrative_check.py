@@ -95,6 +95,14 @@ _DEMAND: Mapping[str, str] = {
     "cs": r"poptávk",
     "de": r"nachfrage",
 }
+_TERMS: Mapping[str, tuple[tuple[str, str], ...]] = {
+    "uk": ((r"обсяг\w* уваги", "частка уваги"),),
+    "ru": ((r"объ[её]м\w* внимания", "доля внимания"),),
+    "en": ((r"attention volume|volume of attention", "attention share"),),
+}
+"""One term per measure, as the charts and the code's lines use it: the article's share of its
+Wikipedia's views is the attention share ("частка уваги"), its own count is views
+("перегляди"). A pattern the report language must not use, and the term to write instead."""
 _UI_MISSING_SHARE = 0.5
 """More labels than this share left out: the report's headings and charts stay English."""
 _UI_MISSING_SHOWN = 6
@@ -403,6 +411,7 @@ class _Checker:
                     "the observations are your notes, the report is in the user's language.",
                     text,
                 )
+            self.terms(block, text)
             if jargon and re.search(jargon, text, re.IGNORECASE):
                 self.add(block, "No statistical jargon: say steady, mixed or unclear.", text)
             if demand and block in _DESCRIPTIVE and re.search(demand, text, re.IGNORECASE):
@@ -435,6 +444,16 @@ class _Checker:
                     block,
                     f"'{match.group(0)}': name the edition by its language ('the Polish "
                     "Wikipedia'), not a country: an edition is read in many countries.",
+                    text,
+                )
+
+    def terms(self, block: str, text: str) -> None:
+        """One term per measure: a wording the report language must not use, and its term."""
+        for wording, term in _TERMS.get(self.facts.language, ()):
+            if (found := re.search(wording, text, re.IGNORECASE)) is not None:
+                self.add(
+                    block,
+                    f"'{found.group(0)}': write '{term}', the report's one term for it.",
                     text,
                 )
 

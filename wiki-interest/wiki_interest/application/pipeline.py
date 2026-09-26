@@ -32,6 +32,7 @@ from wiki_interest.application.facts import (
 )
 from wiki_interest.application.loading import SeriesLoader
 from wiki_interest.application.narrative_check import check_narrative
+from wiki_interest.application.number_guard import check_report_numbers
 from wiki_interest.application.observations import (
     observation_start,
     pair_histories,
@@ -499,6 +500,8 @@ class Pipeline:
                 png_files.extend(p for p in written if p.suffix == ".png")
             artifacts = artifacts.model_copy(update={"charts": [str(p) for p in png_files]})
             final = summary.model_copy(update={"artifacts": artifacts})
+            # Every number of the text is a field of the result, or nothing is written.
+            check_report_numbers(final)
             renderers.report_pdf.render(final, png_files, run_dir / REPORT_PDF)
             line = template_limits(translator) if limits is None else limits
             chat = compose_chat(final, line, translator, previous_run(run_dir))
