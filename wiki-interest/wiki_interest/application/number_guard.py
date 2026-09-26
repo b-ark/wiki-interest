@@ -33,9 +33,10 @@ class _Value:
 def report_number_problems(summary: AnalysisSummary) -> list[str]:
     """Each number of the report's text that no field of ``summary`` holds, with its block."""
     allowed = list(_values(summary))
+    names = _names(summary)
     problems: list[str] = []
     for block, text in _texts(summary):
-        for number in extract_numbers(text):
+        for number in extract_numbers(_without(text, names)):
             if not any(matches(number, a.value, percent=a.percent) for a in allowed):
                 problems.append(f"{block}: '{number.text}' in «{text[:100]}»")
     return problems
@@ -55,8 +56,32 @@ def check_report_numbers(summary: AnalysisSummary) -> None:
         )
 
 
+def _names(summary: AnalysisSummary) -> list[str]:
+    """Names the text may carry whole: topics and neighbouring articles ("S&P 500").
+
+    A number inside a name is part of the name, not a claim about the data (stage16: the
+    next check "Тесла, S&P 500" stopped every report on Tesla).
+    """
+    names = [n for r in summary.resolution for n in (r.label, r.query) if n]
+    for rec in summary.recommendations:
+        if rec.next_check is not None:
+            names += [i.label for i in rec.next_check.items]
+    return sorted({n for n in names if any(ch.isdigit() for ch in n)}, key=len, reverse=True)
+
+
+def _without(text: str, names: list[str]) -> str:
+    """``text`` with every name blanked out, so its digits are not read as numbers."""
+    for name in names:
+        text = text.replace(name, " ")
+    return text
+
+
 def _texts(summary: AnalysisSummary) -> Iterator[tuple[str, str]]:
-    """Every block of text the report prints that may carry a number."""
+    """Every block of text the report prints that may carry a claim about the data.
+
+    Not the topic line: it names the item with its description ("the chemical element Hg
+    with atomic number 80", stage16), and a name is not a claim.
+    """
     yield "headline", summary.verdict.headline
     for item in summary.verdicts:
         yield "verdict", item.line
@@ -74,8 +99,6 @@ def _texts(summary: AnalysisSummary) -> Iterator[tuple[str, str]]:
         for line in decision.lines:
             yield "recommendation", line
         yield "next check", decision.next_step
-    if summary.topic_line:
-        yield "topic", summary.topic_line
 
 
 def _values(summary: AnalysisSummary) -> Iterator[_Value]:

@@ -59,12 +59,23 @@ def local_names(wikidata: WikidataGateway, qids: Sequence[str], language: str) -
     english = wikidata.labels(list(qids), "en", fallback=False)
     out: dict[str, str] = {}
     for qid in qids:
-        title = titles.get(qid, {}).get(project) or labels.get(qid)
+        title = _bare(titles.get(qid, {}).get(project) or labels.get(qid) or "")
         if not title:
             continue
         common = english.get(qid, "")[:1].islower()
         out[qid] = title[:1].lower() + title[1:] if common and title[1:2].islower() else title
     return out
+
+
+def _bare(title: str) -> str:
+    """A title without its disambiguation: "Tesla (компания)" is "Tesla".
+
+    The meaning is stated next to the name (the item's description); in a headline the
+    bracket read as part of the topic (stage16).
+    """
+    if title.endswith(")") and " (" in title:
+        return title[: title.rindex(" (")].strip()
+    return title
 
 
 class RelatedTopics:

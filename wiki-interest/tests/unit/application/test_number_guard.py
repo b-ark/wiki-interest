@@ -16,6 +16,7 @@ from wiki_interest.application.runs import load_summary
 from wiki_interest.application.summary_builder import RunContext
 from wiki_interest.contracts.narrative import Facts, Narrative, Paragraph
 from wiki_interest.contracts.request import AnalysisRequest
+from wiki_interest.contracts.summary import NextItemOut
 from wiki_interest.errors import RenderError
 
 
@@ -79,3 +80,27 @@ def test_the_single_term_for_the_share_is_required(tmp_path: Path) -> None:
     )
     messages = [p.message for p in check_narrative(facts, text)]
     assert any("write 'частка уваги'" in m for m in messages)
+
+
+def test_numbers_inside_names_are_not_claims(tmp_path: Path) -> None:
+    """ "S&P 500" as a neighbouring article and "atomic number 80" in the topic line."""
+    summary = load_summary(_run(tmp_path))
+    rec = summary.recommendations[0]
+    assert rec.next_check is not None
+    named = rec.next_check.model_copy(
+        update={"kind": "related", "items": [NextItemOut(label="S&P 500", qid="Q242345")]}
+    )
+    lines = summary.model_copy(
+        update={
+            "recommendations": [
+                rec.model_copy(
+                    update={
+                        "next_check": named,
+                        "next_line": "Наступна перевірка: суміжні статті — S&P 500.",
+                    }
+                )
+            ],
+            "topic_line": "Ртуть, хімічний елемент з атомним номером 80.",
+        }
+    )
+    assert report_number_problems(lines) == []

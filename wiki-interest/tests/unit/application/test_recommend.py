@@ -185,3 +185,9 @@ def test_a_common_noun_is_lower_case_and_a_name_keeps_its_capital() -> None:
     wikidata.entities["Q181138"].sitelinks[WikiProject("uk")] = "Веганство"
     names = local_names(wikidata, ["Q181138", "Q1"], "uk")
     assert names == {"Q181138": "веганство", "Q1": "Париж"}
+
+
+def test_a_disambiguation_is_left_out_of_the_name() -> None:
+    wikidata = _wikidata()
+    wikidata.entities["Q1"].sitelinks[WikiProject("uk")] = "Париж (місто)"
+    assert local_names(wikidata, ["Q1"], "uk") == {"Q1": "Париж"}

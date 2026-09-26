@@ -116,6 +116,11 @@ RULES: tuple[str, ...] = (
     "the comparison observation.",
     "Words, as the charts use them: the audience is how often the article is opened (views); "
     "the attention share is its views per million views of that Wikipedia.",
+    "In Ukrainian an edition is 'мовний розділ' (never 'видання' or 'редакція'), interest is "
+    "'інтерес' (never 'цікавість'), views are 'перегляди' (never 'переглядання'), the share "
+    "is 'частка уваги'; write 'порівняно з', 'в абсолютних'. In Russian an edition is "
+    "'языковой раздел' (never 'издание' or 'редакция'), the share 'доля внимания'. The check "
+    "rejects the other words.",
     "Name periods as the observations do ('in 2021', 'January–August 2026 against the same "
     "months of 2025'), never 'N years ago'. A change keeps the comparison it was made on, and "
     "a partial year stays partial, with its caution.",
