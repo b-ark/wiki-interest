@@ -1,7 +1,10 @@
-"""Copy the final Haiku runs' PDFs, chat answers, grades and tool-call logs into ``final/``.
+"""Copy a Haiku run's PDFs, chat answers, grades and tool-call logs into ``<out>/``.
 
-Usage (from the skill directory, after ``skill-evals run ... -n v02-final``):
-    uv run python evals/v0.2/collect_final.py ../tools/skill-evals/runs/v02-final
+Usage (from the skill directory, after ``skill-evals run ... -n <run>``):
+    uv run python evals/v0.2/collect_final.py ../tools/skill-evals/runs/<run> <out> [scenario ...]
+
+``<out>`` is a folder next to this script (``final-run2``, ``stage18``); the first repetition
+of each scenario is kept, of the scenarios named or of all.
 """
 
 from __future__ import annotations
@@ -16,11 +19,13 @@ _RESULT = 600
 """Characters of each tool result kept in the log."""
 
 
-def main(run: Path) -> int:
-    """Collect every case of ``run`` into ``final/<case>/``."""
+def main(run: Path, name: str, scenarios: list[str]) -> int:
+    """Collect the cases of ``run`` (``scenarios``, or all) into ``<name>/<case>/``."""
     for case in sorted((run / "cases").iterdir()):
+        if scenarios and case.name not in scenarios:
+            continue
         rep = case / "rep-1"
-        out = HERE / "final-run2" / case.name
+        out = HERE / name / case.name
         out.mkdir(parents=True, exist_ok=True)
         sandbox = run / "sandboxes" / f"{case.name}-rep-1"
         pdfs = sorted(sandbox.glob("wiki-interest-runs/**/report.pdf"))
@@ -78,4 +83,4 @@ def _tool_log(events: Path) -> str:
 
 
 if __name__ == "__main__":
-    sys.exit(main(Path(sys.argv[1])))
+    sys.exit(main(Path(sys.argv[1]), sys.argv[2], sys.argv[3:]))

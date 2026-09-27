@@ -1,0 +1,130 @@
+[
+  {
+    "id": "a0",
+    "kind": "deterministic",
+    "type": "tool_called",
+    "text": "tool_called(pattern='run\\\\.py')",
+    "passed": true,
+    "evidence": "1 matching call(s); first: PowerShell cd \"X:\\personal_projects\\wiki-interest\\tools\\skill-evals\\runs\\stage18\\sandboxes\\assess-astronomy-uk-rep-1\"; uv run --project \"X:\\personal_projects\\wi"
+  },
+  {
+    "id": "a1",
+    "kind": "deterministic",
+    "type": "no_tool_called",
+    "text": "no_tool_called(pattern='wikimedia\\\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\\\.get|urllib\\\\.request')",
+    "passed": true,
+    "evidence": "0 matching call(s); first: -"
+  },
+  {
+    "id": "a2",
+    "kind": "deterministic",
+    "type": "file_exists",
+    "text": "file_exists(glob='**/report.pdf', min_count=1)",
+    "passed": true,
+    "evidence": "1 file(s) match: wiki-interest-runs\\astronomy-uk-assess\\20260927-095450-9cac\\report.pdf"
+  },
+  {
+    "id": "a3",
+    "kind": "deterministic",
+    "type": "pdf_pages",
+    "text": "pdf_pages(glob='**/report.pdf', max_pages=1)",
+    "passed": true,
+    "evidence": "report.pdf: 1 page(s)"
+  },
+  {
+    "id": "a4",
+    "kind": "deterministic",
+    "type": "numbers_grounded",
+    "text": "numbers_grounded(summary_glob='**/summary.json', tolerance_rel=0.02, tolerance_abs=0.5, ignore_below=10)",
+    "passed": true,
+    "evidence": "23 number(s) checked against 1 summary file(s)"
+  },
+  {
+    "id": "a5",
+    "kind": "deterministic",
+    "type": "caveats_relayed",
+    "text": "caveats_relayed(summary_glob='**/summary.json', min_reasons=1)",
+    "passed": true,
+    "evidence": "reliability is high everywhere; nothing to relay"
+  },
+  {
+    "id": "a6",
+    "kind": "deterministic",
+    "type": "summary_field",
+    "text": "summary_field(summary_glob='**/summary.json', path='status', equals='ok', regex=None)",
+    "passed": true,
+    "evidence": "status = \"ok\""
+  },
+  {
+    "id": "a7",
+    "kind": "deterministic",
+    "type": "max_turns",
+    "text": "max_turns(n=25)",
+    "passed": true,
+    "evidence": "8 turn(s), budget 25"
+  },
+  {
+    "id": "a8",
+    "kind": "deterministic",
+    "type": "summary_field",
+    "text": "summary_field(summary_glob='**/summary.json', path='request.question_type', equals=None, regex='assess|compare')",
+    "passed": true,
+    "evidence": "request.question_type = \"assess\""
+  },
+  {
+    "id": "a9",
+    "kind": "deterministic",
+    "type": "narrative_accepted",
+    "text": "narrative_accepted(pattern='render\\\\.py')",
+    "passed": true,
+    "evidence": "1/1 rendered run(s) accepted"
+  },
+  {
+    "id": "a10",
+    "kind": "deterministic",
+    "type": "chat_answer_relayed",
+    "text": "chat_answer_relayed(min_overlap=0.9)",
+    "passed": true,
+    "evidence": "answer carries 100% of the accepted text; 100% of it comes from there"
+  },
+  {
+    "id": "answers-question",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer states whether interest in astronomy in Ukrainian Wikipedia is growing, flat or falling, with a number for the change.",
+    "passed": true,
+    "evidence": "The answer states: \"Астрономія: в українській Вікіпедії інтерес спадає... Частка уваги з 2024-09: 16,4 → 7,1 на 1 млн переглядів, −35 % за рік.\" This matches the reference material's verdict (declining, 16.4→7.1, −35%/year) exactly, providing both direction (falling) and a quantified change."
+  },
+  {
+    "id": "trust-explained",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer says how robust the result is (for example that recent months confirm the trend, give a mixed signal, or that the data are too weak to judge) and gives at least one concrete reason taken from the analysis.",
+    "passed": true,
+    "evidence": "The answer states robustness explicitly with a concrete reason: \"Довіра (uk): висока — спад у 10 з 12 міс. р/р; −35 %/рік [−53; −4]; контрольні статті +3 %/рік; перейменувань немає.\" and repeats in prose \"Цей спад надійний: в 10 з 12 місяців показники були нижче за аналогічні місяці року раніше.\" This matches the reference material's own robustness statement (trust:astronomy/uk observation: \"high (down in 10 of 12 months year on year; −35% a year [−53; −4]; control articles +3% a year; no renames)\"), giving a concrete, analysis-derived reason for how much to trust the declining trend.\""
+  },
+  {
+    "id": "limitations-stated",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently.",
+    "passed": true,
+    "evidence": "The answer includes the italicized caveat: \"Перегляди Вікіпедії показують інтерес до теми, але не готовність платити або використовувати продукт; мовний розділ — це мова, а не крайна\" — explicitly stating that Wikipedia views measure interest/curiosity rather than willingness to pay, which directly satisfies the criterion's example limitation."
+  },
+  {
+    "id": "user-language",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer is written in Ukrainian, the language the user wrote in.",
+    "passed": true,
+    "evidence": "The entire candidate answer is written in Ukrainian, matching the user's question language. E.g., 'Астрономія: в українській Вікіпедії інтерес спадає', 'Довіра (uk): висока — спад у 10 з 12 міс. р/р', 'Що це означає для вас:', 'Що ще я можу зробити:' — all headers and body text are in Ukrainian, with only the file path (non-linguistic) left in Latin characters."
+  },
+  {
+    "id": "faithful",
+    "kind": "judge",
+    "type": "rubric",
+    "text": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine.",
+    "passed": true,
+    "evidence": "The candidate answer tracks facts.json/reference almost verbatim: direction 'спадає' matches trend:astronomy/uk (16.4→7.1, −35%); trust wording '10 з 12 міс. р/р; −35%/рік [−53; −4]; контрольні статті +3%/рік; перейменувань немає' matches trust:astronomy/uk exactly; the May-2025 step (−37%) and the caveat that the whole edition also fell that month, plus the separate −60% vs −25% comparison, mirror step:2025-05 and vs_wikipedia:astronomy/uk without inventing a new cause; the September/July seasonal swing (+245%/−56%) and 'школярі' explanation match season:astronomy/uk and decision:audience; the 2021 context ('падала майже щороку', 'близько чверті') matches long_term:astronomy/uk's 'almost every year'/'about a quarter' without overstating to 'every year'; the recommendation block matches recommendation:astronomy verbatim. Only one edition (uk) is discussed, so there is no 'both' vs 'one of them' conflation. No new speeding-up/turning claims or unsupported causes are added beyond what the observations state, and the phrasing stays as strong (not stronger) than the source observations, matching the reference material almost word-for-word."
+  }
+]
