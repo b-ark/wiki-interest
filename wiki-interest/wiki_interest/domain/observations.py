@@ -830,9 +830,10 @@ class _Detector:
             Weight.HIGH,
             w,
             f"Verdict for the analysis window ({window}): the attention share of {topic} in {ed} "
-            f"{verdict}{since}. Its trend line runs from {w.per_million(t.level_start)} to "
-            f"{w.per_million(t.level_end)} views per million ({w.pct(t.slope_pct_per_year)} a "
-            "year). This is the report's verdict: tell the same direction.",
+            f"{verdict}{since}. Its trend line runs from {w.per_million(t.level_start)} views "
+            f"per million in {_month(t.segment_start)} to {w.per_million(t.level_end)} in "
+            f"{_month(t.window_end)} ({w.pct(t.slope_pct_per_year)} a year). This is the "
+            "report's verdict: tell the same direction.",
         )
 
     def size(self) -> None:

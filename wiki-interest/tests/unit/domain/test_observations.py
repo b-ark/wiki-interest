@@ -174,6 +174,10 @@ class TestWindow:
         drop = _history(lambda k, _m: 6_000.0 * (1 + 0.02 * math.sin(k)) if k < 51 else 4_000.0)
         trend = _by_id(_observe([drop]))["trend:astronomy/uk"].statement
         assert "has stabilised since the step of December 2024" in trend
+        # The trend line's levels name their months: read after the step, not over the window
+        # (the judge took an unnamed "trend line" for the window's, stage19b).
+        assert " views per million in December 2024 to " in trend
+        assert " in August 2026 (" in trend
 
     def test_each_year_of_the_history_is_read_whole(self) -> None:
         history = _history(_decline(), edition=lambda k: EDITION * 0.9 ** (k / 12))

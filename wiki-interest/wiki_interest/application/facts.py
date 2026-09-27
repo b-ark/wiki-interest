@@ -147,8 +147,8 @@ EXAMPLE: Mapping[str, object] = {
             "weight": "high",
             "statement": "Verdict for the analysis window (September 2024 – August 2026): the "
             "attention share of beekeeping in the Dutch Wikipedia grows. Its trend line runs from "
-            "4.3 to 5.4 views per million (+12 % a year). This is the report's verdict: tell the "
-            "same direction.",
+            "4.3 views per million in September 2024 to 5.4 in August 2026 (+12 % a year). This "
+            "is the report's verdict: tell the same direction.",
         },
         {
             "id": "trend:beekeeping/pl",
@@ -156,8 +156,8 @@ EXAMPLE: Mapping[str, object] = {
             "statement": "Verdict for the analysis window (September 2024 – August 2026): the "
             "attention share of beekeeping in the Polish Wikipedia keeps declining since the step "
             "of March 2025 (the level then became 30 % lower than it was before). Its trend line "
-            "runs from 2.8 to 2.3 views per million (−15 % a year). This is the report's "
-            "verdict: tell the same direction.",
+            "runs from 2.8 views per million in March 2025 to 2.3 in August 2026 (−15 % a year). "
+            "This is the report's verdict: tell the same direction.",
         },
         {
             "id": "sections:beekeeping",
