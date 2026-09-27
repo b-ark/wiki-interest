@@ -126,9 +126,16 @@ class TestChoice:
         rec = recommend("veganism", verdicts)
         assert rec is not None
         assert (rec.choice, rec.decided_by, rec.largest) == ("veganism/ru", "size", "veganism/pl")
-        assert "the largest audience overall is the Polish Wikipedia." in (
-            recommendation_lines(rec, verdicts, Translator("en")).line
-        )
+        line = recommendation_lines(rec, verdicts, Translator("en")).line
+        assert "the largest audience overall is the Polish Wikipedia." in line
+        # "Which audiences to research next" asks for a short list, in the order of the choice.
+        assert rec.then == ["veganism/cs", "veganism/pl"]
+        assert "Next in the same order: the Czech Wikipedia, the Polish Wikipedia." in line
+
+    def test_two_candidates_need_no_short_list(self) -> None:
+        rec = recommend("veganism", REFERENCE)
+        assert rec is not None
+        assert rec.then == []
 
     def test_one_edition_gives_its_verdict_not_a_choice(self) -> None:
         rec = recommend("veganism", REFERENCE[:1])

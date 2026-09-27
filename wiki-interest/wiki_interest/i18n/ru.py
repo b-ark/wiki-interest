@@ -120,8 +120,8 @@ LABELS: Mapping[str, str] = {
     "chat.instant": "мгновенно: данные уже загружены",
     "chat.pdf": "PDF-отчёт: {path}",
     "chat.previous": "По сравнению с прошлым запуском ({period}):",
-    "chat.previous_share": "доля внимания {before} → {after} на миллион",
-    "chat.previous_change": "её изменение {before} → {after}",
+    "chat.previous_verdict": "{label}: раньше — {before}; теперь — {after}",
+    "chat.previous_same": "{label}: {verdict}, как и раньше",
     "chat.previous_added": "Добавлены разделы: {projects}.",
     # -- the missing-article question
     "summary.topic_line": "Тема: «{label}»{description} ({qid}).",
@@ -158,6 +158,7 @@ LABELS: Mapping[str, str] = {
     "rec.why_part_none": "{label}: {verdict}",
     "rec.none_growing": "Ни один языковой раздел не показывает роста.",
     "rec.none_growing_topics": "Ни одна тема не показывает роста.",
+    "rec.then": "Следующие в том же порядке: {items}.",
     "rec.pick.verdict": (
         "Если выбирать — {choice}: здесь и лучше динамика интереса, и самая большая аудитория."
     ),

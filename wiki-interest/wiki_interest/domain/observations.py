@@ -1217,14 +1217,21 @@ def _steps(p: _Pair, s: ObservationSettings, threshold: float | None = None) -> 
     """Every step of at least ``threshold`` (``s.step``), largest first, six months apart.
 
     The whole history is read: a step before the analysis window is context the reader may
-    need (it explains a level), one inside it may explain the window's change.
+    need (it explains a level), one inside it may explain the window's change. The level
+    must move by ``threshold`` both as the reader sees it and beyond the local trend
+    (:func:`_jump`): a steady fall of 40 % a year is not a row of steps, and the verdict does
+    not read it from one. The size given is the one the reader sees on the chart.
     """
     adjusted = _adjusted(p)
+    least = math.log(threshold or s.step)
     candidates: list[tuple[int, float]] = []
     for i in range(_STEP_HALF, p.n - _STEP_HALF + 1):
-        ratio = _level_ratio(adjusted, i)
-        if ratio is not None and abs(math.log(ratio)) >= math.log(threshold or s.step):
-            candidates.append((i, math.log(ratio)))
+        ratio, jump = _level_ratio(adjusted, i), _jump(adjusted, i)
+        if ratio is None or jump is None:
+            continue
+        seen = math.log(ratio)
+        if min(abs(seen), abs(jump)) >= least and (seen < 0) == (jump < 0):
+            candidates.append((i, seen))
     chosen: list[tuple[int, float]] = []
     for i, d in sorted(candidates, key=lambda c: (-abs(c[1]), c[0])):
         if all(abs(i - j) >= _STEP_HALF for j, _ in chosen):
@@ -1270,6 +1277,32 @@ def pair_steps(
 def first_data(history: PairHistory) -> PairHistory | None:
     """``history`` from its first month with data; ``None`` without any."""
     return _from_first_data(history)
+
+
+def _jump(values: Sequence[float | None], i: int) -> float | None:
+    """The log of :func:`_level_ratio` less what the local trend explains.
+
+    The six months before ``i`` and the six from it are each a short run of the trend: the
+    median slope within them (log per month, pairs from the same run only, so the jump
+    between the runs does not count) times the distance between their centres is what a
+    steady trend alone moves the level by. A step on a flat line keeps its whole size; a
+    steady trend of any speed gives none.
+    """
+    ratio = _level_ratio(values, i)
+    if ratio is None:
+        return None
+    runs = (range(max(i - _STEP_HALF, 0), i), range(i, min(i + _STEP_HALF, len(values))))
+    points = [[(k, math.log(x)) for k in run if (x := values[k])] for run in runs]
+    slopes = [
+        (b[1] - a[1]) / (b[0] - a[0])
+        for run in points
+        for n, a in enumerate(run)
+        for b in run[n + 1 :]
+    ]
+    if not slopes:
+        return math.log(ratio)
+    distance = mean(k for k, _ in points[1]) - mean(k for k, _ in points[0])
+    return math.log(ratio) - median(slopes) * distance
 
 
 def _level_ratio(values: Sequence[float | None], i: int) -> float | None:

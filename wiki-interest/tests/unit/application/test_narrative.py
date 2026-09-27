@@ -230,9 +230,24 @@ class TestChatBrief:
         pipeline, run_dir = _run(tmp_path, "en", run_id="r2")
         assert pipeline.narrate(run_dir, _template(run_dir)).status == "accepted"
         brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8")
-        assert "Against the previous run (2024-09 – 2026-08):" in brief
-        assert "uk.wikipedia: attention share 37.9 → 37.9 per million" in brief
-        assert "Editions added: cs.wikipedia." in brief
+        line = "Against the previous run (2024-09 – 2026-08): Editions added: cs.wikipedia."
+        assert line in brief
+
+    def test_a_longer_period_compares_verdicts_not_means_of_different_spans(
+        self, tmp_path: Path
+    ) -> None:
+        """ "Share 13.7 -> 26.5, its change -45 % -> -45 %" read as growth (stage17)."""
+        first, first_dir = _run(tmp_path, "en", {"question_type": "assess", "projects": ["uk"]})
+        assert first.narrate(first_dir, _template(first_dir)).status == "accepted"
+        longer = {"question_type": "assess", "projects": ["uk"]}
+        longer["period"] = {"start": "2022-09", "end": "2026-08"}  # type: ignore[assignment]
+        pipeline, run_dir = _run(tmp_path, "en", longer, run_id="r2")
+        assert pipeline.narrate(run_dir, _template(run_dir)).status == "accepted"
+        brief = (run_dir / "chat_brief.md").read_text(encoding="utf-8")
+        line = next(x for x in brief.splitlines() if x.startswith("Against the previous run"))
+        assert line.startswith("Against the previous run (2024-09 – 2026-08): uk: interest")
+        assert "→" not in line
+        assert "%" not in line
 
     def test_raw_views_after_the_share_do_not_set_two_measures_side_by_side(
         self, tmp_path: Path

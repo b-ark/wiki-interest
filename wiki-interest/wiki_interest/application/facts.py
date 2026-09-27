@@ -15,6 +15,7 @@ import re
 from collections.abc import Mapping, Sequence
 
 from wiki_interest.application.summary_builder import period_notes
+from wiki_interest.application.window import verdict_phrase
 from wiki_interest.contracts.narrative import Facts, FollowUpFact, Narrative, Paragraph
 from wiki_interest.contracts.summary import AnalysisSummary, ObservationOut
 from wiki_interest.domain.observations import edition_name, views_direction
@@ -617,42 +618,34 @@ def _change_lines(
     """What a follow-up changed against the session's run before it, pair by pair.
 
     The agent sends the chat answer as it is and cannot add the comparison itself, so the
-    code states it: the attention share and its change before and after, and the editions
-    the follow-up added. Nothing when the runs share no topic. The changes are set side by side
-    only when both runs measure the same thing: after "show raw views" the change of the
-    attention share before stood next to the change of the views after, as if it had moved.
+    code states it: each audience's verdict before and after, and the editions the follow-up
+    added. Verdicts, not numbers: the numbers of two runs read different windows, and a mean
+    over a longer period set next to the old one read as a change of the topic ("share
+    13.7 → 26.5, its change -45 % → -45 %", stage17). An audience is named when the window
+    moved (its verdict then holds or not "as before") or its verdict changed; nothing when
+    the runs share no topic.
     """
     if previous is None:
         return []
-    same_measure = summary.request.normalization == previous.request.normalization
-    if not {a.topic_id for a in summary.assessments} & {a.topic_id for a in previous.assessments}:
+    if not {v.topic_id for v in summary.verdicts} & {v.topic_id for v in previous.verdicts}:
         return []
-    before = {(a.topic_id, a.project): a for a in previous.assessments}
+    before = {(v.topic_id, v.project): v for v in previous.verdicts}
+    moved = summary.period != previous.period
     items: list[str] = []
-    for now in summary.assessments:
+    keys = ["chat.previous"]
+    for now in summary.verdicts:
         then = before.get((now.topic_id, now.project))
-        if not now.measured or then is None or not then.measured:
+        if then is None:
             continue
-        parts: list[str] = []
-        if now.per_million is not None and then.per_million is not None:
-            parts.append(
-                t.t(
-                    "chat.previous_share",
-                    before=t.number(then.per_million, 1),
-                    after=t.number(now.per_million, 1),
-                )
-            )
-        if same_measure and now.change is not None and then.change is not None:
-            parts.append(
-                t.t(
-                    "chat.previous_change",
-                    before=t.percent(then.change, 0, signed=True),
-                    after=t.percent(now.change, 0, signed=True),
-                )
-            )
-        if parts:
-            items.append(f"{now.label}: {', '.join(parts)}")
-    added = [a.label for a in summary.assessments if (a.topic_id, a.project) not in before]
+        after, earlier = verdict_phrase(now, t), verdict_phrase(then, t)
+        if after != earlier:
+            items.append(t.t("chat.previous_verdict", label=now.label, before=earlier, after=after))
+            keys.append("chat.previous_verdict")
+        elif moved:
+            items.append(t.t("chat.previous_same", label=now.label, verdict=after))
+            keys.append("chat.previous_same")
+    seen = {(a.topic_id, a.project) for a in previous.assessments}
+    added = [a.label for a in summary.assessments if (a.topic_id, a.project) not in seen]
     if not items and not added:
         return []
     period = f"{previous.period.start:%Y-%m} – {previous.period.end:%Y-%m}"
@@ -661,8 +654,7 @@ def _change_lines(
         line += " " + "; ".join(items) + "."
     if added:
         line += " " + t.t("chat.previous_added", projects=", ".join(added))
-    keys = ["chat.previous", "chat.previous_share", "chat.previous_change"]
-    keys += ["chat.previous_added"] if added else []
+        keys.append("chat.previous_added")
     return [line] if _translated(t, *keys) else []
 
 

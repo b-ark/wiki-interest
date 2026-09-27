@@ -101,8 +101,8 @@ MESSAGES: dict[str, str] = {
     "chat.instant": "instant: the data are already loaded",
     "chat.pdf": "PDF report: {path}",
     "chat.previous": "Against the previous run ({period}):",
-    "chat.previous_share": "attention share {before} → {after} per million",
-    "chat.previous_change": "its change {before} → {after}",
+    "chat.previous_verdict": "{label}: before, {before}; now, {after}",
+    "chat.previous_same": "{label}: {verdict}, as before",
     "chat.previous_added": "Editions added: {projects}.",
     # -- charts ----------------------------------------------------------------------------
     "chart.axis_views": "views per month",
@@ -661,6 +661,7 @@ MESSAGES: dict[str, str] = {
     "rec.why_part_none": "{label}: {verdict}",
     "rec.none_growing": "None of the Wikipedias shows growth.",
     "rec.none_growing_topics": "No topic shows growth.",
+    "rec.then": "Next in the same order: {items}.",
     "rec.pick.verdict": (
         "If you pick one: {choice}: it has both the better trend of interest and the largest "
         "audience."

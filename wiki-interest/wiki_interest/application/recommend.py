@@ -6,6 +6,8 @@
   The line says which of the three decided and, when the choice is not the largest audience,
   where the largest is: a growing audience ten times smaller beats a stable one, which is
   right for "where to invest next", but the chart of views shows the loser's tall bars.
+  With three candidates or more, the next two in the same order follow (``then``): "which
+  audiences to research next" asks for a short list.
 - ``why``: each candidate's verdict with its trend line's levels and slope over the window.
 - ``confidence``: the trust in the chosen verdict.
 - ``next_check``: what the skill can check next on its own: neighbouring articles, else more
@@ -48,6 +50,8 @@ _VERDICT_RANK = {
     TrendVerdict.DECLINING.value: 0,
 }
 _CONFIDENCE_RANK = {"high": 2, "medium": 1, "low": 0}
+_SHORTLIST = 3
+"""The choice and the two after it: from this many candidates the line names the next ones."""
 
 
 def recommend(
@@ -84,6 +88,7 @@ def recommend(
         why=[_pair(v) for v in candidates],
         decided_by=_decided_by(best, ranked[1]) if len(ranked) > 1 else None,
         largest=None if largest is best else _pair(largest),
+        then=[_pair(v) for v in ranked[1:_SHORTLIST]] if len(ranked) >= _SHORTLIST else [],
         confidence=best.trust.confidence if best.trust else None,
         next_check=_next_check(best, related, more_editions),
     )
@@ -151,6 +156,8 @@ def recommendation_lines(
         parts.append(t.t("rec.none_growing_topics" if rec.by_topic else "rec.none_growing"))
     if not rec.single:
         parts.append(_pick(rec, name(rec.choice, rec.choice_label), name(rec.largest), t))
+    if rec.then:
+        parts.append(t.t("rec.then", items=", ".join(name(pair) for pair in rec.then)))
     if rec.confidence:
         parts.append(t.t("rec.confidence", level=t.t(f"trust.level.{rec.confidence}")))
     line = t.t("rec.line", text=" ".join(parts))

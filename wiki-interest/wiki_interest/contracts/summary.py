@@ -385,6 +385,8 @@ class RecommendationOut(_Model):
         largest: ``<topic>/<language>`` of the largest audience when it is not the choice:
             the line names it, so a tall bar on the chart of views never argues with the
             choice unexplained.
+        then: With three candidates or more, the next two in the order of the choice: a
+            question about which audiences to research next gets a short list, not one name.
         confidence: The trust in the chosen verdict.
         next_check: What the skill can check next on its own.
         line: The recommendation line in the report's language.
@@ -401,6 +403,7 @@ class RecommendationOut(_Model):
     why: list[str] = Field(default_factory=list)
     decided_by: Literal["verdict", "trust", "size"] | None = None
     largest: str | None = None
+    then: list[str] = Field(default_factory=list)
     confidence: Literal["high", "medium", "low"] | None = None
     next_check: NextCheckOut | None = None
     line: str = ""

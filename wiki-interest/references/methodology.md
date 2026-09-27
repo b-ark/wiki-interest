@@ -114,7 +114,9 @@ header says "Analysis period: 2024-09 – 2026-08 · Context on the charts: from
    observation); bursts, plateaus and months where one day took over 20 % of the views are
    left out.
 2. If a step lies inside the window (six months against six, at least ×1.25) and leaves at
-   least 12 months after it, the trend is read from the step on: a level that fell once and
+   least 12 months after it (a step must clear the threshold both as the levels show it and
+   beyond the local trend, the median slope within each six months taken out: a steady
+   fall of 40 % a year is a trend, not a row of steps), the trend is read from the step on: a level that fell once and
    then held has *stabilised*; one that fell and falls on *keeps declining*.
 3. The Theil–Sen slope of the log share over that segment, in % a year. Within ±10 % a year
    the verdict is `stable`, else `growing` or `declining`. Under 12 months in the window or
@@ -254,7 +256,7 @@ January–August 2025, so a partial year's missing season does not read as a fal
 | `season` | 3 years: the median over years of each calendar month against the median of the 13 months centred on it (a trend makes no season); a school-year rhythm (a September–November peak above +60 % and a summer below −15 %), another rhythm (spread above 30 points), or none; a timing or an audience only when the peak month was among the two strongest of every year for at least 4 years, otherwise "limited evidence" |
 | `spike` | a month more than 3 times what that calendar month usually brings, the next month back |
 | `wave`, `unusual` | 3 or more months in a row above 3 times the median of up to 12 months before them (at least 6 known), and the first month after back under that bar: a run to the end of the data is a new level, not a wave, and a steady rise never makes one; flat (at least 9 months, highest below twice the lowest) and abrupt reads as automated traffic (a caution) |
-| `step` | the largest change of the mean level between the six months before and after a month, the season removed, above 1.35 times; says whether the edition changed at the same time |
+| `step` | the largest change of the mean level between the six months before and after a month, the season removed, above 1.35 times, and above it too once the local trend is taken out; says whether the edition changed at the same time |
 | `recent` | the last 3 months against the same months a year earlier, compared with the year: continues, slower, faster, stopped |
 | `editions` | one topic in two editions over "now": where the audience (views a month) is larger ("much" from 3 times, "about as often" under 1.25), whether the gap holds against each Wikipedia's size (attention share), where the views went against a year earlier ("more sharply" beyond 10 points), whether each gained, held or lost its share; the decision gives the trade-off (a larger audience against a growing one) |
 | `topics` | several topics of the user's in one edition, against each other |

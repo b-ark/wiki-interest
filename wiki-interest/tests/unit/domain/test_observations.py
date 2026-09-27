@@ -462,3 +462,32 @@ class TestStatements:
     def test_editions_are_named_by_their_language(self) -> None:
         assert edition_name("pl.wikipedia") == "the Polish Wikipedia"
         assert edition_name("xx.wikipedia") == "xx.wikipedia"
+
+
+class TestStepsBeyondTheTrend:
+    """A step is a jump beyond the local trend, not what a steady trend moves in six months."""
+
+    @pytest.mark.parametrize("per_year", [0.5, 0.64, 2.2])
+    def test_a_steady_trend_of_any_speed_has_no_step(self, per_year: float) -> None:
+        # -50 %, -36 % (the window's split used to fire here) and ×2.2 a year (×100 in six).
+        history = _history(lambda k, _m: 10_000.0 * per_year ** (k / 12))
+        steps, _, _ = pair_steps(history, threshold=TrustSettings().split_step)
+        assert steps == []
+
+    def test_a_step_on_a_falling_line_is_found_at_the_size_the_reader_sees(self) -> None:
+        def shape(k: int, _m: date) -> float:
+            return float(10_000.0 * 0.8 ** (k / 12)) * (0.5 if k >= 40 else 1.0)
+
+        steps, _, _ = pair_steps(_history(shape))
+        assert [s.index for s in steps] == [40]
+        # The six months after against the six before: the step and half a year of the fall.
+        assert steps[0].ratio == pytest.approx(0.5 * 0.8**0.5, rel=0.05)
+
+    def test_a_peak_is_not_a_step_larger_than_the_levels_show(self) -> None:
+        """A rise then a fall: the level moved little, whatever the slopes on either side."""
+
+        def shape(k: int, _m: date) -> float:
+            return 10_000.0 * (1.12 ** (k - 40) if k < 40 else 0.9 ** (k - 40))
+
+        steps, _, _ = pair_steps(_history(shape), threshold=TrustSettings().split_step)
+        assert all(abs(math.log(s.ratio)) >= math.log(1.25) for s in steps)
