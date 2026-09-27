@@ -141,10 +141,57 @@ Every report states them in one line; the ones that matter most:
 - The API filters crawlers and detected bots; what slips through is caught only in part
   (bursts, plateaus, months dominated by one day).
 - Short windows and small Wikipedias are noisy; the trust level says so.
-- **The charts show up to three languages.** With four or more, they show the recommended
-  one and the two with the largest audience; every language keeps its verdict, trust and
-  recommendation lines in the text and the chat answer. Charts that stay legible for more
-  languages are open work ([roadmap](wiki-interest/references/roadmap.md)).
+## What is not done
+
+Plainly, so nobody finds out from a report.
+
+**Languages**
+
+- The report's interface (headline, verdict, trust and recommendation lines, chart titles
+  and legends, PDF headings, the chat answer's fixed lines) is written in code for
+  **English, Russian and Ukrainian only**. Ask in any other language and the model
+  translates those labels in the session; that path works but is not covered by the
+  evaluation, whose scenarios exist in these three languages. The story is the model's own
+  in every language: its numbers and citations are checked, its style is not.
+- Haiku's Russian and Ukrainian prose still slips now and then: a Latin word inside Cyrillic,
+  "twice as fast" for a 1.5× change. The judge catches these in the evaluation; the code does
+  not.
+
+**Scale**
+
+- **Charts hold up to three languages.** With four or more, they show the recommended one
+  and the two with the largest audience; every language keeps its verdict, trust and
+  recommendation lines in the text and the chat answer. The comparison sentence is written
+  for two Wikipedias; with more, each is compared with its own Wikipedia and the
+  recommendation orders them.
+- One topic is one main article with its redirects. No topic discovery from the top lists,
+  no studies of many topics across many Wikipedias, no reading of the Wikimedia dumps: every
+  number comes from the Pageviews API, which starts in July 2015. Earlier periods are clipped
+  and the report says so.
+- The first run for a Wikipedia builds its control basket: about two minutes and 250
+  requests; later runs read it from the cache for 180 days.
+- No geography inside a language: the Pageviews API's per-country data are not used.
+
+**Method**
+
+- The attention share (views per million views of a Wikipedia) depends on how many articles
+  that Wikipedia has: in a smaller Wikipedia the same interest yields a larger share. Growth
+  within one Wikipedia is unaffected; comparing levels across Wikipedias is, and the report
+  does not correct for it yet.
+- The season's strength is measured on raw values while its profile is measured on the
+  log scale, so a fast-growing topic can be told it has a weak season when the season is
+  clear. This affects only whether the season chart is shown, not the verdict.
+
+**Evaluation**
+
+- Measured on one agent and one model: headless Claude Code on Claude Haiku 4.5. The
+  OpenRouter provider in the harness has not been used for any published run. Meaning is
+  graded by an LLM judge (Sonnet), not by code.
+- 29 scenarios × 3 repetitions give a noise floor of about ±11 points: a change smaller than
+  that is invisible to this evaluation.
+
+The next steps that would close these are ordered in
+[`references/roadmap.md`](wiki-interest/references/roadmap.md).
 
 ## Measured on Claude Haiku 4.5
 
