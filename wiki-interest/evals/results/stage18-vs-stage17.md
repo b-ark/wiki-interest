@@ -4,10 +4,10 @@
 
 | Variant | Scenarios × reps | Pass rate (mean ± std over reps) | Noise floor | Deterministic | Judge | Turns | Tokens in/out | Cost USD | Duration s | Errors |
 |---|---|---|---|---|---|---|---|---|---|---|
-| stage17-4d13145 | 29 × 3 | 97.6% ± 2.2% | 0.107 | 98.7% | 93.6% | 10.0 | 444418/5970 | 0.1313 | 93 | 0 |
-| stage18-c5bc09f | 29 × 3 | 96.8% ± 1.4% | 0.107 | 97.0% | 94.8% | 10.0 | 446113/5662 | 0.1291 | 102 | 0 |
+| stage17-6a4e317 | 29 × 3 | 97.6% ± 2.2% | 0.107 | 98.7% | 93.6% | 10.0 | 444418/5970 | 0.1313 | 93 | 0 |
+| stage18-3787c95 | 29 × 3 | 96.8% ± 1.4% | 0.107 | 97.0% | 94.8% | 10.0 | 446113/5662 | 0.1291 | 102 | 0 |
 
-## stage17-4d13145
+## stage17-6a4e317
 
 - run dir: `runs\stage17`
 - requested model: `haiku`; served: ['claude-haiku-4-5-20251001']
@@ -84,7 +84,7 @@
 | ts-quantum-en | 97.8% |
 | ts-veganism-cs | 97.8% |
 
-## stage18-c5bc09f
+## stage18-3787c95
 
 - run dir: `runs\stage18`
 - requested model: `haiku`; served: ['claude-haiku-4-5-20251001']
@@ -161,7 +161,7 @@
 | ts-quantum-en | 97.8% |
 | ts-veganism-cs | 97.8% |
 
-## stage18-c5bc09f vs stage17-4d13145
+## stage18-3787c95 vs stage17-6a4e317
 
 Overall delta (other − base): -0.008 on 29 common scenario(s); noise floor 0.107 (within the noise floor).
 
@@ -186,4 +186,4 @@ Overall delta (other − base): -0.008 on 29 common scenario(s); noise floor 0.1
 
 ## Notes
 
-- stage18-c5bc09f vs stage17-4d13145: delta -0.008 is within the noise floor 0.107; do not conclude either is better.
+- stage18-3787c95 vs stage17-6a4e317: delta -0.008 is within the noise floor 0.107; do not conclude either is better.
