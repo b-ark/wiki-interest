@@ -2211,6 +2211,90 @@
           "criterion": "The answer is written in Russian, the language the user wrote in."
         }
       ]
+    },
+    {
+      "id": "no-wikipedias-uk",
+      "name": "No Wikipedia named: the agent asks which ones before running",
+      "tags": [
+        "clarification",
+        "uk"
+      ],
+      "turns": [
+        "Ми робимо застосунок для медитацій. Чи зростає інтерес до медитації і наскільки цьому можна довіряти?"
+      ],
+      "expected": "The topic is clear but no language Wikipedia is named, so the agent asks which ones to look at (suggesting a few, such as Ukrainian and English) and runs nothing.",
+      "assertions": [
+        {
+          "type": "no_tool_called",
+          "pattern": "run\\.py|wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 10
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "(?i)вікіпеді|wikipedia|мов|розділ"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "asks-which-wikipedias",
+          "criterion": "The answer analyses no Wikipedia; it asks which language Wikipedias to look at, and may suggest some, without picking for the user."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        }
+      ]
+    },
+    {
+      "id": "topic-only-en",
+      "name": "Only a topic: the agent asks which Wikipedias before running",
+      "tags": [
+        "clarification",
+        "en"
+      ],
+      "turns": [
+        "Is interest in Stoicism growing?"
+      ],
+      "expected": "Only the topic is given, so the agent asks which language Wikipedias to look at and runs nothing.",
+      "assertions": [
+        {
+          "type": "no_tool_called",
+          "pattern": "run\\.py|wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "clarification_asked"
+        },
+        {
+          "type": "max_turns",
+          "n": 10
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "(?i)wikipedia|language"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "asks-which-wikipedias",
+          "criterion": "The answer analyses no Wikipedia; it asks which language Wikipedias to look at, and may suggest some, without picking for the user."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in English, the language the user wrote in."
+        }
+      ]
     }
   ]
 }

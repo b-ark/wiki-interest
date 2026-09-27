@@ -54,6 +54,14 @@ which may be read-only.
    teaching a subject ("learning English", "an astronomy course") is measured on the subject
    itself: `query` is "English language", "astronomy"; articles about learning it are missing
    from most Wikipedias.
+
+   **Which Wikipedias.** If the conversation names no language Wikipedia, ask which ones to
+   look at before running, however clear the topic is ("Is interest in Stoicism growing?"
+   names none). One short question in the user's language, with a few suggestions (their own
+   language, English, the languages of markets they mentioned); do not pick for them. A
+   market that means one language names it ("the Polish market": `pl`); a follow-up keeps the
+   Wikipedias of the run before it. If the topic needs a meaning too, ask both in one message.
+   If the user then leaves the choice to you, take their language and English and say so.
 2. **Needs only `uv`.** The first run creates the Python environment by itself (about ten
    seconds). If `uv` is missing, run `<skill>/scripts/setup.sh` (Windows:
    `<skill>/scripts/setup.ps1`) once.
