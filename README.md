@@ -31,7 +31,8 @@ charts as SVG and PNG.
 
 ```
 user question
-   │  agent: decides what the user means, writes request.json
+   │  agent: decides what the user means (asks when the meaning or the Wikipedias are unclear),
+   │         writes request.json
    ▼
 scripts/run.py ──► resolves the topic (Wikidata, search) to an article per language
    │               reads monthly and daily views and each Wikipedia's total
@@ -47,7 +48,7 @@ agent sends the chat answer word for word
 
 | Decided by code | Written by the model |
 |---|---|
-| Which article stands for the topic in each language, or a question when it is ambiguous or missing | Which meaning the user wants, when the conversation settles it |
+| Which article stands for the topic in each language, or a question when it is ambiguous or missing | Which meaning the user wants, when the conversation settles it; a question when no Wikipedia is named |
 | The analysis window (default: the last 24 complete months) and the six years of context before it | |
 | Each language's verdict on its attention share (views per million views of that Wikipedia): `growing`, `stable`, `declining`, `insufficient_data` | |
 | The trust in each verdict (`high`, `medium`, `low`) and its reasons | |
@@ -117,9 +118,10 @@ Every report states them in one line; the ones that matter most:
 ## Measured on Claude Haiku 4.5
 
 Unit tests check the code; they do not show whether a cheap model, given only this skill,
-answers correctly and honestly. [`wiki-interest/evals/`](wiki-interest/evals/) holds 29
+answers correctly and honestly. [`wiki-interest/evals/`](wiki-interest/evals/) holds 31
 realistic scenarios (the assignment's three requests, questions in English, Russian and
-Ukrainian, ambiguous topics, missing articles, follow-ups, a period before the data exists),
+Ukrainian, ambiguous topics, missing articles, requests that name no Wikipedia, follow-ups, a
+period before the data exists),
 run through headless Claude Code on Haiku 4.5, three times each, and graded by code (every
 number in the answer must come from the run) and by an LLM judge (Sonnet) on meaning.
 
@@ -129,7 +131,8 @@ number in the answer must come from the run) and by an LLM judge (Sonnet) on mea
 | stage17 | views chart by calendar year; the recommendation names its reason | 97.6 % | 93.6 % | 10.0 | $0.131 |
 | stage18 | follow-ups compare verdicts; a short list for three languages or more; steps beyond the trend | 96.8 % | 94.8 % | 10.0 | $0.129 |
 
-The noise floor for 29 scenarios × 3 repetitions is about ±11 points, so a change is counted
+The runs above used the first 29 scenarios. The noise floor for 29 scenarios × 3 repetitions
+is about ±11 points, so a change is counted
 as an improvement only above it. How the graders themselves were checked, and how to run the
 evaluation, is in [`wiki-interest/evals/README.md`](wiki-interest/evals/README.md).
 
