@@ -33,6 +33,16 @@ Claude Code: `~/.claude/skills/` or `<project>/.claude/skills/`).
 See [`wiki-interest/README.md`](wiki-interest/README.md) for the package, its settings and
 its architecture.
 
+## What the assignment asks, and where it is answered
+
+| The assignment asks | Where |
+|---|---|
+| How the skill helps the agent assess results and verify conclusions | [How conclusions are checked](#how-conclusions-are-checked): trust is computed per verdict; every number in the model's text is checked against the run; meaning is graded by a judge in the evaluations |
+| How it handles repeated and related requests efficiently | [Follow-ups and repeat queries](#follow-ups-and-repeat-queries): a session edits one field of the same request, cached data make the rerun free, the answer says what changed |
+| That recommendations rest on data, with assumptions and limits made clear | [How it works](#how-it-works) (what code decides, what the model writes) and [Assumptions and limitations](#assumptions-and-limitations); every report states its limits in one line |
+| How to grow it for harder studies and more data | [How to grow it](#how-to-grow-it) and [`references/roadmap.md`](wiki-interest/references/roadmap.md) |
+| How AI tools were used and how their output was checked | [How AI tools were used](#how-ai-tools-were-used-and-how-their-output-was-checked) |
+
 ## What it answers
 
 The three requests from the assignment, as the skill answers them (reports written by Haiku
