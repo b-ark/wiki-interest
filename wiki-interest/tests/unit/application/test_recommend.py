@@ -71,7 +71,8 @@ class TestChoice:
         assert lines.line == (
             "Рекомендація: ru: інтерес стабілізувався після спаду (8,9 → 8,2, −5 %/рік); "
             "cs: інтерес продовжує падати (12,0 → 7,7, −30 %/рік). Жоден мовний розділ не "
-            "показує зростання. Якщо обирати — російська Вікіпедія. Довіра до вибору: середня."
+            "показує зростання. Якщо обирати — російська Вікіпедія: тут і краща динаміка "
+            "інтересу, і найбільша аудиторія. Довіра до вибору: середня."
         )
         assert lines.next_line == (
             "Наступна перевірка: суміжні статті — вегетаріанство, рослинна дієта; я можу додати "
@@ -87,6 +88,13 @@ class TestChoice:
         assert rec is not None
         assert rec.choice == "veganism/cs"
         assert not rec.none_growing
+        assert (rec.decided_by, rec.largest) == ("verdict", "veganism/ru")
+        # The chart of views shows ru's bars twenty times taller: the line says why cs wins.
+        line = recommendation_lines(rec, verdicts, Translator("uk")).line
+        assert (
+            "Якщо обирати — чеська Вікіпедія: вирішує динаміка інтересу, хоча найбільша "
+            "аудиторія — російська Вікіпедія." in line
+        )
 
     def test_between_equal_verdicts_trust_then_audience_decides(self) -> None:
         verdicts = [
@@ -96,15 +104,37 @@ class TestChoice:
         rec = recommend("veganism", verdicts)
         assert rec is not None
         assert rec.choice == "veganism/cs"
+        assert (rec.decided_by, rec.largest) == ("trust", "veganism/ru")
+        assert "the largest audience is the Russian Wikipedia" in (
+            recommendation_lines(rec, verdicts, Translator("en")).line
+        )
         same = [_verdict("ru", "stable", views=10_000), _verdict("cs", "stable", views=500)]
         chosen = recommend("veganism", same)
         assert chosen is not None
         assert chosen.choice == "veganism/ru"
+        assert (chosen.decided_by, chosen.largest) == ("size", None)
+        assert "the size of the audience decides." in (
+            recommendation_lines(chosen, same, Translator("en")).line
+        )
+
+    def test_a_larger_audience_with_a_weaker_verdict_is_named_even_after_a_tie(self) -> None:
+        verdicts = [
+            _verdict("ru", "stable", views=500),
+            _verdict("cs", "stable", views=400),
+            _verdict("pl", "declining", views=10_000),
+        ]
+        rec = recommend("veganism", verdicts)
+        assert rec is not None
+        assert (rec.choice, rec.decided_by, rec.largest) == ("veganism/ru", "size", "veganism/pl")
+        assert "the largest audience overall is the Polish Wikipedia." in (
+            recommendation_lines(rec, verdicts, Translator("en")).line
+        )
 
     def test_one_edition_gives_its_verdict_not_a_choice(self) -> None:
         rec = recommend("veganism", REFERENCE[:1])
         assert rec is not None
         assert rec.single
+        assert (rec.decided_by, rec.largest) == (None, None)
         line = recommendation_lines(rec, REFERENCE[:1], Translator("en")).line
         assert "If you pick one" not in line
         assert line.startswith("Recommendation: ru: interest has stabilised after a drop")
@@ -142,7 +172,7 @@ def test_the_observation_asks_the_text_to_explain_the_choice() -> None:
     assert rec is not None
     observation = recommendation_observation(rec, REFERENCE, "veganism")
     assert observation.id == "recommendation:veganism"
-    assert "If you pick one: the Russian Wikipedia." in observation.statement
+    assert "If you pick one: the Russian Wikipedia: it has both" in observation.statement
     assert "never picks another" in observation.statement
     assert any(q.value == 8.9 for q in observation.numbers)
 

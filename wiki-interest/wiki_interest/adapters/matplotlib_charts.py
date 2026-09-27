@@ -149,16 +149,10 @@ AUDIENCE_HEADROOM = 1.3
 AUDIENCE_LINE_SPACING = 1.15
 AUDIENCE_LABEL_SHRINK = 2.0
 """The most a bar's label gets smaller than the small size to fit its slot, in points."""
-AUDIENCE_TICKS_PT = 14.0
-"""Where the rows under the years start, below the plot: clear of the year labels."""
 PARTIAL_ALPHA = 0.45
 PARTIAL_HATCH = "///"
 """A partial year's bar is pale and hatched: its months are not a whole year."""
 QUIET_ALPHA = 0.8
-MOVE_SYMBOLS = {"gained": "▲", "held": "≈", "lost": "▼"}
-"""What the row under the years writes for a share that gained, held or lost."""
-MOVE_SYMBOL_GROWTH = 1.5
-"""A symbol alone is set this many points over the small size, to be read at a glance."""
 Y_LABEL_CHARS = 24
 """Longest line of the main chart's value-axis label; longer ones wrap."""
 MINUS = "\u2212"
@@ -908,10 +902,10 @@ class MatplotlibChartRenderer:
     def _draw_audience_years(self, spec: ChartSpec) -> Figure:
         """Each year's mean monthly views, the audiences side by side on one scale.
 
-        Over each bar its change against a year earlier and its views; under the years one
-        row per audience saying whether its share gained, held or lost. A partial year is
-        hatched and pale. The quiet line under the header says what the partial year is
-        compared with; the legend stands at its right.
+        Over each bar the change of its views against a year earlier and the views. A partial
+        year is hatched and pale. The quiet line under the header says what the partial year
+        is compared with; the legend stands at its right. The verdict is not drawn here: it
+        answers another question, and the header and the recommendation carry it.
         """
         audience = spec.audience
         assert audience is not None
@@ -919,11 +913,8 @@ class MatplotlibChartRenderer:
         chart = theme.chart
         small = chart.small_size_pt
         count = len(audience.lines)
-        row_mm = small * PT_TO_MM * NOTE_LINE_HEIGHT
-        band_mm = row_mm + HEADER_GAP_MM
-        # The rows under the years count in the layout (they are the axes' annotations): the
-        # figure grows by them so the plot keeps its height.
-        height = spec.height_mm or chart.height_mm + count * row_mm + band_mm
+        band_mm = small * PT_TO_MM * NOTE_LINE_HEIGHT + HEADER_GAP_MM
+        height = spec.height_mm or chart.height_mm + band_mm
         figure = Figure(figsize=(chart.width_mm / MM_PER_INCH, height / MM_PER_INCH), dpi=chart.dpi)
         axes = figure.add_subplot()
         axes.yaxis.set_visible(False)
@@ -960,7 +951,6 @@ class MatplotlibChartRenderer:
         axes.set_xticks(range(len(years)))
         axes.set_xticklabels(spec.year_labels[: len(years)], fontsize=small)
         axes.tick_params(axis="x", length=0)
-        rows = self._audience_rows(axes, spec, years)
 
         top = self._figure_header(figure, spec, height)
         if spec.note:
@@ -988,7 +978,7 @@ class MatplotlibChartRenderer:
             columnspacing=1.2,
         )
         figure.tight_layout(rect=(0, HEADER_GAP_MM / height, 1, top - band_mm / height))
-        self._frame(figure, chart.width_mm, rows)
+        self._frame(figure, chart.width_mm)
         return figure
 
     def _audience_label(self, views: float, change: float | None) -> str:
@@ -1018,55 +1008,6 @@ class MatplotlibChartRenderer:
         )
         fitting = slot_mm / (widest * CHAR_MM_PER_PT)
         return max(min(small, fitting), small - AUDIENCE_LABEL_SHRINK)
-
-    def _audience_rows(self, axes: Axes, spec: ChartSpec, years: Sequence[int]) -> list[Any]:
-        """Under the years, a row per audience: its name, then ▲ gained, ≈ held or ▼ lost.
-
-        Symbols, not words: the subtitle says what they mean, and a word in a longer language
-        would run into the next year's. Returns the names, which stand left of the plot: the
-        frame makes room for them.
-        """
-        audience = spec.audience
-        assert audience is not None
-        small = self._theme.chart.small_size_pt
-        row_pt = small * NOTE_LINE_HEIGHT
-        names = []
-        for index, line in enumerate(audience.lines):
-            color = self._theme.palette[index % len(self._theme.palette)]
-            down = -(AUDIENCE_TICKS_PT + index * row_pt)
-            names.append(
-                axes.annotate(
-                    line.label,
-                    (0, 0),
-                    xycoords="axes fraction",
-                    xytext=(-LABEL_OFFSET_PT, down),
-                    textcoords="offset points",
-                    ha="right",
-                    va="top",
-                    color=color,
-                    fontsize=small,
-                    fontweight="bold",
-                    annotation_clip=False,
-                )
-            )
-            for year in line.years:
-                if year.move is None:
-                    continue
-                axes.annotate(
-                    MOVE_SYMBOLS[year.move],
-                    (years.index(year.year), 0),
-                    xycoords=("data", "axes fraction"),
-                    xytext=(0, down),
-                    textcoords="offset points",
-                    ha="center",
-                    va="top",
-                    color=color,
-                    fontsize=small + MOVE_SYMBOL_GROWTH,
-                    # "Held" is the quiet answer; a gain or a loss is what the eye should find.
-                    alpha=QUIET_ALPHA if year.move == "held" else 1.0,
-                    annotation_clip=False,
-                )
-        return names
 
     # -- size and change ------------------------------------------------------------------
 

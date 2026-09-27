@@ -746,29 +746,25 @@ def share_years_data(lines: int = 2) -> ShareYears:
 
 
 def audience_years_data(lines: int = 2) -> AudienceYears:
-    """The views of the twelve months before the last twelve, and of the last twelve.
-
-    The second audience is far smaller; the last span of each carries the window's verdict.
-    """
-    moves = ("gained", "held", "lost")
+    """The views of 2025 and of the partial 2026; the second audience is far smaller."""
     return AudienceYears(
         lines=[
             AudienceLine(
                 label=("uk", "cs", "pl")[n],
                 years=[
                     AudienceYear(
-                        year=0,
-                        start="2024-09",
-                        end="2025-08",
+                        year=2025,
+                        start="2025-01",
+                        end="2025-12",
                         views=(105_000.0, 8_000.0, 612.0)[n],
                     ),
                     AudienceYear(
-                        year=1,
-                        start="2025-09",
+                        year=2026,
+                        start="2026-01",
                         end="2026-08",
                         views=(84_000.0, 6_400.0, 490.0)[n],
                         change=-20.0,
-                        move=moves[n % 3],  # type: ignore[arg-type]
+                        partial=True,
                     ),
                 ],
             )

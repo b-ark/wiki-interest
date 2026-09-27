@@ -26,7 +26,6 @@ from wiki_interest.domain.observations import (
     first_data,
     observe,
     pair_steps,
-    share_move,
     year_levels,
 )
 from wiki_interest.domain.prose_numbers import extract_numbers, matches
@@ -181,13 +180,6 @@ class TestWindow:
         years = year_levels(history)
         assert [y.year for y in years] == [2021, 2022, 2023, 2024, 2025, 2026]
         assert not any(y.partial for y in years[:-1])
-
-
-@pytest.mark.parametrize(
-    ("change", "move"), [(10.5, "gained"), (10.0, "held"), (-10.0, "held"), (-10.5, "lost")]
-)
-def test_a_share_moves_beyond_ten_percent(change: float, move: str) -> None:
-    assert share_move(change) == move
 
 
 def _school(k: int, m: date) -> float:

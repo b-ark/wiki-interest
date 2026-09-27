@@ -3,6 +3,9 @@
 - ``choice``: the edition (or, in one edition, the topic) with the strongest verdict
   (growing, then stable, then declining), then the higher trust, then the larger audience;
   it is named even when none grows ("if you must pick one"), and ``none_growing`` says so.
+  The line says which of the three decided and, when the choice is not the largest audience,
+  where the largest is: a growing audience ten times smaller beats a stable one, which is
+  right for "where to invest next", but the chart of views shows the loser's tall bars.
 - ``why``: each candidate's verdict with its trend line's levels and slope over the window.
 - ``confidence``: the trust in the chosen verdict.
 - ``next_check``: what the skill can check next on its own: neighbouring articles, else more
@@ -15,6 +18,7 @@ language; the agent's text explains the choice and never makes another.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
 from wiki_interest.application.related import Related
 from wiki_interest.application.window import (
@@ -66,14 +70,9 @@ def recommend(
     candidates = [v for v in verdicts if not v.substitute and v.verdict in _VERDICT_RANK]
     if not candidates:
         return None
-    best = max(
-        candidates,
-        key=lambda v: (
-            _VERDICT_RANK[v.verdict],
-            _CONFIDENCE_RANK.get(v.trust.confidence if v.trust else "low", 0),
-            v.views_avg or 0.0,
-        ),
-    )
+    ranked = sorted(candidates, key=_rank, reverse=True)
+    best = ranked[0]
+    largest = max(candidates, key=lambda v: v.views_avg or 0.0)
     return RecommendationOut(
         topic_id=topic_id,
         choice=f"{best.topic_id}/{best.project.split('.')[0]}",
@@ -82,10 +81,35 @@ def recommend(
         by_topic=by_topic,
         single=len(candidates) == 1,
         none_growing=all(v.verdict != TrendVerdict.GROWING.value for v in candidates),
-        why=[f"{v.topic_id}/{v.project.split('.')[0]}" for v in candidates],
+        why=[_pair(v) for v in candidates],
+        decided_by=_decided_by(best, ranked[1]) if len(ranked) > 1 else None,
+        largest=None if largest is best else _pair(largest),
         confidence=best.trust.confidence if best.trust else None,
         next_check=_next_check(best, related, more_editions),
     )
+
+
+def _rank(v: TrendOut) -> tuple[int, int, float]:
+    """The order of the choice: the verdict, then the trust in it, then the audience."""
+    return (
+        _VERDICT_RANK[v.verdict],
+        _CONFIDENCE_RANK.get(v.trust.confidence if v.trust else "low", 0),
+        v.views_avg or 0.0,
+    )
+
+
+def _decided_by(best: TrendOut, runner_up: TrendOut) -> Literal["verdict", "trust", "size"]:
+    """Which of the three criteria set ``best`` apart from the next best candidate."""
+    ours, theirs = _rank(best), _rank(runner_up)
+    if ours[0] != theirs[0]:
+        return "verdict"
+    if ours[1] != theirs[1]:
+        return "trust"
+    return "size"
+
+
+def _pair(v: TrendOut) -> str:
+    return f"{v.topic_id}/{v.project.split('.')[0]}"
 
 
 def _next_check(
@@ -113,23 +137,32 @@ def recommendation_lines(
     rec: RecommendationOut, verdicts: Sequence[TrendOut], t: Translator
 ) -> RecommendationOut:
     """``rec`` with its two lines in the report's language: the choice, and the next check."""
-    by_pair = {f"{v.topic_id}/{v.project.split('.')[0]}": v for v in verdicts}
+    by_pair = {_pair(v): v for v in verdicts}
     facts = [_why(by_pair[pair], t) for pair in rec.why if pair in by_pair]
-    chosen = by_pair.get(rec.choice or "")
-    name = (
-        rec.choice_label
-        if rec.by_topic or chosen is None
-        else edition_nominative(chosen.project, t)
-    )
+
+    def name(pair: str | None, label: str = "") -> str:
+        v = by_pair.get(pair or "")
+        if v is None:
+            return label
+        return v.label if rec.by_topic else edition_nominative(v.project, t)
+
     parts = [t.t("rec.why", parts="; ".join(facts))]
     if rec.none_growing and not rec.single:
         parts.append(t.t("rec.none_growing_topics" if rec.by_topic else "rec.none_growing"))
     if not rec.single:
-        parts.append(t.t("rec.pick", choice=name))
+        parts.append(_pick(rec, name(rec.choice, rec.choice_label), name(rec.largest), t))
     if rec.confidence:
         parts.append(t.t("rec.confidence", level=t.t(f"trust.level.{rec.confidence}")))
     line = t.t("rec.line", text=" ".join(parts))
     return rec.model_copy(update={"line": line, "next_line": _next_line(rec.next_check, t)})
+
+
+def _pick(rec: RecommendationOut, choice: str, largest: str, t: Translator) -> str:
+    """The "if you pick one" sentence: what decided it and, for a smaller choice, the largest."""
+    reason = rec.decided_by or "verdict"
+    if not largest:
+        return t.t(f"rec.pick.{reason}", choice=choice)
+    return t.t(f"rec.pick.{reason}_smaller", choice=choice, largest=largest)
 
 
 def _why(v: TrendOut, t: Translator) -> str:

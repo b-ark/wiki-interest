@@ -232,28 +232,44 @@ class TestMainChart:
 
 def _audience(*histories: PairHistory) -> AudienceYears:
     data = audience_years_data(
-        histories, trends=_trends(histories), topic_labels={"astronomy": "astronomy"}
+        histories,
+        context=CONTEXT,
+        trends=_trends(histories),
+        topic_labels={"astronomy": "astronomy"},
     )
     assert data is not None
     return data
 
 
+def _falling(k: int) -> float:
+    return float(10_000.0 * 0.6 ** (k / 12))
+
+
 class TestAudienceChart:
-    def test_the_last_twelve_months_are_set_against_the_twelve_before(self) -> None:
-        (line,) = _audience(_history(lambda k: 10_000.0 * 0.6 ** (k / 12))).lines
+    def test_each_calendar_year_of_the_context_is_drawn(self) -> None:
+        (line,) = _audience(_history(_falling)).lines
         assert line.label == "uk"
-        first, last = line.years
-        assert (first.start, first.end) == ("2024-09", "2025-08")
-        assert (last.start, last.end) == ("2025-09", "2026-08")
-        assert (first.change, first.move) == (None, None)
-        # The change is computed from the shown values: the reader can check it.
-        assert last.change == round((last.views / first.views - 1) * 100)
-        assert last.move == "lost"
+        assert [y.year for y in line.years] == [2021, 2022, 2023, 2024, 2025, 2026]
+        assert [y.partial for y in line.years] == [False] * 5 + [True]
+        last = line.years[-1]
+        assert (last.start, last.end) == ("2026-01", "2026-08")
+
+    def test_a_whole_year_changes_by_the_shown_values(self) -> None:
+        (line,) = _audience(_history(_falling)).lines
+        assert line.years[0].change is None
+        for before, year in zip(line.years[:-2], line.years[1:-1], strict=True):
+            # The change is computed from the shown values: the reader can check it.
+            assert year.change == round((year.views / before.views - 1) * 100)
+
+    def test_a_partial_year_is_set_against_the_same_months_a_year_earlier(self) -> None:
+        (line,) = _audience(_history(_falling)).lines
+        # Its missing autumn would read as a fall against the whole year before.
+        assert line.years[-1].change == -40
 
     def test_views_are_shown_to_three_significant_digits(self) -> None:
         (line,) = _audience(_history(lambda _k: 4_321.0)).lines
         assert {y.views for y in line.years} == {4_320.0}
-        assert line.years[-1].move == "held"
+        assert {y.change for y in line.years[1:]} == {0}
         assert round_significant(10_473.0) == 10_500.0
         assert round_significant(552.4) == 552.0
 
@@ -265,16 +281,17 @@ class TestAudienceChart:
         labels = [line.label for line in _audience(*histories).lines]
         assert labels == [line.label for line in _data(*histories).lines] == ["cs", "pl", "de"]
 
-    def test_the_spec_names_each_span(self) -> None:
-        data = _audience(_history(lambda k: 10_000.0 * 0.6 ** (k / 12)))
+    def test_the_spec_names_each_year_and_what_the_partial_one_is_set_against(self) -> None:
+        data = _audience(_history(_falling))
         spec = audience_years_spec(data, Translator("de"))
         assert spec.kind == "audience_years"
-        assert spec.title == "Average monthly article views"
-        assert spec.year_labels == ["Sep 2024 – Aug 2025", "Sep 2025 – Aug 2026"]
+        assert spec.title == "Average monthly article views by year"
+        assert spec.year_labels == ["2021", "2022", "2023", "2024", "2025", "2026 (Jan – Aug)"]
+        assert spec.note == "2026: Jan – Aug against the same months of 2025."
         # Ukrainian has its labels written: the agent translates none of them.
         uk = audience_years_spec(data, Translator("uk"))
-        assert uk.title == "Середня кількість переглядів статті за місяць"
-        assert uk.year_labels[-1] == "Вер 2025 – Сер 2026"  # noqa: RUF001
+        assert uk.title == "Середня кількість переглядів статті за місяць за роками"
+        assert uk.year_labels[-1] == "2026 (Січ – Сер)"  # noqa: RUF001
 
 
 class TestSecondChart:

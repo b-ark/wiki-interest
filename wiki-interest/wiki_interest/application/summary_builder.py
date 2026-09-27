@@ -277,7 +277,11 @@ class SummaryBuilder:
         # With raw views asked for, the main chart shows the views already.
         audience_chart = (
             audience_years_data(
-                histories, trends=verdicts_in, topic_labels=topic_labels, keep=chosen
+                histories,
+                context=shown,
+                trends=verdicts_in,
+                topic_labels=topic_labels,
+                keep=chosen,
             )
             if normalised
             else None

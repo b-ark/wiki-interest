@@ -632,13 +632,12 @@ MESSAGES: dict[str, str] = {
     "chart.share.legend_window": "analysis period",
     "chart.share.partial_year": "{year} ({first} – {last})",
     "chart.share.month": "{month} {year}",
-    "chart.audience.title": "Average monthly article views",
+    "chart.audience.title": "Average monthly article views by year",
     "chart.audience.subtitle": (
-        "Bars: mean views a month over the 12 months before the last 12 and over the last 12,\n"
-        "with the change between them. Below: the analysis period's verdict on the attention "
-        "share (▲ grows, ≈ stable, ▼ declines)."
+        "Bars: mean views a month in each calendar year; over them, how the views changed "
+        "against the year before."
     ),
-    "chart.audience.span": "{first} – {last}",
+    "chart.audience.partial": "{year}: {first} – {last} against the same months of {previous}.",
     "chart.axis_growth": "change, %",
     "chart.scatter_title": "{metric}: size and change",
     "chart.scatter_subtitle": "Right: a larger share; above the line: growing, below: shrinking.",
@@ -662,7 +661,30 @@ MESSAGES: dict[str, str] = {
     "rec.why_part_none": "{label}: {verdict}",
     "rec.none_growing": "None of the Wikipedias shows growth.",
     "rec.none_growing_topics": "No topic shows growth.",
-    "rec.pick": "If you pick one: {choice}.",
+    "rec.pick.verdict": (
+        "If you pick one: {choice}: it has both the better trend of interest and the largest "
+        "audience."
+    ),
+    "rec.pick.verdict_smaller": (
+        "If you pick one: {choice}: the trend of interest decides, though the largest audience "
+        "is {largest}."
+    ),
+    "rec.pick.trust": (
+        "If you pick one: {choice}: the same verdict, but a more reliable one, and the largest "
+        "audience."
+    ),
+    "rec.pick.trust_smaller": (
+        "If you pick one: {choice}: the same verdict, but a more reliable one, though the largest "
+        "audience is {largest}."
+    ),
+    "rec.pick.size": (
+        "If you pick one: {choice}: with the same verdict and trust, the size of the audience "
+        "decides."
+    ),
+    "rec.pick.size_smaller": (
+        "If you pick one: {choice}: with the same verdict and trust, the size of the audience "
+        "decides, though the largest audience overall is {largest}."
+    ),
     "rec.confidence": "Trust in the choice: {level}.",
     "rec.next.related": (
         "Next check: the neighbouring articles {items}; I can add them to this analysis."

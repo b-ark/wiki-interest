@@ -379,6 +379,12 @@ class RecommendationOut(_Model):
         single: One candidate only: the line gives its verdict, not a choice.
         none_growing: No candidate grows: the choice is the least bad one.
         why: The candidates whose verdicts the line quotes, ``<topic>/<language>``.
+        decided_by: What set the choice apart from the next best candidate: its ``verdict``,
+            the ``trust`` in an equal verdict, or the ``size`` of the audience; ``None`` for a
+            single candidate.
+        largest: ``<topic>/<language>`` of the largest audience when it is not the choice:
+            the line names it, so a tall bar on the chart of views never argues with the
+            choice unexplained.
         confidence: The trust in the chosen verdict.
         next_check: What the skill can check next on its own.
         line: The recommendation line in the report's language.
@@ -393,6 +399,8 @@ class RecommendationOut(_Model):
     single: bool = False
     none_growing: bool = False
     why: list[str] = Field(default_factory=list)
+    decided_by: Literal["verdict", "trust", "size"] | None = None
+    largest: str | None = None
     confidence: Literal["high", "medium", "low"] | None = None
     next_check: NextCheckOut | None = None
     line: str = ""

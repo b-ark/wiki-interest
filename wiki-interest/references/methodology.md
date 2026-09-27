@@ -159,7 +159,11 @@ fetched, the trust goes without them and says so.
 
 **Recommendation** (`application/recommend.py`): `choice` = the candidate with the strongest
 verdict (growing > stable > declining), then the higher trust, then the larger audience,
-named even when none grows ("if you pick one"); `why` = each candidate's verdict with its
+named even when none grows ("if you pick one"); `decided_by` = which of the three set it apart
+from the next best, and `largest` = the largest audience when it is not the choice: the line
+says both ("the trend of interest decides, though the largest audience is …"), so a growing
+audience ten times smaller than a stable one wins with its reason in words, not against the
+chart of views unexplained; `why` = each candidate's verdict with its
 trend line; `confidence` = the chosen verdict's trust; `next_check` = what the skill can run
 itself: neighbouring articles through Wikidata (subclass of, different from, part of, has
 part, facet of, said to be the same as) with an article in the chosen edition, else further
@@ -367,11 +371,14 @@ environment variable (`WIKI_INTEREST_SEASON_MIN_YEARS=6`, `WIKI_INTEREST_MIN_MOM
   numbers of the verdict line. Steps are marked always, a probable technical one
   (`artifact`) grey; a one-off burst when the text cites it. The last months are no longer
   shaded (no verdict reads them).
-- **Average monthly views**, under it (not when the user asked for raw views): the twelve
-  months before the last twelve and the last twelve, each audience's mean monthly views as
-  bars on one scale, the values to three significant digits and the change computed from
-  them. Under the last span, one row per audience: the window's verdict on its share, ▲
-  growing, ≈ stable, ▼ declining.
+- **Average monthly views by year**, under it (not when the user asked for raw views): each
+  calendar year of the context range, each audience's mean monthly views as bars on one
+  scale, the values to three significant digits. Over each bar the change of the views
+  against the year before, computed from the shown values; the partial last year is hatched
+  and set against the same months a year earlier, which a quiet line under the title says.
+  The chart answers "how many readers, and where do they go" over the whole context (a peak
+  year, a long fall); it carries no verdict: the header, the recommendation and the trust
+  line do.
 - The labels of both are built when the report is rendered, in the report's language.
 - **Further chart**, four or more audiences: the mean share (log axis) against its headline
   change, one point per audience.

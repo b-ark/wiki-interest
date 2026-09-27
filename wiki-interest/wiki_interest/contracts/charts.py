@@ -11,8 +11,6 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from wiki_interest.domain.observations import ShareMove
-
 __all__ = [
     "AudienceLine",
     "AudienceYear",
@@ -154,21 +152,18 @@ class ShareYears(_Model):
 
 
 class AudienceYear(_Model):
-    """One span of an audience: its mean monthly views and the change against the span before.
-
-    The spans are the twelve months before the window's last twelve and those last twelve.
+    """One calendar year of an audience: its mean monthly views and their change a year on.
 
     Attributes:
-        year: The span's place on the chart (0, 1...).
-        start: Its first month (``2025-09``).
+        year: The calendar year.
+        start: Its first month (``2026-01``).
         end: Its last month (``2026-08``).
         views: Mean monthly views, rounded as the chart shows them (three significant
             digits).
-        change: The shown views against the span before, in whole %, computed from the shown
-            values; ``None`` for the first span.
-        move: The window's verdict on the article's share of its Wikipedia's views, on the
-            last span: ``gained`` (growing), ``held`` (stable) or ``lost`` (declining).
-        partial: Fewer than 12 months.
+        change: The views against a year earlier, in whole %: a whole year's from the shown
+            values, a partial year's against the same months a year earlier; ``None``
+            without a year before.
+        partial: Fewer than 12 months (the last year of the data).
     """
 
     year: int
@@ -176,7 +171,6 @@ class AudienceYear(_Model):
     end: str
     views: float
     change: float | None = None
-    move: ShareMove | None = None
     partial: bool = False
 
 
@@ -191,7 +185,7 @@ class AudienceYears(_Model):
     """What an ``audience_years`` chart draws, without any text.
 
     The audiences of the main chart, in its order: their size in views a month on one scale,
-    how the views changed a year on, and whether that beat the whole Wikipedia.
+    each calendar year of the context, and how the views changed a year on.
     """
 
     lines: list[AudienceLine] = Field(min_length=1)

@@ -260,7 +260,7 @@ def test_the_main_chart_of_raw_views_writes_whole_numbers(
 
 
 @pytest.mark.parametrize("lines", [1, 2, 3])
-def test_the_views_by_year_write_each_change_and_whether_the_share_moved(
+def test_the_views_by_year_write_each_change_and_no_verdict(
     renderer: MatplotlibChartRenderer, tmp_path: Path, lines: int
 ) -> None:
     spec = audience_years_spec(audience_years_data(lines), Translator("en"))
@@ -269,12 +269,10 @@ def test_the_views_by_year_write_each_change_and_whether_the_share_moved(
     assert all(code in text for code in ("uk", "cs", "pl")[:lines])
     assert "84,000" in text  # views as shown, three significant digits
     assert "\u221220%" in text  # the change against a year earlier, over the bar
-    # Symbols, not words: they fit under a year in any language.
-    assert "▲" in text
-    assert "≈" in text
-    assert "▼" in text
-    assert "gained share" not in text
-    assert "Sep 2025 – Aug 2026" in text
+    assert "2026 (Jan – Aug)" in text
+    assert "against the same months of 2025" in text
+    # The verdict answers another question: the header and the recommendation carry it.
+    assert not any(symbol in text for symbol in "▲≈▼")
 
 
 def test_the_views_by_year_write_numbers_in_the_report_style(tmp_path: Path) -> None:

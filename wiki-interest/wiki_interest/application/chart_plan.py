@@ -12,11 +12,11 @@ the report is rendered (:func:`share_years_spec`), in the report's language, wit
 and bursts the text cites.
 
 Under it, the chart of views by year answers "how many readers are there, and how did they
-move": each calendar year's mean monthly views, the audiences side by side on one scale, the
-change against a year earlier over each pair of bars and, under the years, whether the
-article gained, held or lost its share of its Wikipedia's views. A share can fall while the
-views grow, when the whole Wikipedia grows faster; the two charts together show both. Its
-data too are kept without text (:func:`audience_years_data`) and its spec built when the
+move": each calendar year's mean monthly views over the whole context, the audiences side
+by side on one scale, the change of the views against a year earlier over each bar. A share
+can fall while the views grow, when the whole Wikipedia grows faster; the two charts
+together show both. The verdict is neither chart's: the header and the recommendation carry
+it. Its data too are kept without text (:func:`audience_years_data`) and its spec built when the
 report is rendered (:func:`audience_years_spec`).
 
 With many audiences a further chart sets the size of each share against its change, one
@@ -31,7 +31,6 @@ import math
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
-from statistics import mean
 from typing import Literal
 
 from wiki_interest.application.analysis import PairAnalysis
@@ -60,7 +59,7 @@ from wiki_interest.domain.observations import (
     round_share,
     year_levels,
 )
-from wiki_interest.domain.trust import BreakpointVerdict, TrendVerdict, Trust, WindowTrend
+from wiki_interest.domain.trust import BreakpointVerdict, Trust, WindowTrend
 from wiki_interest.i18n import Translator
 
 __all__ = [
@@ -222,54 +221,49 @@ def share_years_data(  # noqa: PLR0913 -- the series, what was found, and the tw
 def audience_years_data(
     histories: Sequence[PairHistory],
     *,
+    context: Period,
     trends: Mapping[str, WindowTrend],
     topic_labels: Mapping[str, str],
     keep: Collection[str] = (),
 ) -> AudienceYears | None:
-    """What the chart of views draws: the twelve months before the last twelve, and the last.
+    """What the chart of views draws: each calendar year of the context, the last one partial.
 
-    The views are shown to three significant digits and the change is computed from the
-    shown values, so "10,500 → 6,720" never stands next to a percentage the reader cannot
-    get from them. Under the last span, the window's verdict on the share.
+    The chart answers "how many readers are there, and where do they go", so it reads the
+    whole context, not the window: six years show both the size and its movement (a peak,
+    a long fall). The verdict answers another question and stays with the header and the
+    recommendation.
+
+    The views are shown to three significant digits. A whole year's change is computed from
+    the shown values, so "10,500 → 6,720" never stands next to a percentage the reader cannot
+    get from them; a partial year is set against the same months a year earlier, as
+    ``vs_wikipedia`` reads it (its missing season would read as a fall), and the spec says so.
     """
     lines: list[AudienceLine] = []
     for d in _drawn(histories, trends=trends, absolute=False, topic_labels=topic_labels, keep=keep):
-        history = d.history
-        n = len(history.months)
-        spans = [(n - 2 * _MONTHS, n - _MONTHS), (n - _MONTHS, n)]
         years: list[AudienceYear] = []
-        previous: float | None = None
-        for index, (first, stop) in enumerate(spans):
-            values = [v for v in history.views[max(first, 0) : stop] if v is not None]
-            if first < 0 or len(values) < _MONTHS:
+        for y in d.years:
+            if y.first < context.start or y.last > context.end:
                 continue
-            shown = round_significant(mean(values))
-            change = None
-            if previous:
-                change = round((shown / previous - 1) * _PERCENT)
-            last = index == len(spans) - 1
+            shown = round_significant(y.views)
+            before = years[-1] if years and years[-1].year == y.year - 1 else None
+            change: float | None = None
+            if y.partial:
+                change = None if y.change is None else round(y.change.article)
+            elif before is not None and before.views:
+                change = round((shown / before.views - 1) * _PERCENT)
             years.append(
                 AudienceYear(
-                    year=index,
-                    start=_month_label(history.months[first]),
-                    end=_month_label(history.months[stop - 1]),
+                    year=y.year,
+                    start=_month_label(y.first),
+                    end=_month_label(y.last),
                     views=shown,
                     change=change,
-                    move=_MOVES.get(d.trend.verdict) if last and d.trend else None,
+                    partial=y.partial,
                 )
             )
-            previous = shown
         if years:
             lines.append(AudienceLine(label=d.label, years=years))
     return AudienceYears(lines=lines) if lines else None
-
-
-_MOVES: Mapping[TrendVerdict, Literal["gained", "held", "lost"]] = {
-    TrendVerdict.GROWING: "gained",
-    TrendVerdict.STABLE: "held",
-    TrendVerdict.DECLINING: "lost",
-}
-"""The window's verdict as the symbol row under the views reads it (▲ ≈ ▼)."""
 
 
 _MARK_VERDICTS: Mapping[BreakpointVerdict, Literal["real", "artifact", "unknown"]] = {
@@ -288,15 +282,40 @@ def round_significant(value: float, digits: int = 3) -> float:
 
 
 def audience_years_spec(data: AudienceYears, t: Translator) -> ChartSpec:
-    """The chart of views in the report's language: one label per span."""
-    spans: dict[int, tuple[str, str]] = {}
+    """The chart of views in the report's language: one label per calendar year.
+
+    A partial year is named with its months (``2026 (Jan – Aug)``) and a quiet line says what
+    its change is set against.
+    """
+    years: dict[int, AudienceYear] = {}
     for line in data.lines:
         for y in line.years:
-            spans.setdefault(y.year, (y.start, y.end))
+            years.setdefault(y.year, y)
     labels = [
-        t.t("chart.audience.span", first=_month_name(start, t), last=_month_name(end, t))
-        for _, (start, end) in sorted(spans.items())
+        t.t(
+            "chart.share.partial_year",
+            year=year,
+            first=_short_month(y.start, t),
+            last=_short_month(y.end, t),
+        )
+        if y.partial
+        else str(year)
+        for year, y in sorted(years.items())
     ]
+    partial = next(
+        (y for _, y in sorted(years.items()) if y.partial and _compared(data, y.year)), None
+    )
+    note = (
+        t.t(
+            "chart.audience.partial",
+            year=partial.year,
+            first=_short_month(partial.start, t),
+            last=_short_month(partial.end, t),
+            previous=partial.year - 1,
+        )
+        if partial
+        else None
+    )
     return ChartSpec(
         id=AUDIENCE_CHART_ID,
         kind="audience_years",
@@ -306,7 +325,13 @@ def audience_years_spec(data: AudienceYears, t: Translator) -> ChartSpec:
         y_label=t.t("chart.absolute.axis"),
         audience=data,
         year_labels=labels,
+        note=note,
     )
+
+
+def _compared(data: AudienceYears, year: int) -> bool:
+    """Whether any audience's ``year`` carries a change: only then the note explains it."""
+    return any(y.year == year and y.change is not None for line in data.lines for y in line.years)
 
 
 def _calendar_labels(data: ShareYears, t: Translator) -> list[str]:

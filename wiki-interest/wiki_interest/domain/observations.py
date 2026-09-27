@@ -60,7 +60,6 @@ __all__ = [
     "PairHistory",
     "Quoted",
     "SeasonProfile",
-    "ShareMove",
     "Step",
     "ViewsDirection",
     "Weight",
@@ -73,13 +72,10 @@ __all__ = [
     "round_count",
     "round_share",
     "season_profile",
-    "share_move",
     "views_direction",
     "year_levels",
 ]
 
-ShareMove = Literal["gained", "held", "lost"]
-"""What a change of the share did against a year earlier (:func:`share_move`)."""
 ViewsDirection = Literal["up", "flat", "down"]
 """Where an article's views went against a year earlier (:func:`views_direction`)."""
 
@@ -296,19 +292,6 @@ def round_count(value: float) -> float:
 def round_share(value: float) -> float:
     """An attention share as statements write it: 19.2, 145."""
     return round(value, 1) if value < 100 else round(value)  # noqa: PLR2004
-
-
-def share_move(change: float, settings: ObservationSettings = _DEFAULT) -> ShareMove:
-    """Whether a change of the share (%) gained, held or lost it: ``moves`` either way.
-
-    The observations call a change within ``moves`` no move, so a chart saying "held" and a
-    text saying "moved with its Wikipedia" read the same number the same way.
-    """
-    if change > settings.moves:
-        return "gained"
-    if change < -settings.moves:
-        return "lost"
-    return "held"
 
 
 def views_direction(change: float, settings: ObservationSettings = _DEFAULT) -> ViewsDirection:
