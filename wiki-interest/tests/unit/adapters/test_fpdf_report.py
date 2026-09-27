@@ -11,6 +11,7 @@ from fixtures.summaries import example_summary, share_years_data
 from wiki_interest.adapters import fpdf_report
 from wiki_interest.adapters.fpdf_report import FpdfReportRenderer
 from wiki_interest.adapters.matplotlib_charts import MatplotlibChartRenderer
+from wiki_interest.adapters.report_blocks import decision_lines
 from wiki_interest.adapters.report_theme import ReportTheme
 from wiki_interest.application.chart_plan import share_years_spec
 from wiki_interest.contracts.charts import ChartSeries, ChartSpec
@@ -251,6 +252,11 @@ def test_a_report_the_user_added_to_goes_on_to_a_second_page(
     assert "summary.md" not in text, "nothing is truncated"
     assert "11. This limitation" in text, "every paragraph of the story stays"
     assert "What it means for you" in text
+    # A heading never stands alone at the foot of a page: its first paragraph comes with it.
+    pages = [" ".join(page.extract_text().split()) for page in reader.pages]
+    first = " ".join(decision_lines(long)[0].split())[:40]
+    heading = next(n for n, page in enumerate(pages) if "What it means for you" in page)
+    assert first in pages[heading]
     # Content that fits keeps to one page all the same.
     short = example_summary().model_copy(update={"grows": True})
     assert len(_render(short, chart_paths, tmp_path / "short.pdf").pages) == 1

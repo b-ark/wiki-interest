@@ -333,8 +333,26 @@ class _Page:
         )
         return True
 
-    def _heading(self, key: str) -> bool:
+    def _heading(self, key: str, first: str = "") -> bool:
+        """A section heading; when the report grows, it goes on with ``first``, its paragraph.
+
+        A paragraph is never split, so a heading that only fits alone would stand at the foot
+        of the page with its text on the next.
+        """
         self._gap()
+        if self._layout.grow and first:
+            self._font(self._style.body_pt)
+            paragraph = cast(
+                float,
+                self.pdf.multi_cell(
+                    self.pdf.epw,
+                    self._line_height(self._style.body_pt),
+                    first,
+                    dry_run=True,
+                    output="HEIGHT",
+                ),
+            )
+            self._fits(self._line_height(self._style.heading_pt) + paragraph)
         return self._paragraph(
             self._t.t(key), self._style.heading_pt, bold=True, color=self._theme.accent_color
         )
@@ -464,14 +482,14 @@ class _Page:
         items = self._summary.happening
         limit = self._layout.max_happening
         shown = items if limit is None else items[:limit]
-        if not shown or not self._heading("report.happening"):
+        if not shown or not self._heading("report.happening", shown[0]):
             return
         self._paragraphs(shown)
 
     def _decision(self) -> None:
         """The conclusion and per-audience lines, then the next step, which always stays."""
         lines = decision_lines(self._summary)
-        if not lines or not self._heading("report.decision"):
+        if not lines or not self._heading("report.decision", lines[0]):
             return
         *body, next_step = lines
         limit = self._layout.max_decision
