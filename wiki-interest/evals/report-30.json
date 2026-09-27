@@ -2295,6 +2295,101 @@
           "criterion": "The answer is written in English, the language the user wrote in."
         }
       ]
+    },
+    {
+      "id": "followup-seasons",
+      "name": "Follow-up: which months are strongest; the season chart may take a second page",
+      "tags": [
+        "followup",
+        "seasonality",
+        "uk"
+      ],
+      "turns": [
+        "Чи зростає інтерес до астрономії в українській Вікіпедії?",
+        "А в які місяці інтерес найбільший? Коли краще запускати курс?"
+      ],
+      "expected": "Second run in the same session with report.seasonality 'show'; the PDF keeps the season chart (a second page if needed) and the answer names the strongest months (September, the school year).",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 2
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 50
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf",
+          "min_count": 2
+        },
+        {
+          "type": "summary_field",
+          "path": "request.report.seasonality",
+          "equals": "show"
+        },
+        {
+          "type": "summary_field",
+          "path": "grows",
+          "equals": true
+        },
+        {
+          "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
+        },
+        {
+          "type": "answer_contains",
+          "mode": "any",
+          "patterns": [
+            "(?i)вересн"
+          ]
+        }
+      ],
+      "rubric": [
+        {
+          "id": "answers-timing",
+          "criterion": "The final answer says which months interest peaks and dips in (September up, summer down), ties it to the school year as the observations do, and says what that means for when to launch the course."
+        },
+        {
+          "id": "trust-explained",
+          "criterion": "The answer says how robust the result is (for example that recent months confirm the trend, give a mixed signal, or that the data are too weak to judge) and gives at least one concrete reason taken from the analysis."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
+        }
+      ]
     }
   ]
 }

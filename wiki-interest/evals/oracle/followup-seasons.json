@@ -1,0 +1,39 @@
+{
+  "requests": [
+    {
+      "question_type": "assess",
+      "topics": [
+        {
+          "query": "астрономія",
+          "query_language": "uk",
+          "id": "astronomy"
+        }
+      ],
+      "projects": [
+        "uk"
+      ],
+      "report": {
+        "language": "uk"
+      },
+      "session": "o-astro-seasons"
+    },
+    {
+      "question_type": "assess",
+      "topics": [
+        {
+          "query": "астрономія",
+          "query_language": "uk",
+          "id": "astronomy"
+        }
+      ],
+      "projects": [
+        "uk"
+      ],
+      "report": {
+        "language": "uk",
+        "seasonality": "show"
+      },
+      "session": "o-astro-seasons"
+    }
+  ]
+}
