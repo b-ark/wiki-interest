@@ -142,8 +142,8 @@ uv run lint-imports
 uv run agentskills validate ../wiki-interest   # Agent Skills spec compliance (needs the dir name)
 ```
 
-Changes to thresholds or wording are logged in [`CHANGELOG_v0.2.md`](CHANGELOG_v0.2.md) with
-the evaluation run that tested them.
+Changes, the decisions behind them and the evaluation run that tested them are in
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 
