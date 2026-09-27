@@ -1107,7 +1107,7 @@
         {
           "type": "pdf_pages",
           "glob": "**/report.pdf",
-          "max_pages": 1
+          "max_pages": 2
         },
         {
           "type": "numbers_grounded"

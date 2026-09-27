@@ -267,8 +267,8 @@ class ReportOptions(_StrictModel):
     seasonal pattern is then always reported and charted. ``auto`` shows it only when it is
     material, and charts it only with enough history to trust it."""
     appendix: bool = False
-    """Add a second PDF page with the method (the content of ``method.md``); the report is
-    one page otherwise."""
+    """Add a PDF page with the method (the content of ``method.md``); the report is one page
+    otherwise, two when the user asked to add to it (``AnalysisSummary.grows``)."""
 
 
 class AnalysisRequest(_StrictModel):

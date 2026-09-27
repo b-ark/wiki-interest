@@ -239,6 +239,23 @@ def test_a_long_answer_truncates_without_shrinking(tmp_path: Path, chart_paths: 
     assert "What it means for you" not in text, "later sections are dropped"
 
 
+def test_a_report_the_user_added_to_goes_on_to_a_second_page(
+    tmp_path: Path, chart_paths: list[Path]
+) -> None:
+    """Asked for more (the season, more Wikipedias), nothing is dropped to keep one page."""
+    story = [*example_summary().happening, *(f"{n}. {LONG_LIMITATION}." for n in range(12))]
+    long = example_summary().model_copy(update={"happening": story, "grows": True})
+    reader = _render(long, chart_paths, tmp_path / "report.pdf")
+    assert len(reader.pages) == 2
+    text = " ".join(page.extract_text() for page in reader.pages)
+    assert "summary.md" not in text, "nothing is truncated"
+    assert "11. This limitation" in text, "every paragraph of the story stays"
+    assert "What it means for you" in text
+    # Content that fits keeps to one page all the same.
+    short = example_summary().model_copy(update={"grows": True})
+    assert len(_render(short, chart_paths, tmp_path / "short.pdf").pages) == 1
+
+
 def test_render_error_when_no_layout_fits(
     tmp_path: Path, chart_paths: list[Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:

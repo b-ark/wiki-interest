@@ -494,6 +494,8 @@ class Pipeline:
             method_md=str(run_dir / METHOD_MD) if renderers.method is not None else None,
         )
         png_files: list[Path] = []
+        previous = previous_run(run_dir)
+        summary = summary.model_copy(update={"grows": asked_for_more(summary, previous)})
         with translator.recording() as used:
             summary = _with_verdict_text(_with_main_charts(summary, translator), translator)
             for spec in summary.charts:
@@ -505,7 +507,7 @@ class Pipeline:
             check_report_numbers(final)
             renderers.report_pdf.render(final, png_files, run_dir / REPORT_PDF)
             line = template_limits(translator) if limits is None else limits
-            chat = compose_chat(final, line, translator, previous_run(run_dir))
+            chat = compose_chat(final, line, translator, previous)
             final = final.model_copy(update={"chat_answer": chat})
         renderers.agent_summary.render(final, png_files, run_dir / SUMMARY_MD)
         if renderers.method is not None:
@@ -520,6 +522,21 @@ class Pipeline:
         run_dir.mkdir(parents=True, exist_ok=True)
         renderers.agent_summary.render(summary, [], run_dir / SUMMARY_MD)
         _write_summary_json(summary, run_dir)
+
+
+def asked_for_more(summary: AnalysisSummary, previous: AnalysisSummary | None) -> bool:
+    """Whether the user asked to add to the answer, so the PDF may take a second page.
+
+    Asking about timing adds the season chart; a follow-up that adds topics or Wikipedias
+    to the session's previous run adds lines and charts. Either is what the user came back
+    for, so nothing of it is dropped to keep one page.
+    """
+    if summary.request.report.seasonality == "show":
+        return True
+    if previous is None:
+        return False
+    before = {(a.topic_id, a.project) for a in previous.assessments}
+    return any((a.topic_id, a.project) not in before for a in summary.assessments)
 
 
 def _with_main_charts(summary: AnalysisSummary, translator: Translator) -> AnalysisSummary:

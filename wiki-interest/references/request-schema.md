@@ -58,7 +58,7 @@ Unknown keys are rejected on purpose: a misspelled field would otherwise be sile
 | `title` | string | derived | Report title. |
 | `audience_note` | string | none | One line of context that goes into the report, in the report language ("освітній застосунок, курс з астрономії"). |
 | `seasonality` | `auto` / `show` | `auto` | `show` when the user asks about timing (which months, seasons, when to launch): the seasonal pattern is then always reported and charted, with a caveat if it is not solid. `auto` states it only when it is solid on the article's whole history (5+ full years, repeated in 80 % of years, material). |
-| `appendix` | `true` / `false` | `false` | `true` adds a second PDF page with the method and data checks (the content of `method.md`, which every run writes next to the report). The report is one page otherwise. |
+| `appendix` | `true` / `false` | `false` | `true` adds a second PDF page with the method and data checks (the content of `method.md`, which every run writes next to the report). The report is one page otherwise; when the user asked to add to it (the season, topics or Wikipedias a previous run did not have) it goes on to a second page rather than leave anything out. |
 
 ## Examples
 

@@ -810,6 +810,10 @@ class AnalysisSummary(_Model):
     """Which item was analysed, in the report language, when the agent wrote it."""
     chat_answer: str | None = None
     """The reply the agent sends to the chat as it is, composed from the report text."""
+    grows: bool = False
+    """The user asked for more than a first answer holds (the season, or topics and
+    Wikipedias the session's previous run did not have): the PDF goes on to a second page
+    rather than leave anything out. A first answer keeps to one page."""
     artifacts: Artifacts
     provenance: Provenance
     clarification: Clarification | None = None

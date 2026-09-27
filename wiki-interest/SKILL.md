@@ -11,8 +11,8 @@ metadata:
 
 Turns Wikipedia pageview statistics into a short, data-backed answer: is interest in a topic
 growing, how does it differ between language Wikipedias, which audiences look promising, and
-how much can that be trusted. Output: a one-page `report.pdf` with charts (for the user) and
-your answer in the chat.
+how much can that be trusted. Output: a `report.pdf` with charts (for the user; one page, a
+second when a follow-up adds the season, topics or Wikipedias) and your answer in the chat.
 
 ## Who does what
 

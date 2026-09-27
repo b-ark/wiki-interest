@@ -1,4 +1,4 @@
-"""One-page A4 PDF report built with fpdf2.
+"""A4 PDF report built with fpdf2: one page, two when the user asked to add to it.
 
 The page reads top to bottom as a decision memo: the answer as the headline; what was
 analysed (topic, Wikidata item, editions, period); the main chart (the attention share over
@@ -9,15 +9,18 @@ so the page has no table of them, and the checks of the data and of the trend st
 The footer defines the attention share and the windows, states that views show interest,
 not willingness to pay, and that a language is not a country, and points to ``method.md``.
 
-It must never spill onto a second page, and text is never set smaller to make it fit: the
-renderer draws the page on a throwaway document, measures, and if the content overflows
+A first answer never spills onto a second page, and text is never set smaller to make it fit:
+the renderer draws the page on a throwaway document, measures, and if the content overflows
 retries with fewer items (the seasonal chart, decision lines, what-happened sentences),
 then lower charts, then without the views by year, and finally a layout that truncates
-with a pointer to ``summary.md``. A chart too tall for its place is drawn
-again lower, not shrunk: every full-width chart keeps the page width, and their plots line
-up. With ``report.appendix`` a second page carries the method. Fonts come from matplotlib's
-bundled DejaVu Sans so Cyrillic and Central European diacritics render without shipping font
-files. Metadata is fixed (no creation timestamp) so re-runs are byte-identical.
+with a pointer to ``summary.md``. When the user asked to add to the answer (the season,
+more topics or Wikipedias: ``AnalysisSummary.grows``) nothing is dropped: what does not fit
+goes on to a second page, the footer staying at the foot of the first. A chart too tall for
+its place is drawn again lower, not shrunk: every full-width chart keeps the page width, and
+their plots line up. With ``report.appendix`` a further page carries the method. Fonts come
+from matplotlib's bundled DejaVu Sans so Cyrillic and Central European diacritics render
+without shipping font files. Metadata is fixed (no creation timestamp) so re-runs are
+byte-identical.
 """
 
 from __future__ import annotations
@@ -85,6 +88,8 @@ class _Layout:
     max_happening: int | None = None
     chart_height: float | None = None
     truncate: bool = False
+    grow: bool = False
+    """What does not fit goes on to the next page (the user asked to add to the answer)."""
 
 
 class _Rgb(tuple[int, int, int]):
@@ -150,7 +155,8 @@ class FpdfReportRenderer:
     def _fit(
         self, summary: AnalysisSummary, charts: Sequence[Path], redraw: Redraw | None
     ) -> _Page:
-        for layout in self._layouts():
+        layouts = [_Layout(grow=True)] if summary.grows else self._layouts()
+        for layout in layouts:
             page = _Page(self._t, self._theme, summary, charts, layout, redraw=redraw)
             page.draw()
             if not page.overflowed:
@@ -289,6 +295,11 @@ class _Page:
         if self._stopped:
             return False
         if self.pdf.get_y() + height <= self._limit + FLOAT_TOLERANCE:
+            return True
+        if self._layout.grow:
+            # The footer stays at the foot of the first page; the next one is all content.
+            self.pdf.add_page()
+            self._limit = self.pdf.h - self._style.margin_mm
             return True
         if self._layout.truncate:
             self._stopped = True

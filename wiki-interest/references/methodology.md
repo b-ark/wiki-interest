@@ -389,7 +389,7 @@ environment variable (`WIKI_INTEREST_SEASON_MIN_YEARS=6`, `WIKI_INTEREST_MIN_MOM
   (`season:*`, `decision:timing:*`, `decision:audience:*`), with the months it was computed
   on.
 
-The PDF holds nothing that does not answer the question: no table of key numbers (the text
+A first answer keeps to one page; when the user asked to add to it (`report.seasonality: "show"`, or topics and Wikipedias the session's previous run did not have) nothing is dropped to keep it there and the rest goes on to a second page. The PDF holds nothing that does not answer the question: no table of key numbers (the text
 and the charts give them), no block on the robustness of the trend and no run caveats in the
 footer (both in `summary.md` and `method.md`; the text carries the cautions that change the
 answer). The footer defines the attention share and the windows, says that views show

@@ -5,7 +5,7 @@ decide which topics to develop next and which languages to launch in, using Wiki
 pageview statistics. The agent names the topic, the skill's code finds its article in every
 language Wikipedia asked for, reads the monthly views, decides whether interest is growing,
 stable or declining and how far that can be trusted, recommends where to look next, and
-renders a one-page PDF. The agent writes the explanation in the user's language; the code
+renders a one-page PDF (a follow-up that adds to it may take a second). The agent writes the explanation in the user's language; the code
 checks every number in it before anything reaches the user.
 
 It is built to run well on a fast, cheap model: every decision and every number is made in

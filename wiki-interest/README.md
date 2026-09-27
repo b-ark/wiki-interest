@@ -35,7 +35,7 @@ user's project, not to the skill directory, which may be read-only):
 
 | File | Contents |
 |---|---|
-| `report.pdf` | One page: headline, the attention share over the context with each language's trend line, views by calendar year, the story, what it means with the recommendation and the trust line, limits. `report.appendix: true` adds a page on the method. |
+| `report.pdf` | One page (two when a follow-up adds the season, topics or Wikipedias): headline, the attention share over the context with each language's trend line, views by calendar year, the story, what it means with the recommendation and the trust line, limits. `report.appendix: true` adds a page on the method. |
 | `summary.json` | Everything decided: the analysis window and context, a verdict per language with its trust and reasons, the recommendation with what decided it and the next check, observations, provenance. |
 | `summary.md` | The same, readable. |
 | `facts.json` | What the agent reads to write its text. |
