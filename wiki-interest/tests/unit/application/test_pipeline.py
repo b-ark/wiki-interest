@@ -85,7 +85,9 @@ class TestSuccessfulRun:
         assert "**Answer:**" in text
         assert "uk.wikipedia" in text
         assert "report.pdf" in text
-        facts = json.loads((Path(outcome.summary.artifacts.run_dir) / "facts.json").read_text())
+        facts = json.loads(
+            (Path(outcome.summary.artifacts.run_dir) / "facts.json").read_text(encoding="utf-8")
+        )
         assert facts["language"] == "de"
         assert "report.happening" in facts["ui"]
 
