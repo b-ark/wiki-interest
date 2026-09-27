@@ -13,6 +13,26 @@ It is built to run well on a fast, cheap model: every decision and every number 
 code, so the model only reads observations and writes prose. It is measured on
 Claude Haiku 4.5 (see [Measured on Haiku 4.5](#measured-on-claude-haiku-45)).
 
+## Quick start
+
+Needs Python 3.12+ and [uv](https://docs.astral.sh/uv/) (the setup script installs uv when it is missing).
+
+```bash
+cd wiki-interest
+./scripts/setup.sh                                  # Windows: scripts\setup.ps1
+uv run scripts/doctor.py                            # checks Python, fonts, cache, the three APIs
+uv run scripts/run.py assets/examples/assess-astronomy-uk.json
+```
+
+The last command writes `wiki-interest-runs/<session>/<run-id>/` with `summary.json`,
+`summary.md`, `facts.json`, `method.md`, the charts and a `report.pdf` in the code's own
+words (an agent then replaces the story with its own through `render.py --narrative`). To
+use it as a skill, place the `wiki-interest/` directory where your agent loads skills (for
+Claude Code: `~/.claude/skills/` or `<project>/.claude/skills/`).
+
+See [`wiki-interest/README.md`](wiki-interest/README.md) for the package, its settings and
+its architecture.
+
 ## What it answers
 
 The three requests from the assignment, as the skill answers them (reports written by Haiku
@@ -155,53 +175,6 @@ long-lived research that reruns itself; and the same evaluation on other agents 
 | [`wiki-interest/`](wiki-interest/) | The skill: `SKILL.md`, the `wiki_interest` Python package, scripts, references, evaluation scenarios and tests. Self-contained and installable on its own. |
 | [`tools/skill-evals/`](tools/skill-evals/) | Development-only harness that runs the skill through a real agent (headless Claude Code on Haiku 4.5; an OpenRouter provider exists but no published run used it), grades the outputs and compares `SKILL.md` versions. Not part of the skill. |
 | [`task.md`](task.md) | The original assignment. |
-
-## Quick start
-
-```bash
-cd wiki-interest
-./scripts/setup.sh                                  # or scripts/setup.ps1; installs uv if missing
-uv run scripts/doctor.py                            # checks Python, fonts, cache, the three APIs
-uv run scripts/run.py assets/examples/assess-astronomy-uk.json
-```
-
-The last command writes `wiki-interest-runs/<session>/<run-id>/` with `summary.json`,
-`summary.md`, `facts.json`, `method.md`, the charts and a `report.pdf` in the code's own
-words (an agent then replaces the story with its own through `render.py --narrative`). To
-use it as a skill, place the `wiki-interest/` directory where your agent loads skills (for
-Claude Code: `~/.claude/skills/` or `<project>/.claude/skills/`).
-
-See [`wiki-interest/README.md`](wiki-interest/README.md) for the package, its settings and
-its architecture.
-
-## Languages
-
-The report is written in the language the user writes in, and its quality differs by
-language:
-
-- **English, Russian and Ukrainian** have the report's interface written in code
-  ([`i18n/`](wiki-interest/wiki_interest/i18n/)): the headline, the verdict, trust and
-  recommendation lines, chart titles and legends, the PDF's headings and footer, the chat
-  answer's fixed lines and the question about a missing article. The
-  evaluation scenarios are written in these three languages.
-- **Any other language** gets the interface translated by the model in each session; the
-  code's lines are then composed from the model's translation of its labels.
-- The story is the model's own in every language: its numbers, citations and a list of
-  wordings are checked, its style is not.
-
-## Development
-
-Quality gates run locally via pre-commit and in CI on Ubuntu and Windows:
-
-```bash
-pre-commit install                      # once
-cd wiki-interest && uv sync             # dev dependencies included by default
-uv run ruff check . && uv run ruff format --check .
-uv run mypy
-uv run lint-imports                     # architecture boundaries (domain never imports adapters)
-uv run pytest -n auto --cov             # parallel
-uv run agentskills validate ../wiki-interest   # Agent Skills spec compliance (skills-ref package)
-```
 
 ## How AI tools were used, and how their output was checked
 

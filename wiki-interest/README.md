@@ -66,6 +66,21 @@ thresholds use `WIKI_INTEREST_TRUST_<NAME>` (`TrustSettings` in
 `scripts/doctor.py` checks Python, fonts, the cache and the three APIs, and prints what to
 fix.
 
+## Languages
+
+The report is written in the language the user writes in, and its quality differs by
+language:
+
+- **English, Russian and Ukrainian** have the report's interface written in code
+  ([`i18n/`](wiki_interest/i18n/)): the headline, the verdict, trust and
+  recommendation lines, chart titles and legends, the PDF's headings and footer, the chat
+  answer's fixed lines and the question about a missing article. The
+  evaluation scenarios are written in these three languages.
+- **Any other language** gets the interface translated by the model in each session; the
+  code's lines are then composed from the model's translation of its labels.
+- The story is the model's own in every language: its numbers, citations and a list of
+  wordings are checked, its style is not.
+
 ## Layout
 
 ```
@@ -115,6 +130,8 @@ pip install -r requirements.txt
 pins every transitive dependency, so both paths give the same environment.
 
 ## Development
+
+The same gates run in pre-commit (`pre-commit install` once) and in CI on Ubuntu and Windows.
 
 ```bash
 uv sync                          # includes the dev group
