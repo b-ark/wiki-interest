@@ -1,0 +1,89 @@
+{
+  "skill_name": "wiki-interest",
+  "scenarios": [
+    {
+      "id": "rank-english-learning-3",
+      "name": "Assignment 3 on three Wikipedias (the charts hold up to three): English learning, which audiences to research next",
+      "tags": [
+        "assignment",
+        "rank",
+        "uk"
+      ],
+      "turns": [
+        "Ми створюємо застосунок для вивчення мов. Порівняй інтерес до вивчення англійської в українському, польському та чеському розділах Wikipedia та підготуй короткий звіт: які аудиторії варто дослідити наступними й чому?"
+      ],
+      "expected": "Rank (or compare) over five editions; names the next audiences to research with reasons; admits that interest declines everywhere if it does.",
+      "assertions": [
+        {
+          "type": "tool_called",
+          "pattern": "run\\.py"
+        },
+        {
+          "type": "no_tool_called",
+          "pattern": "wikimedia\\.org/api|curl |wget |Invoke-WebRequest|Invoke-RestMethod|requests\\.get|urllib\\.request"
+        },
+        {
+          "type": "file_exists",
+          "glob": "**/report.pdf"
+        },
+        {
+          "type": "pdf_pages",
+          "glob": "**/report.pdf",
+          "max_pages": 1
+        },
+        {
+          "type": "numbers_grounded"
+        },
+        {
+          "type": "caveats_relayed",
+          "min_reasons": 1
+        },
+        {
+          "type": "summary_field",
+          "path": "status",
+          "equals": "ok"
+        },
+        {
+          "type": "max_turns",
+          "n": 25
+        },
+        {
+          "type": "summary_field",
+          "path": "request.projects.2",
+          "regex": "wikipedia"
+        },
+        {
+          "type": "narrative_accepted"
+        },
+        {
+          "type": "chat_answer_relayed"
+        },
+        {
+          "type": "question_relayed"
+        }
+      ],
+      "rubric": [
+        {
+          "id": "recommends-audiences",
+          "criterion": "The answer names which language audiences to research next and gives a data-based reason for each (growth, volume, trust)."
+        },
+        {
+          "id": "honest-about-decline",
+          "criterion": "If interest is falling in the recommended editions, the answer says so rather than calling them growing markets."
+        },
+        {
+          "id": "limitations-stated",
+          "criterion": "The answer states at least one limitation of the data, for example that Wikipedia readership measures curiosity rather than willingness to pay, or that editions cover topics differently."
+        },
+        {
+          "id": "user-language",
+          "criterion": "The answer is written in Ukrainian, the language the user wrote in."
+        },
+        {
+          "id": "faithful",
+          "criterion": "The answer does not contradict the observations of facts.json it relies on and says nothing stronger than they do: the directions stay as observed (two editions move in opposite directions only when one rises and the other falls; nothing speeds up or turns unless an observation says so), 'both' and 'one of them' are kept apart, no cause is added that no observation gives, and a guess keeps its 'possibly'. Minor rewording and rounding are fine."
+        }
+      ]
+    }
+  ]
+}

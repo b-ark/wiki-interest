@@ -4,7 +4,7 @@ Usage (from the skill directory, after ``skill-evals run ... -n <run>``):
     uv run python evals/v0.2/collect_final.py ../tools/skill-evals/runs/<run> <out> [scenario ...]
 
 ``<out>`` is a folder next to this script (``final-run2``, ``stage18``); the first repetition
-of each scenario is kept, of the scenarios named or of all.
+of each scenario is kept, of the scenarios named or of all; ``<scenario>:<rep>`` keeps another.
 """
 
 from __future__ import annotations
@@ -21,13 +21,15 @@ _RESULT = 600
 
 def main(run: Path, name: str, scenarios: list[str]) -> int:
     """Collect the cases of ``run`` (``scenarios``, or all) into ``<name>/<case>/``."""
+    reps = dict(item.partition(":")[::2] for item in scenarios)
     for case in sorted((run / "cases").iterdir()):
-        if scenarios and case.name not in scenarios:
+        if scenarios and case.name not in reps:
             continue
-        rep = case / "rep-1"
+        number = reps.get(case.name) or "1"
+        rep = case / f"rep-{number}"
         out = HERE / name / case.name
         out.mkdir(parents=True, exist_ok=True)
-        sandbox = run / "sandboxes" / f"{case.name}-rep-1"
+        sandbox = run / "sandboxes" / f"{case.name}-rep-{number}"
         pdfs = sorted(sandbox.glob("wiki-interest-runs/**/report.pdf"))
         for n, pdf in enumerate(pdfs, start=1):
             suffix = "" if len(pdfs) == 1 else f"-{n}"

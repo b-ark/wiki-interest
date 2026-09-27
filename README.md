@@ -14,14 +14,14 @@ Claude Haiku 4.5 (see [Measured on Haiku 4.5](#measured-on-claude-haiku-45)).
 
 ## What it answers
 
-The three requests from the assignment, as the skill answers them (reports from the latest
-evaluation run, written by Haiku 4.5):
+The three requests from the assignment, as the skill answers them (reports written by Haiku
+4.5 in evaluation runs; the third on three Wikipedias, the most the charts hold):
 
 | Request | What the report says |
 |---|---|
 | Compare the growth of interest in intermittent fasting in the Polish and Czech Wikipedias over the last two years | The Polish Wikipedia has no article on it, so the skill first asks whether to measure the broader article «Post» instead or leave Polish out. After "skip Polish": the Czech verdict on the attention share with its trend line, a low trust and why, the peak of 2022 as context, and the next check. [PDF](wiki-interest/evals/v0.2/stage18/compare-fasting-pl-cs/report.pdf) |
 | Is interest in astronomy growing in the Ukrainian Wikipedia, and how far can that growth be trusted? | The verdict, a trust level with its reasons (months up year on year, the slope's interval, signal to noise, what the whole Wikipedia did, steps and renames), the context since 2021. [PDF](wiki-interest/evals/v0.2/stage18/assess-astronomy-uk/report.pdf) |
-| Compare interest in learning English across chosen Wikipedias: which audiences to research next, and why? | Five languages side by side, a verdict and a trust level for each, the choice (with the same verdict and trust, the larger audience decides) and the two to research after it. [PDF](wiki-interest/evals/v0.2/stage18/rank-english-learning/report.pdf) |
+| Compare interest in learning English in the Ukrainian, Polish and Czech Wikipedias: which audiences to research next, and why? | Three languages side by side, a verdict and a trust level for each, the choice (with the same verdict and trust, the larger audience decides) and the order to research the others in. [PDF](wiki-interest/evals/v0.2/readme/rank-english-learning-3/report.pdf) |
 
 Each run also writes `summary.json` (every decision and number, for follow-ups and other
 tools), `method.md` (how each number was computed, with the thresholds in force) and the
