@@ -109,6 +109,10 @@ Every report states them in one line; the ones that matter most:
 - The API filters crawlers and detected bots; what slips through is caught only in part
   (bursts, plateaus, months dominated by one day).
 - Short windows and small Wikipedias are noisy; the trust level says so.
+- **The charts show up to three languages.** With four or more, they show the recommended
+  one and the two with the largest audience; every language keeps its verdict, trust and
+  recommendation lines in the text and the chat answer. Charts that stay legible for more
+  languages are open work ([roadmap](wiki-interest/references/roadmap.md)).
 
 ## Measured on Claude Haiku 4.5
 

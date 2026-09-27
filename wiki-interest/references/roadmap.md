@@ -47,6 +47,16 @@ of requests. The architecture already isolates this behind `PageviewsSource`:
 - keep one run directory per study with a `summary.json` per topic and a cross-topic ranking
   table, so the agent still relays one short summary.
 
+### Charts for more than three languages
+
+The two main charts hold three languages; with more, they show the recommended one and the
+two largest, so a language the recommendation names next can be missing from them (English
+learning over five Wikipedias charts uk, pl, ro, while the text recommends pl, then cs, uk).
+A trial with five showed the way: the share chart keeps all five legible (only the start
+labels of the trend lines need to go), while the views by year cannot hold 30 labelled bars.
+The likely change: every language on the share chart, and the views by year for the
+recommendation's short list (the choice and the two after it), with the subtitle saying so.
+
 ### 3. Stronger statistics where decisions need them
 
 - confidence intervals on growth by block bootstrap over months, so "−12 %" becomes

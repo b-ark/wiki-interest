@@ -366,7 +366,9 @@ environment variable (`WIKI_INTEREST_SEASON_MIN_YEARS=6`, `WIKI_INTEREST_MIN_MOM
 ### Charts
 
 - **Main chart**, every report ("Attention share over time"): the attention share (views
-  without normalisation) of up to three audiences on one scale, over the context range. A
+  without normalisation) of up to three audiences on one scale, over the context range
+  (with four or more: the recommendation's choice and the two with the largest audience,
+  the same on both charts; see *Limit* below). A
   pale line gives each month; the history's calendar years are quiet segments without
   values; the analysis window is shaded and carries each audience's trend line, bold, its
   level written at the start and, with the audience's name, at the end ("ru 8,2"): the
@@ -388,6 +390,8 @@ environment variable (`WIKI_INTEREST_SEASON_MIN_YEARS=6`, `WIKI_INTEREST_MIN_MOM
   the user asked about timing (`report.seasonality: "show"`) or the text cites the season
   (`season:*`, `decision:timing:*`, `decision:audience:*`), with the months it was computed
   on.
+
+**Limit: three languages on the charts.** Both main charts hold up to three audiences. Tried with five (English learning: uk, pl, cs, ro, hu): the share chart stays legible, only the trend lines' start labels collide; the views by year become 30 bars whose labels overlap below the smallest legible size. Until the charts are reworked, a request with four or more languages is charted by its choice and the two largest audiences, so a language the recommendation names next may be missing from them; the text carries every language.
 
 A first answer keeps to one page; when the user asked to add to it (`report.seasonality: "show"`, or topics and Wikipedias the session's previous run did not have) nothing is dropped to keep it there and the rest goes on to a second page. The PDF holds nothing that does not answer the question: no table of key numbers (the text
 and the charts give them), no block on the robustness of the trend and no run caveats in the
