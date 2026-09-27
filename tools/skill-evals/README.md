@@ -1,8 +1,9 @@
 # skill-evals
 
 Development harness that measures how well the `wiki-interest` skill works when a cheap agent
-model drives it, and whether a change to `SKILL.md` made things better or worse. Design:
-`docs/technical-plan.md` section 11 and ADRs 0003/0004.
+model drives it, and whether a change to `SKILL.md` made things better or worse. It lives outside the skill
+directory so the skill package stays small; its results are summarised in
+`wiki-interest/evals/results/`.
 
 What it does:
 

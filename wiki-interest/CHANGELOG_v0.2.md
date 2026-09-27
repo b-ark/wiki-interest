@@ -467,19 +467,19 @@ uk, pl, cs, ro, hu). Харнесс `tools/skill-evals`: headless Claude Code, �
 
 ## Все PDF
 
-- Эталон по фазам: `evals/v0.2/phase-0/report.pdf` (до изменений), `phase-1/report.pdf`,
-  `phase-2/report.pdf`, `phase-3/report.pdf`, `phase-4/report.pdf`, `phase-5/report.pdf`.
-- Финал, прогон 1: `evals/v0.2/final-run1/v02-veganism-ru-cs/report.pdf`,
-  `final-run1/assess-astronomy-uk/report.pdf`, `final-run1/rank-english-learning/report.pdf`.
-- Финал, прогон 2: `evals/v0.2/final-run2/v02-veganism-ru-cs/report.pdf`,
-  `final-run2/assess-astronomy-uk/report.pdf`, `final-run2/rank-english-learning/report.pdf`.
+- Эталон до изменений: `evals/v0.2/phase-0/report.pdf`.
+- Три запроса задания после stage18: `evals/v0.2/stage18/<сценарий>/report.pdf`;
+  пример на три раздела для README: `evals/v0.2/readme/rank-english-learning-3/report.pdf`.
+- PDF и `key-fields.json` фаз 1–5b и двух финальных прогонов (`final-run1/`, `final-run2/`)
+  удалены из дерева перед публикацией, чтобы не хранить 2 МБ промежуточных бинарников; они
+  остались в истории (коммит `df5a4ff`), ссылки на них выше относятся к тому коммиту.
 
 ## Полный набор оценок (stage16, по команде пользователя)
 
 `report-30.json`, 29 сценариев × 3 повтора, Haiku 4.5, коммит `df5a4ff`, тёплый кэш с
-корзинами десяти разделов. Сравнение: `tools/skill-evals/runs/_benchmarks/stage16-vs-stage15.md`.
-Все отчёты для просмотра: `tools/skill-evals/runs/_preview-charts/stage16-reports/` (PDF и
-ответ в чат `.md` на каждый случай).
+корзинами десяти разделов. Сравнение: `evals/results/stage16-vs-stage15.md`.
+Все отчёты для просмотра (PDF и ответ в чат на каждый случай) — в локальной папке прогонов
+`tools/skill-evals/runs/`, которая не публикуется.
 
 | | stage15 (0.1) | stage16 (0.2) |
 |---|---|---|
@@ -513,8 +513,8 @@ uk, pl, cs, ro, hu). Харнесс `tools/skill-evals`: headless Claude Code, �
 
 **stage16b** (коммит `e7f0c0d`, `ts-ctx-tesla-cars`, `chemistry-mercury-en`,
 `period-before-2015`, `followup-absolute` × 3): 11 из 12 случаев 100 %, один 94 %, падений
-рендера нет. `ts-ctx-tesla-cars` 49 → 100 %. Отчёты:
-`tools/skill-evals/runs/_preview-charts/stage16b-reports/`. Отказов за термины на этих
+рендера нет. `ts-ctx-tesla-cars` 49 → 100 %. Отчёты —
+в локальной папке прогонов. Отказов за термины на этих
 сценариях 32 → 28: правило в `rules` почти не помогает, Haiku переводит английское «edition»
 как «видання»; отказ исправляет текст за один лишний ход. Открытый вопрос: писать
 наблюдения для ru/uk отчётов с уже переведёнными терминами.
@@ -556,7 +556,7 @@ Haiku переводил английские слова из того, что �
 **stage16d** (коммит `f7216cf`, те же 4 сценария × 3): **12/12 по 100 %, откатов на
 шаблон 0** (16c: 5). Отказов за термины 14, «цікавість» — 0 (было 10); ходов 9,9, $0,152 на
 случай. Остались единичные «у абсолютних», «переглядання» (перевод «all views of each
-Wikipedia»), «редакція». Отчёты: `tools/skill-evals/runs/_preview-charts/stage16d-reports/`.
+Wikipedia»), «редакція». Отчёты — в локальной папке прогонов.
 
 | | stage16 | 16b | 16c | 16d |
 |---|---|---|---|---|
@@ -594,8 +594,8 @@ Wikipedia»), «редакція». Отчёты: `tools/skill-evals/runs/_previ
 `faithful` 81 % — ошибки прозы Haiku в сравнениях и строка «Порівняно з попереднім
 запуском … 13,7 → 26,5, зміна −45 % → −45 %» в followup-longer-period (6 раз и в stage16, это
 код `chat.previous`, стоит разобрать отдельно); ts-ctx-tesla-cars 77,8 % — в одном повторе
-Haiku переспросил значение «Tesla». Отчёты: `tools/skill-evals/runs/_preview-charts/stage17-reports/`,
-сравнение: `runs/_benchmarks/stage17-vs-stage16.md`.
+Haiku переспросил значение «Tesla». Отчёты — в локальной папке прогонов,
+сравнение: `evals/results/stage17-vs-stage16.md`.
 
 ## После stage17
 
@@ -623,8 +623,8 @@ Haiku переспросил значение «Tesla». Отчёты: `tools/sk
 который объясняет удлинившуюся рекомендацию), 1 — не названа статья «Post», 1 — модель
 посчитала число сама. `recommends-audiences` 2/3: провал на откате — шаблонный следующий
 шаг называет одну аудиторию, а не очередь `then`. Needless-question у ts-ctx-go-course (Haiku
-переспрашивает про «Go»), как у tesla в stage17. Отчёты:
-`tools/skill-evals/runs/_preview-charts/stage18-reports/`; три запроса задания —
+переспрашивает про «Go»), как у tesla в stage17. Сравнение:
+`evals/results/stage18-vs-stage17.md`; три запроса задания —
 `evals/v0.2/stage18/` (PDF, ответ в чат, текст агента, оценки, лог вызовов).
 
 ## Вторая страница, когда пользователь просит добавить

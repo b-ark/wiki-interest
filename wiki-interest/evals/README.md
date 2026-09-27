@@ -12,10 +12,10 @@ so the skill package stays small.
 | File | Purpose |
 |---|---|
 | `evals.json` | 15 scenarios: the three requests from the assignment, users writing in Ukrainian, Russian, English and Polish, four multi-turn follow-ups (longer period, main article only, raw numbers, more editions), an ambiguous topic that must produce a question, and a period that starts before the data does. |
-| `report-30.json` | 31 scenarios of the full report, the set every numbered stage run uses: the questions in English, Russian and Ukrainian, topics that need a meaning, editions without an article, requests that name no Wikipedia (the agent must ask), follow-ups and a period before the data. Runs up to stage18 used the first 29. |
+| `report-30.json` | 32 scenarios of the full report, the set every numbered stage run uses: the questions in English, Russian and Ukrainian, topics that need a meaning, editions without an article, requests that name no Wikipedia (the agent must ask), follow-ups and a period before the data. Runs up to stage18 used the first 29. |
 | `oracle/<scenario>.json` | The requests a perfect agent would send for each turn. Used only to check the graders; never copied into the agent's sandbox. |
 | `trigger_evals.json` | 17 short requests, 9 that should activate the skill and 8 near-misses that should not (editing Wikipedia, summarising an article, Google Trends, app analytics). |
-| `results/` | Summaries of real runs: `benchmark.md`/`.json` per compared `SKILL.md` version, and the grader sanity check. Full transcripts stay in the harness's `runs/` directory. |
+| `results/` | Summaries of real runs: `benchmark.md`/`.json` per compared `SKILL.md` version (v0.1), `stage16-vs-stage15.md`, `stage17-vs-stage16.md` and `stage18-vs-stage17.md` (v0.2, the numbers quoted in the root README), and the grader sanity check. Full transcripts stay in the harness's `runs/` directory, which is not published. |
 
 ## How an answer is graded
 

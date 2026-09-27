@@ -41,11 +41,11 @@ user's project, not to the skill directory, which may be read-only):
 | `facts.json` | What the agent reads to write its text. |
 | `method.md` | How every number was computed, with the thresholds in force for this run. |
 | `charts/` | Every chart as SVG and PNG. |
+| `chat_brief.md` | The chat answer, built from the checked text (after `render.py`). |
 
 The two main charts show up to three languages: with more, the recommended one and the two
 with the largest audience. Every language is in the text; charts for more languages are open
 work (see [`references/roadmap.md`](references/roadmap.md)).
-| `chat_brief.md` | The chat answer, built from the checked text (after `render.py`). |
 
 ## Configuration
 

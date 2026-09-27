@@ -5,8 +5,9 @@ decide which topics to develop next and which languages to launch in, using Wiki
 pageview statistics. The agent names the topic, the skill's code finds its article in every
 language Wikipedia asked for, reads the monthly views, decides whether interest is growing,
 stable or declining and how far that can be trusted, recommends where to look next, and
-renders a one-page PDF (a follow-up that adds to it may take a second). The agent writes the explanation in the user's language; the code
-checks every number in it before anything reaches the user.
+renders a one-page PDF (a follow-up that adds the season, topics or Wikipedias may take a
+second page). The agent writes the explanation in the user's language; the code checks
+every number in it before anything reaches the user.
 
 It is built to run well on a fast, cheap model: every decision and every number is made in
 code, so the model only reads observations and writes prose. It is measured on
@@ -118,7 +119,7 @@ Every report states them in one line; the ones that matter most:
 ## Measured on Claude Haiku 4.5
 
 Unit tests check the code; they do not show whether a cheap model, given only this skill,
-answers correctly and honestly. [`wiki-interest/evals/`](wiki-interest/evals/) holds 31
+answers correctly and honestly. [`wiki-interest/evals/`](wiki-interest/evals/) holds 32
 realistic scenarios (the assignment's three requests, questions in English, Russian and
 Ukrainian, ambiguous topics, missing articles, requests that name no Wikipedia, follow-ups, a
 period before the data exists),
@@ -131,9 +132,10 @@ number in the answer must come from the run) and by an LLM judge (Sonnet) on mea
 | stage17 | views chart by calendar year; the recommendation names its reason | 97.6 % | 93.6 % | 10.0 | $0.131 |
 | stage18 | follow-ups compare verdicts; a short list for three languages or more; steps beyond the trend | 96.8 % | 94.8 % | 10.0 | $0.129 |
 
-The runs above used the first 29 scenarios. The noise floor for 29 scenarios × 3 repetitions
-is about ±11 points, so a change is counted
-as an improvement only above it. How the graders themselves were checked, and how to run the
+The runs above used the first 29 scenarios; the summaries behind the numbers are in
+[`wiki-interest/evals/results/`](wiki-interest/evals/results/) (`stage16-vs-stage15.md`,
+`stage17-vs-stage16.md`, `stage18-vs-stage17.md`). The noise floor for 29 scenarios × 3
+repetitions is about ±11 points, so a change is counted as an improvement only above it. How the graders themselves were checked, and how to run the
 evaluation, is in [`wiki-interest/evals/README.md`](wiki-interest/evals/README.md).
 
 ## How to grow it
@@ -151,7 +153,7 @@ long-lived research that reruns itself; and the same evaluation on other agents 
 | Path | What it is |
 |---|---|
 | [`wiki-interest/`](wiki-interest/) | The skill: `SKILL.md`, the `wiki_interest` Python package, scripts, references, evaluation scenarios and tests. Self-contained and installable on its own. |
-| [`tools/skill-evals/`](tools/skill-evals/) | Development-only harness that runs the skill through a real agent (headless Claude Code on Haiku 4.5, or OpenRouter models), grades the outputs and compares `SKILL.md` versions. Not part of the skill. |
+| [`tools/skill-evals/`](tools/skill-evals/) | Development-only harness that runs the skill through a real agent (headless Claude Code on Haiku 4.5; an OpenRouter provider exists but no published run used it), grades the outputs and compares `SKILL.md` versions. Not part of the skill. |
 | [`task.md`](task.md) | The original assignment. |
 
 ## Quick start
